@@ -23,8 +23,9 @@ export default function App(){
     if(!session){setProfile(null);return}
     let alive=true;
     setProfileLoading(true);
-    supabase.from('profiles').select('*').eq('id',session.user.id).maybeSingle()
-      .then(({data,error})=>{
+    void (async()=>{
+      try{
+        const {data,error}=await supabase.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
         if(!alive)return;
         if(error) console.error('profile',error);
         setProfile(data||{
@@ -34,8 +35,10 @@ export default function App(){
           role:'agent',
           is_active:true
         });
-      })
-      .finally(()=>alive&&setProfileLoading(false));
+      }finally{
+        if(alive)setProfileLoading(false);
+      }
+    })();
     return ()=>{alive=false};
   },[session?.user.id]);
 
