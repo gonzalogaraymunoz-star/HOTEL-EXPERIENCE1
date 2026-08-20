@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {
   CalendarDays,ChevronLeft,ChevronRight,Clock3,Filter,GripVertical,
-  List,Rows3,Square,Today,Users,MapPin
+  List,Rows3,Square,Users,MapPin
 } from 'lucide-react';
 import type {Lead,LeadService} from '../types';
 import {updateService} from '../lib/api';
