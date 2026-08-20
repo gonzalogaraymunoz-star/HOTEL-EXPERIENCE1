@@ -1,0 +1,1435 @@
+[
+  {
+    "name": "TRF hito cajon",
+    "category": "Transporte",
+    "origin": "transporte",
+    "duration_hours": 4.0,
+    "schedule": "libre",
+    "stops": "Directo",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Traslado seguro y coordinado desde o hacia Hito Cajón, conectando tu ingreso o salida desde Bolivia con San Pedro de Atacama de manera cómoda y eficiente.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 191000,
+      "2": 78975,
+      "3": 52650,
+      "4": 39488,
+      "5": 31590,
+      "6": 26325
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "trf_hito_cajon_private_per_pax"
+  },
+  {
+    "name": "TRFaeropuerto",
+    "category": "Transporte",
+    "origin": "transporte",
+    "duration_hours": 3.0,
+    "schedule": "libre",
+    "stops": "Directo",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Servicio de traslado desde o hacia el aeropuerto, diseñado para comenzar o finalizar tu viaje con puntualidad, comodidad y tranquilidad.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 181818,
+      "2": 90909,
+      "3": 60606,
+      "4": 45454,
+      "5": 36364,
+      "6": 30303
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "trfaeropuerto_private_per_pax"
+  },
+  {
+    "name": "TRF dentro pueblo",
+    "category": "Transporte",
+    "origin": "transporte",
+    "duration_hours": 1.0,
+    "schedule": "libre",
+    "stops": "Directo",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Movilización interna dentro de San Pedro de Atacama, ideal para traslados cortos de forma rápida, segura y sin complicaciones.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 116012,
+      "2": 58006,
+      "3": 38671,
+      "4": 29003,
+      "5": 23202,
+      "6": 19335
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "trf_dentro_pueblo_private_per_pax"
+  },
+  {
+    "name": "Valle de la luna",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Duna mayor + Minas de sal + Anfiteatro + mirador",
+    "entrance_fee": 10800,
+    "snack": "aperitivo o desayuno",
+    "description": "Un paisaje esculpido por el tiempo que sorprende con sus formas y texturas únicas. Ideal para recorrer y contemplar la inmensidad del desierto en uno de sus escenarios más icónicos",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 277881,
+      "2": 152610,
+      "3": 110854,
+      "4": 89975,
+      "5": 77448,
+      "6": 69097
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valle_de_la_luna_private_per_pax"
+  },
+  {
+    "name": "Vallecito",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 4.0,
+    "schedule": "pm",
+    "stops": "Coordillera de la sal + cornizas / pliegues + minibus magico / domos salinos",
+    "entrance_fee": null,
+    "snack": "aperitivo",
+    "description": "Un rincón menos explorado del desierto que cautiva por su tranquilidad y paisajes abiertos. Perfecto para desconectar y vivir una experiencia más íntima con la naturaleza",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 270865,
+      "2": 142027,
+      "3": 99081,
+      "4": 77608,
+      "5": 64724,
+      "6": 56135
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "vallecito_private_per_pax"
+  },
+  {
+    "name": "Valle de marte",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Mirador y Duna",
+    "entrance_fee": 6000,
+    "snack": "aperitivo",
+    "description": "Un entorno salvaje y silencioso, con formaciones rojizas que evocan paisajes de otro planeta. Ideal para quienes buscan aventura y conexión con lo esencial.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 260914,
+      "2": 140981,
+      "3": 101003,
+      "4": 81015,
+      "5": 69022,
+      "6": 61026
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valle_de_marte_private_per_pax"
+  },
+  {
+    "name": "Laguna Cejar",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 4.0,
+    "schedule": "pm",
+    "stops": "Laguna cejar y piedra + ojos del salar + laguna tebinquinche",
+    "entrance_fee": 21000,
+    "snack": "aperitivo",
+    "description": "Un oasis en medio del salar donde la alta salinidad permite flotar sin esfuerzo. Una experiencia distinta y refrescante en pleno desierto.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 289450,
+      "2": 165074,
+      "3": 123615,
+      "4": 102886,
+      "5": 90448,
+      "6": 82157
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "laguna_cejar_private_per_pax"
+  },
+  {
+    "name": "Baltinache",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Lagunas escondidas de Baltinache y mirador lickanantay",
+    "entrance_fee": 12000,
+    "snack": "aperitivo",
+    "description": "Siete lagunas de aguas turquesa escondidas en el salar, rodeadas de un paisaje blanco y mineral. Un lugar sorprendente por su contraste y pureza",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 293689,
+      "2": 161299,
+      "3": 117169,
+      "4": 95105,
+      "5": 81866,
+      "6": 73040
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "baltinache_private_per_pax"
+  },
+  {
+    "name": "Salar de atacama",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 5.0,
+    "schedule": "am y pm",
+    "stops": "Tambillo + Toconao + Laguna Chaxa",
+    "entrance_fee": 13714,
+    "snack": "aperitivo",
+    "description": "tenso de Chile, hogar de paisajes únicos, fauna andina y cielos infinitos. Un lugar donde la naturaleza se expresa en su máxima amplitud.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 342193,
+      "2": 186691,
+      "3": 134857,
+      "4": 108940,
+      "5": 93390,
+      "6": 83023
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "salar_de_atacama_private_per_pax"
+  },
+  {
+    "name": "Valle arcoiris",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 5.0,
+    "schedule": "am y pm",
+    "stops": "Valle de arcoiris+yerbas buenas",
+    "entrance_fee": 10000,
+    "snack": "aperitivo",
+    "description": "Montañas de múltiples colores formadas por minerales que crean un paisaje único y vibrante en medio del desierto.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 294629,
+      "2": 160463,
+      "3": 115741,
+      "4": 93380,
+      "5": 79963,
+      "6": 71019
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valle_arcoiris_private_per_pax"
+  },
+  {
+    "name": "Termas de Puritama",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Termas de puritama",
+    "entrance_fee": 36000,
+    "snack": "aperitivo",
+    "description": "Un viaje en medio de una quebrada e n las aguas calientes y naturaleza",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 300514,
+      "2": 180490,
+      "3": 140482,
+      "4": 120478,
+      "5": 108475,
+      "6": 100474
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "termas_de_puritama_private_per_pax"
+  },
+  {
+    "name": "Valle de los cactus",
+    "category": "Tour medio día",
+    "origin": "Clasico",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Guatin + quebrada",
+    "entrance_fee": 2500,
+    "snack": "aperitivo",
+    "description": "Un paisaje dominado por imponentes cactus milenarios que acompañan el recorrido entre formaciones rocosas y vistas abiertas del desierto.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 255340,
+      "2": 135910,
+      "3": 96100,
+      "4": 76195,
+      "5": 64252,
+      "6": 56289
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valle_de_los_cactus_private_per_pax"
+  },
+  {
+    "name": "Geiser del tatio",
+    "category": "Tour día completo",
+    "origin": "Clasico",
+    "duration_hours": 7.0,
+    "schedule": "full desde am",
+    "stops": "Geiser del tatio + machuca + putana",
+    "entrance_fee": 15000,
+    "snack": "desayuno",
+    "description": "Uno de los campos geotérmicos más altos del mundo, donde al amanecer el vapor crea un espectáculo natural único en el altiplano.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 543645,
+      "2": 291503,
+      "3": 207455,
+      "4": 165431,
+      "5": 140217,
+      "6": 123407
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "geiser_del_tatio_private_per_pax"
+  },
+  {
+    "name": "Ruta los salares",
+    "category": "Tour día completo",
+    "origin": "Clasico",
+    "duration_hours": 7.0,
+    "schedule": "full desde am",
+    "stops": "Quepiaco + Monjes de la Pacana+Laguna Negra + Salar de Quisquiro",
+    "entrance_fee": null,
+    "snack": "almuerzo",
+    "description": "Un recorrido por diversos salares y lagunas altiplánicas, donde el contraste de colores, fauna y paisajes crea una experiencia completa del altiplano",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 548243,
+      "2": 287419,
+      "3": 200477,
+      "4": 157007,
+      "5": 130924,
+      "6": 113536
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "ruta_los_salares_private_per_pax"
+  },
+  {
+    "name": "Lagunas Altiplanicas",
+    "category": "Tour día completo",
+    "origin": "Clasico",
+    "duration_hours": 8.0,
+    "schedule": "full desde am",
+    "stops": "Pueblo Toconao + Pueblo de Socaire + Laguna y volcan Miscanti+ laguna y volcan Miñiques + Laguna Chaxa (salar de atacama)",
+    "entrance_fee": 10000,
+    "snack": "almuerzo",
+    "description": "Lagunas de intenso color azul rodeadas de volcanes y montañas, ubicadas a gran altitud en un entorno de belleza imponente.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 583528,
+      "2": 308825,
+      "3": 217257,
+      "4": 171474,
+      "5": 144004,
+      "6": 125690
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "lagunas_altiplanicas_private_per_pax"
+  },
+  {
+    "name": "Piedras rojas",
+    "category": "Tour día completo",
+    "origin": "Clasico",
+    "duration_hours": 9.0,
+    "schedule": "full desde am",
+    "stops": "Pueblo Toconao + Pueblo de Socaire + Salar de aguas calientes III + Laguna y volcan Miscanti+ laguna y volcan Miñiques",
+    "entrance_fee": 15000,
+    "snack": "almuerzo",
+    "description": "Lagunas de intenso color azul rodeadas de volcanes y montañas, ubicadas a gran altitud en un entorno de belleza imponente.",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 613250,
+      "2": 329414,
+      "3": 234802,
+      "4": 187496,
+      "5": 159112,
+      "6": 140190
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "piedras_rojas_private_per_pax"
+  },
+  {
+    "name": "Historia licanantay",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 6000,
+    "snack": "almuerzo",
+    "description": "Visita una antigua casa local y experiencia su alrededor y sus alimentos / Tulor o catarpe",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 388594,
+      "2": 218121,
+      "3": 161297,
+      "4": 132885,
+      "5": 115837,
+      "6": 104472
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "historia_licanantay_private_per_pax"
+  },
+  {
+    "name": "Caminata de poder",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 6000,
+    "snack": "aperitivo",
+    "description": "Camina por cordillera de la sal + snack",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 370268,
+      "2": 199796,
+      "3": 142971,
+      "4": 114559,
+      "5": 97512,
+      "6": 86147
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "caminata_de_poder_private_per_pax"
+  },
+  {
+    "name": "Caminata de Llamas",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 20000,
+    "snack": "aperitivo",
+    "description": "Caminata con llamas, finaliza con aperitivo",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 395924,
+      "2": 225452,
+      "3": 168627,
+      "4": 140215,
+      "5": 123168,
+      "6": 111803
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "caminata_de_llamas_private_per_pax"
+  },
+  {
+    "name": "Sunset cocteil",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "aperitivo",
+    "description": "Vista de atardecer en mirador con aperitivo",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 359273,
+      "2": 188800,
+      "3": 131976,
+      "4": 103563,
+      "5": 86516,
+      "6": 75151
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "sunset_cocteil_private_per_pax"
+  },
+  {
+    "name": "Valle luna y Ayllu",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 10800,
+    "snack": "aperitivo",
+    "description": "Clasico tour valle la luna, pero con final en un restaurant local en un oasis",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 393993,
+      "2": 216059,
+      "3": 156748,
+      "4": 127092,
+      "5": 109299,
+      "6": 97436
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valle_luna_y_ayllu_private_per_pax"
+  },
+  {
+    "name": "Entre lagunas e historia",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 21000,
+    "snack": "aperitivo",
+    "description": "clasico tour laguna cejar con una pasada a los primeros asentamientos Lickanantay",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 633743,
+      "2": 345244,
+      "3": 249078,
+      "4": 200995,
+      "5": 172145,
+      "6": 152912
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "entre_lagunas_e_historia_private_per_pax"
+  },
+  {
+    "name": "Puritama relax",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 55000,
+    "snack": "aperitivo",
+    "description": "Clasico tour a las termas con un detalle principal, un teraputa paa relaizar un espcial masaje dentro del agua",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 460043,
+      "2": 289570,
+      "3": 232746,
+      "4": 204334,
+      "5": 187286,
+      "6": 175921
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "puritama_relax_private_per_pax"
+  },
+  {
+    "name": "Valle muerte",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 41000,
+    "snack": "aperitivo",
+    "description": "Clasico tour a valle de la mierte con la ocpion de llegar haciendo sendeirmso, sandboard o incluso montando a caballo",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 429351,
+      "2": 261328,
+      "3": 205321,
+      "4": 177317,
+      "5": 160515,
+      "6": 149313
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valle_muerte_private_per_pax"
+  },
+  {
+    "name": "Catarpe y cuchabrache",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 41000,
+    "snack": "aperitivo",
+    "description": "Adentrate al valle de catarpe y recorre la quedabra caminando o en bicibleta",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 434333,
+      "2": 263861,
+      "3": 207037,
+      "4": 178625,
+      "5": 161577,
+      "6": 150212
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "catarpe_y_cuchabrache_private_per_pax"
+  },
+  {
+    "name": "Valle los cactus",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 2000,
+    "snack": "aperitivo",
+    "description": "Adentrate en el valle de los cactus, soprendete por el rio vilama",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 357854,
+      "2": 189831,
+      "3": 133824,
+      "4": 105820,
+      "5": 89017,
+      "6": 77816
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valle_los_cactus_private_per_pax"
+  },
+  {
+    "name": "Saludo al licancabur",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "almuerzo",
+    "description": "Detallada comida mirando el volcan licancabut, es posible agregar un show musical o sound healing",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 489043,
+      "2": 262846,
+      "3": 187447,
+      "4": 149747,
+      "5": 127127,
+      "6": 112048
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "saludo_al_licancabur_private_per_pax"
+  },
+  {
+    "name": "Valles de otro planeta",
+    "category": "Tour medio día",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "",
+    "entrance_fee": 16800,
+    "snack": "aperitivo",
+    "description": "Visita valle de la luna y de marte",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 404988,
+      "2": 227054,
+      "3": 167743,
+      "4": 138087,
+      "5": 120294,
+      "6": 108432
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "valles_de_otro_planeta_private_per_pax"
+  },
+  {
+    "name": "Vados Andinos",
+    "category": "Tour día completo",
+    "origin": "Tour Lama",
+    "duration_hours": 7.0,
+    "schedule": "full flexible",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "almuerzo",
+    "description": "Visita machuca y putana en busqueda de flora y fauna local",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 392544,
+      "2": 214611,
+      "3": 155299,
+      "4": 125644,
+      "5": 107850,
+      "6": 95988
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "vados_andinos_private_per_pax"
+  },
+  {
+    "name": "Cerro Toco",
+    "category": "Tour día completo",
+    "origin": "Tour Lama",
+    "duration_hours": 7.0,
+    "schedule": "full am",
+    "stops": "",
+    "entrance_fee": 75000,
+    "snack": "Snack",
+    "description": "Llega a la cumbre de una estrato volcanico con msa de 5600 MSNM",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 124950,
+      "2": 124950,
+      "3": 124950,
+      "4": 124950,
+      "5": 124950,
+      "6": 124950
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "cerro_toco_private_per_pax"
+  },
+  {
+    "name": "Astronomico",
+    "category": "Nocturno",
+    "origin": "Regular",
+    "duration_hours": 3.0,
+    "schedule": "nocturno",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "aperitivo por operador",
+    "description": "vive la noche estrellada de tacama en grupo",
+    "price_mode": "regular_per_pax",
+    "prices": {
+      "1": 49980,
+      "2": 49980,
+      "3": 49980,
+      "4": 49980,
+      "5": 49980,
+      "6": 49980
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "astronomico_regular_per_pax"
+  },
+  {
+    "name": "Astronomico en hotel",
+    "category": "Nocturno",
+    "origin": "Tour Lama",
+    "duration_hours": 3.0,
+    "schedule": "nocturno",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "aperitivo por hotel",
+    "description": "vive la noche estrellada de atacama en la comodidad de tu hotel",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 641410,
+      "2": 320705,
+      "3": 213803,
+      "4": 160352,
+      "5": 128282,
+      "6": 106902
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "astronomico_en_hotel_private_per_pax"
+  },
+  {
+    "name": "Astronomico privado",
+    "category": "Nocturno",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "nocturno",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "aperitivo",
+    "description": "vive la noche estrellada de atacama en un lugar alejado del centro, disfruta el silencio",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 521787,
+      "2": 271889,
+      "3": 188590,
+      "4": 146940,
+      "5": 121950,
+      "6": 105291
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "astronomico_privado_private_per_pax"
+  },
+  {
+    "name": "Astronomico a desierto abierto",
+    "category": "Nocturno",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "nocturno",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "aperitivo",
+    "description": "vive la noche estrellada de atacama en la naturaleza",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 536448,
+      "2": 286550,
+      "3": 203251,
+      "4": 161601,
+      "5": 136611,
+      "6": 119951
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "astronomico_a_desierto_abierto_private_per_pax"
+  },
+  {
+    "name": "NocTurAndina",
+    "category": "Nocturno",
+    "origin": "Tour Lama",
+    "duration_hours": null,
+    "schedule": "nocturno",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "cena",
+    "description": "Vive la noche estrellada de atacama, una cena especial o caminta y la inmortalizacion del proceso",
+    "price_mode": "private_per_pax",
+    "prices": {
+      "1": 540113,
+      "2": 290215,
+      "3": 206916,
+      "4": 165266,
+      "5": 140276,
+      "6": 123617
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour privado",
+    "code": "nocturandina_private_per_pax"
+  },
+  {
+    "name": "Valle de la luna",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Duna mayor + Minas de sal + Anfiteatro + mirador",
+    "entrance_fee": 10800,
+    "snack": "aperitivo o desayuno",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 57400,
+      "sale": 71750,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "valle_de_la_luna_regular_commission"
+  },
+  {
+    "name": "Vallecito",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": 4.0,
+    "schedule": "pm",
+    "stops": "Coordillera de la sal + cornizas / pliegues + minibus magico / domos salinos",
+    "entrance_fee": null,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 42000,
+      "sale": 52500,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "vallecito_regular_commission"
+  },
+  {
+    "name": "Valle de marte",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Mirador y Duna",
+    "entrance_fee": 6000,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 0,
+      "sale": 0,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "valle_de_marte_regular_commission"
+  },
+  {
+    "name": "Laguna Cejar",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": 4.0,
+    "schedule": "pm",
+    "stops": "Laguna cejar y piedra + ojos del salar + laguna tebinquinche",
+    "entrance_fee": 21000,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 71400,
+      "sale": 89250,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "laguna_cejar_regular_commission"
+  },
+  {
+    "name": "Baltinache",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Lagunas escondidas de Baltinache y mirador lickanantay",
+    "entrance_fee": 12000,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 65800,
+      "sale": 82250,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "baltinache_regular_commission"
+  },
+  {
+    "name": "Salar de atacama",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "Tambillo + Toconao + Laguna Chaxa",
+    "entrance_fee": 13714,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 0,
+      "sale": 0,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "salar_de_atacama_regular_commission"
+  },
+  {
+    "name": "Valle arcoiris",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": null,
+    "schedule": "am y pm",
+    "stops": "Valle de arcoiris+yerbas buenas",
+    "entrance_fee": 10000,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 42000,
+      "sale": 52500,
+      "entrance_included": false
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "valle_arcoiris_regular_commission"
+  },
+  {
+    "name": "Termas de Puritama",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Termas de puritama",
+    "entrance_fee": 38000,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 84000,
+      "sale": 105000,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "termas_de_puritama_regular_commission"
+  },
+  {
+    "name": "Valle de los cactus",
+    "category": "Tour medio día",
+    "origin": "Low cost / regular",
+    "duration_hours": 4.0,
+    "schedule": "am y pm",
+    "stops": "Guatin + quebrada",
+    "entrance_fee": 2000,
+    "snack": "aperitivo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 42000,
+      "sale": 52500,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "valle_de_los_cactus_regular_commission"
+  },
+  {
+    "name": "Astronomico",
+    "category": "Nocturno",
+    "origin": "Low cost / regular",
+    "duration_hours": 3.0,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": 0,
+    "snack": "",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 49980,
+      "sale": 62475,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "astronomico_regular_commission"
+  },
+  {
+    "name": "Geiser del tatio",
+    "category": "Tour día completo",
+    "origin": "Low cost / regular",
+    "duration_hours": 7.0,
+    "schedule": "full desde am",
+    "stops": "Geiser del tatio + machuca + putana",
+    "entrance_fee": 15000,
+    "snack": "desayuno",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 70000,
+      "sale": 87500,
+      "entrance_included": false
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "geiser_del_tatio_regular_commission"
+  },
+  {
+    "name": "Ruta los salares",
+    "category": "Tour día completo",
+    "origin": "Low cost / regular",
+    "duration_hours": 7.0,
+    "schedule": "full desde am",
+    "stops": "Quepiaco + Monjes de la Pacana+Laguna Negra + Salar de Quisquiro",
+    "entrance_fee": null,
+    "snack": "almuerzo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 63000,
+      "sale": 78750,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "ruta_los_salares_regular_commission"
+  },
+  {
+    "name": "Lagunas Altiplanicas",
+    "category": "Tour día completo",
+    "origin": "Low cost / regular",
+    "duration_hours": 8.0,
+    "schedule": "",
+    "stops": "Pueblo Toconao + Pueblo de Socaire + Laguna y volcan Miscanti+ laguna y volcan Miñiques + Laguna Chaxa (salar de atacama)",
+    "entrance_fee": 10000,
+    "snack": "almuerzo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 0,
+      "sale": 0,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "lagunas_altiplanicas_regular_commission"
+  },
+  {
+    "name": "Piedras rojas",
+    "category": "Tour día completo",
+    "origin": "Low cost / regular",
+    "duration_hours": 9.0,
+    "schedule": "",
+    "stops": "Pueblo Toconao + Pueblo de Socaire + Salar de aguas calientes III",
+    "entrance_fee": 10000,
+    "snack": "almuerzo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 0,
+      "sale": 0,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "piedras_rojas_regular_commission"
+  },
+  {
+    "name": "Piedras rojasb+ altiplanicas + chaxa",
+    "category": "Tour día completo",
+    "origin": "Low cost / regular",
+    "duration_hours": 9.0,
+    "schedule": "full desde am",
+    "stops": "Pueblo Toconao + Pueblo de Socaire + Salar de aguas calientes III + Laguna y volcan Miscanti+ laguna y volcan Miñiques + piedras rojas",
+    "entrance_fee": 15000,
+    "snack": "almuerzo",
+    "description": "",
+    "price_mode": "regular_commission",
+    "prices": {
+      "base": 110180,
+      "sale": 137725,
+      "entrance_included": true
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores tour lowcost",
+    "code": "piedras_rojasb_altiplanicas_chaxa_regular_commission"
+  },
+  {
+    "name": "TRFaeropuerto ida o vuelta",
+    "category": "Transporte",
+    "origin": "Low cost / transporte",
+    "duration_hours": 3.0,
+    "schedule": "segun disposicion",
+    "stops": "Directo",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "",
+    "price_mode": "lowcost_transport",
+    "prices": {
+      "base": 20000,
+      "hotel_sale": 280000
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores transporte",
+    "code": "trfaeropuerto_ida_o_vuelta_lowcost_transport"
+  },
+  {
+    "name": "TRFaeropuerto ida y vuelta",
+    "category": "Transporte",
+    "origin": "Low cost / transporte",
+    "duration_hours": 3.0,
+    "schedule": "segun disposicion",
+    "stops": "Directo",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "",
+    "price_mode": "lowcost_transport",
+    "prices": {
+      "base": 35000,
+      "hotel_sale": 49990
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores transporte",
+    "code": "trfaeropuerto_ida_y_vuelta_lowcost_transport"
+  },
+  {
+    "name": "TRF dentro pueblo corto",
+    "category": "Transporte",
+    "origin": "Low cost / transporte",
+    "duration_hours": 1.0,
+    "schedule": "segun disposicion",
+    "stops": "Directo",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "",
+    "price_mode": "lowcost_transport",
+    "prices": {
+      "base": 6600,
+      "hotel_sale": 9240
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores transporte",
+    "code": "trf_dentro_pueblo_corto_lowcost_transport"
+  },
+  {
+    "name": "TRF dentro pueblo largo ida y vuelta",
+    "category": "Transporte",
+    "origin": "Low cost / transporte",
+    "duration_hours": 1.0,
+    "schedule": "segun disposicion",
+    "stops": "Directo",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "",
+    "price_mode": "lowcost_transport",
+    "prices": {
+      "base": 25000,
+      "hotel_sale": 35000
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores transporte",
+    "code": "trf_dentro_pueblo_largo_ida_y_vuelta_lowcost_transport"
+  },
+  {
+    "name": "TENS",
+    "category": "Salud",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "presencial",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 53978
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "tens_hotel_fixed"
+  },
+  {
+    "name": "Enfermera",
+    "category": "Salud",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "online y presencial",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 82967
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "enfermera_hotel_fixed"
+  },
+  {
+    "name": "Psicologo",
+    "category": "Salud",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "online",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 64974
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "psicologo_hotel_fixed"
+  },
+  {
+    "name": "Kinesiologo",
+    "category": "Salud",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "presencial",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 82967
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "kinesiologo_hotel_fixed"
+  },
+  {
+    "name": "Matrona",
+    "category": "Salud",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "online y presencial",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 82967
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "matrona_hotel_fixed"
+  },
+  {
+    "name": "Medico",
+    "category": "Salud",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "online",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 74637
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "medico_hotel_fixed"
+  },
+  {
+    "name": "Educacion",
+    "category": "Procedimientos",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "por profesional salud",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 82967
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "educacion_hotel_fixed"
+  },
+  {
+    "name": "Control signos vitales",
+    "category": "Procedimientos",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "por TENS",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 53978
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "control_signos_vitales_hotel_fixed"
+  },
+  {
+    "name": "Inyeccion IM",
+    "category": "Procedimientos",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "por TENS supervisada",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 53978
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "inyeccion_im_hotel_fixed"
+  },
+  {
+    "name": "Adm. parenteral",
+    "category": "Procedimientos",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "por Enfermera",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 82967
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "adm_parenteral_hotel_fixed"
+  },
+  {
+    "name": "Toma de examenes",
+    "category": "Procedimientos",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "por TENS",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 53978
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "toma_de_examenes_hotel_fixed"
+  },
+  {
+    "name": "Curaciones",
+    "category": "Procedimientos",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "por enfermera",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 82967
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "curaciones_hotel_fixed"
+  },
+  {
+    "name": "Masoterapia",
+    "category": "SPA / Terapias",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Masajes de todo tipo, relajantes y  descontracturantes",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 83300
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "masoterapia_hotel_fixed"
+  },
+  {
+    "name": "Masoterapia",
+    "category": "SPA / Terapias",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Masajes profundos y especifico, reflexologia , masaje thailandes, entre otros",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 99960
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "masoterapia_hotel_fixed_2"
+  },
+  {
+    "name": "Acumpuntura",
+    "category": "SPA / Terapias",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Desde la antigua medicina china a tu habitacion u hotel",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 99960
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "acumpuntura_hotel_fixed"
+  },
+  {
+    "name": "Flores de bach",
+    "category": "SPA / Terapias",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Terapia floral con diagnostico por especialista del area",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 49980
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "flores_de_bach_hotel_fixed"
+  },
+  {
+    "name": "Piedras Calientes",
+    "category": "SPA / Terapias",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Relajate con el calor de las ancestrales piedras",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 99960
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "piedras_calientes_hotel_fixed"
+  },
+  {
+    "name": "Terapia de contraste",
+    "category": "SPA / Terapias",
+    "origin": "Bienestar",
+    "duration_hours": null,
+    "schedule": "",
+    "stops": "",
+    "entrance_fee": null,
+    "snack": "",
+    "description": "Siente el cambio de temperatura rapidamente y mejora tu cuerpo",
+    "price_mode": "hotel_fixed",
+    "prices": {
+      "hotel_sale": 83300
+    },
+    "source": "Tv1. LamaLink - Fauna 2026.xlsx / Valores Bienestar",
+    "code": "terapia_de_contraste_hotel_fixed"
+  }
+]
