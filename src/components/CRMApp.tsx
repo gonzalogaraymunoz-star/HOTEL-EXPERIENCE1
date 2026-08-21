@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {
   LayoutDashboard,Users,KanbanSquare,CalendarDays,ListChecks,WalletCards,BarChart3,BedDouble,
   Search,RefreshCw,ChevronRight,Plus,UsersRound,LogOut,Sparkles,PackageSearch,Handshake,Truck,
-  UserRoundCog,CarFront,Box,AlertCircle,Star,Target
+  UserRoundCog,CarFront,Box,AlertCircle,Star,Target,FolderOpen
 } from 'lucide-react';
 import type {Lead,LeadService,CRMTask,CRMActivity} from '../types';
 import {loadCRMData,updateLead,updateService} from '../lib/api';
@@ -23,9 +23,10 @@ import FinancialWorkspace from './FinancialWorkspace';
 import DailyCommandCenter from './DailyCommandCenter';
 import ReviewWorkspace from './ReviewWorkspace';
 import SalesFocusOverview from './SalesFocusOverview';
+import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
 import {assertSupabase} from '../lib/supabase';
 
-type View='dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'review'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'ai'|'team';
+type View='dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'review'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'records'|'ai'|'team';
 
 export default function CRMApp({profile}:{profile:any}){
   const [view,setView]=useState<View>('dashboard');
@@ -102,6 +103,7 @@ export default function CRMApp({profile}:{profile:any}){
         <div className="nav-section-label">POSTVENTA</div>
         <Nav icon={<Star/>} label="Review" active={view==='review'} onClick={()=>setView('review')} badge={reviewCount}/>
         <div className="nav-section-label">OPERACIÓN</div>
+        <Nav icon={<FolderOpen/>} label="Fichas" active={view==='records'} onClick={()=>setView('records')}/>
         <Nav icon={<Truck/>} label="Operaciones" active={view==='operations'} onClick={()=>setView('operations')}/>
         <Nav icon={<Handshake/>} label="Proveedores" active={view==='suppliers'} onClick={()=>setView('suppliers')}/>
         <Nav icon={<UserRoundCog/>} label="Prestadores" active={view==='service_people'} onClick={()=>setView('service_people')}/>
@@ -139,6 +141,7 @@ export default function CRMApp({profile}:{profile:any}){
         {view==='service_people'&&<OperationsHub role={profile?.role||'agent'} initialTab="people"/>}
         {view==='vehicles'&&<OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/>}
         {view==='resources'&&<OperationsHub role={profile?.role||'agent'} initialTab="resources"/>}
+        {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'}/>}
         {view==='operations'&&<OperationsControl leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService}/>}
         {['suppliers','service_people','vehicles','resources'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>}
         {view==='ai'&&<AiAssistant leads={leads} role={profile?.role||'agent'} onChanged={refresh}/>}
@@ -210,7 +213,7 @@ function ReservationsView({leads,services,onLead,onOperation,refresh}:any){
 
 function Nav({icon,label,active,onClick,badge}:{icon:React.ReactNode;label:string;active:boolean;onClick:()=>void;badge?:number}){return <button className={active?'nav-item active':'nav-item'} onClick={onClick}><span>{icon}</span><b>{label}</b>{badge!==undefined&&<small>{badge}</small>}</button>}
 function SectionHead({title,subtitle}:{title:string;subtitle:string}){return <div className="section-head-crm"><div><h2>{title}</h2><p>{subtitle}</p></div></div>}
-const titles:any={dashboard:'Inicio',leads:'Clientes',pipeline:'Pipeline comercial',reservations:'Reservas',calendar:'Calendario operacional',tasks:'Tareas y seguimiento',payments:'Pagos',reports:'Reportes',products:'Productos y valores',review:'Review',suppliers:'Proveedores',service_people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',operations:'Control de operación',ai:'Asistente comercial',team:'Equipo'};
+const titles:any={dashboard:'Inicio',leads:'Clientes',pipeline:'Pipeline comercial',reservations:'Reservas',calendar:'Calendario operacional',tasks:'Tareas y seguimiento',payments:'Pagos',reports:'Reportes',products:'Productos y valores',review:'Review',suppliers:'Proveedores',service_people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',operations:'Control de operación',records:'Fichas operacionales',ai:'Asistente comercial',team:'Equipo'};
 const money=(n:any)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0));
 const dateFmt=(d:any)=>d?new Date(String(d)+'T12:00:00').toLocaleDateString('es-CL'):'Sin fecha';
 const cap=(s:string)=>String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1);
