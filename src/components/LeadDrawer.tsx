@@ -4,6 +4,7 @@ import { X, CalendarDays, Mail, Phone, Hotel, Plus, CheckCircle2, Clock3, Trash2
 import type { Lead, LeadService, CRMTask, CRMActivity } from '../types';
 import ReservationOperations from './ReservationOperations';
 import ServiceOperationModal from './ServiceOperationModal';
+import OperationalDocuments from './OperationalDocuments';
 import { availableModalities, familyById, modalityLabel, pricingFamilies, resolveFamilyPrice, type TourModality } from '../lib/tvPricing';
 import { createActivity, createTask, updateLead, updateService, deleteLead, assignLead, loadTeamDirectory, createLeadService, loadOperationsData, loadOperationsDirectory } from '../lib/api';
 
@@ -169,6 +170,10 @@ export default function LeadDrawer({
 
         <section className="drawer-section">
           <ReservationOperations lead={lead} services={leadServices} userRole={userRole} onChanged={changed}/>
+        </section>
+
+        <section className="drawer-section">
+          <OperationalDocuments lead={lead} services={leadServices}/>
         </section>
 
         <section className="drawer-section">
