@@ -1,0 +1,50 @@
+HOTEL EXPERIENCE — PATCH v6.6
+ABONOS Y PAGOS REALES
+
+Antes de construirlo se revisó HOTEL-EXPERIENCE1/main.
+La v6.5 está integrada y Vercel está READY.
+
+SUPABASE
+La tabla payment_movements YA FUE CREADA en el Supabase real.
+No ejecutes SQL manualmente.
+
+SUBIR A GITHUB
+
+1) src/components/
+- FinancialWorkspace.tsx   REEMPLAZAR
+
+2) supabase/migrations/
+- 20260820_payment_movements_v66.sql   NUEVO
+  Solo deja la migración documentada en GitHub.
+
+COMMIT SUGERIDO
+feat: add partial payments and payment movements
+
+QUÉ AGREGA
+- Abonos reales de clientes.
+- Pagos reales a proveedores.
+- Fecha del movimiento.
+- Medio: Transferencia, Pix, Efectivo, Tarjeta, Wise u Otro.
+- Referencia/comprobante.
+- Notas.
+- Editar movimiento.
+- Eliminar movimiento (admin/manager).
+- Saldo real del cliente.
+- Saldo real del proveedor.
+- Estado cliente automático:
+  Pendiente / Parcial / Pagado.
+- Estado proveedor automático:
+  Pendiente / Programado / Pagado.
+- Compatibilidad con datos históricos ya marcados Pagado.
+- Alerta para estados Parcial antiguos que no tienen monto registrado.
+
+NO TOCA
+- CRMApp.tsx
+- calculadora
+- catálogo
+- operación derivada/directa
+- pasajeros
+- email
+- IA
+
+Después de subir los dos archivos, Vercel despliega automáticamente.
