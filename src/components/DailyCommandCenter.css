@@ -1,96 +1,391 @@
-.daily-command-center{display:grid;gap:12px;margin-bottom:4px}
-.dcc-head{border:1px solid #d8d1c7;border-radius:22px;padding:20px 22px;background:linear-gradient(135deg,#fff 0%,#faf7f1 100%);display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
-.dcc-head h2{font-size:30px;margin:5px 0 4px;letter-spacing:-.035em}
-.dcc-head p{margin:0;color:#6e685f;font-size:11px;max-width:720px;line-height:1.5}
-.dcc-head-actions{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+/* HOTEL EXPERIENCE — Inicio ejecutivo simplificado
+   La lógica y los datos siguen intactos. Solo reducimos la densidad visual
+   para que Inicio responda: negocio, prioridad y siguientes pasos. */
+
+.daily-command-center{
+  display:grid;
+  gap:12px;
+  margin-bottom:4px;
+}
+
+/* 1. Cabecera ejecutiva */
+.dcc-head{
+  border:1px solid #d8d1c7;
+  border-radius:22px;
+  padding:20px 22px;
+  background:linear-gradient(135deg,#fff 0%,#faf7f1 100%);
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+}
+.dcc-head h2{
+  font-size:30px;
+  margin:5px 0 4px;
+  letter-spacing:-.035em;
+}
+.dcc-head p{
+  margin:0;
+  color:#6e685f;
+  font-size:11px;
+  max-width:720px;
+  line-height:1.5;
+}
+.dcc-head-actions{
+  display:flex;
+  align-items:flex-end;
+  gap:9px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
 .dcc-period{display:grid;gap:4px}
-.dcc-period span{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#756e65}
+.dcc-period span{
+  font-size:8px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+  color:#756e65;
+}
 .dcc-period select{min-width:190px}
-.dcc-ai{border:1px solid #151515;background:#151515;color:#fff;border-radius:999px;padding:11px 15px;display:flex;align-items:center;gap:7px;font-weight:800;cursor:pointer;white-space:nowrap}
+.dcc-ai{
+  border:1px solid #151515;
+  background:#151515;
+  color:#fff;
+  border-radius:999px;
+  padding:11px 15px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
 
-.dcc-exec-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.dcc-exec-metric{border:1px solid #d8d1c7;border-radius:18px;background:#fff;padding:14px;display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:center;text-align:left;cursor:pointer;min-height:82px}
-.dcc-exec-metric:hover{background:#fbf9f5}
-.dcc-exec-icon{width:34px;height:34px;border:1px solid #d8d1c7;border-radius:50%;display:grid;place-items:center}
-.dcc-exec-metric small{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#756e65}
-.dcc-exec-metric strong{display:block;font-size:19px;margin-top:2px;line-height:1.15}
-.dcc-exec-metric em{display:block;font-size:8px;font-style:normal;color:#756e65;margin-top:4px;line-height:1.3}
-.dcc-exec-metric.good strong{color:#247244}
-.dcc-exec-metric.warn strong{color:#8d5b17}
+/* 2. Una sola lectura del negocio:
+   Ventas / Por cobrar / Margen.
+   Ocultamos indicadores redundantes del Inicio; siguen en Pagos y Reportes. */
+.dcc-exec-metrics{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:0;
+  border:1px solid #d8d1c7;
+  border-radius:20px;
+  background:#fff;
+  overflow:hidden;
+}
 
-.dcc-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.dcc-metric{border:1px solid #d8d1c7;border-radius:18px;background:#fff;padding:14px;display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;text-align:left;cursor:pointer}
-.dcc-metric-icon{width:34px;height:34px;border:1px solid #d8d1c7;border-radius:50%;display:grid;place-items:center}
-.dcc-metric small{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#756e65}
-.dcc-metric strong{display:block;font-size:19px;margin-top:2px}
-.dcc-metric em{display:block;font-size:9px;font-style:normal;color:#756e65;margin-top:2px}
-.dcc-metric>b{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:#7a7168}
+.dcc-exec-metric{
+  border:0;
+  border-right:1px solid #ece6de;
+  border-radius:0;
+  background:transparent;
+  padding:17px 18px;
+  display:grid;
+  grid-template-columns:36px 1fr;
+  gap:11px;
+  align-items:center;
+  text-align:left;
+  cursor:pointer;
+  min-height:88px;
+}
+.dcc-exec-metric:last-of-type{border-right:0}
+.dcc-exec-metric:hover{background:#faf7f2}
+.dcc-exec-icon{
+  width:36px;
+  height:36px;
+  border:1px solid #d8d1c7;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+}
+.dcc-exec-metric small{
+  display:block;
+  font-size:8px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#756e65;
+}
+.dcc-exec-metric strong{
+  display:block;
+  font-size:22px;
+  margin-top:2px;
+  line-height:1.1;
+  color:#1b1b1b;
+}
+.dcc-exec-metric em{
+  display:block;
+  font-size:8px;
+  font-style:normal;
+  color:#756e65;
+  margin-top:4px;
+  line-height:1.3;
+}
 
-.dcc-finance-warning{border:1px solid #ead4a8;background:#fff9eb;border-radius:16px;padding:11px 14px;display:flex;align-items:flex-start;gap:9px;color:#76521e;font-size:10px;line-height:1.45}
+/* Mostramos únicamente:
+   1 Ventas
+   3 Por cobrar
+   6 Margen registrado */
+.dcc-exec-metric:nth-child(2),
+.dcc-exec-metric:nth-child(4),
+.dcc-exec-metric:nth-child(5),
+.dcc-exec-metric:nth-child(7),
+.dcc-exec-metric:nth-child(8){
+  display:none;
+}
+.dcc-exec-metric:nth-child(3){border-right:1px solid #ece6de}
+.dcc-exec-metric:nth-child(6){border-right:0}
+.dcc-exec-metric:nth-child(3).warn strong{color:#8d5b17}
+.dcc-exec-metric:nth-child(6).good strong{color:#247244}
+.dcc-exec-metric:nth-child(6).warn strong{color:#a04435}
 
-.dcc-priority{border:1px solid #e1c0aa;background:#fff8f1;border-radius:18px;padding:13px 16px;display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;text-align:left;cursor:pointer}
-.dcc-priority-icon{width:32px;height:32px;border-radius:50%;background:#f7e5d7;color:#9f4b24;display:grid;place-items:center}
-.dcc-priority small{display:block;font-size:8px;font-weight:800;letter-spacing:.09em;color:#9f4b24}
-.dcc-priority strong{display:block;font-size:13px;margin-top:2px}
-.dcc-priority em{display:block;font-style:normal;color:#756e65;font-size:10px;margin-top:2px}
+/* Las cuatro tarjetas operativas del encabezado eran redundantes.
+   La operación se resume abajo en "siguientes pasos". */
+.dcc-metrics{display:none}
 
-.dcc-performance{border:1px solid #d8d1c7;border-radius:20px;background:#fff;overflow:hidden}
-.dcc-performance>header{padding:14px 16px;border-bottom:1px solid #eee8df;display:flex;justify-content:space-between;gap:16px;align-items:flex-end}
-.dcc-performance>header h3{margin:3px 0 0;font-size:18px}
-.dcc-performance>header>small{font-size:9px;color:#756e65;text-align:right}
-.dcc-performance-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
-.dcc-performance-card{padding:14px 15px;display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;border-right:1px solid #eee8df}
-.dcc-performance-card:last-child{border-right:0}
-.dcc-performance-icon{width:32px;height:32px;border:1px solid #ddd5cb;border-radius:50%;display:grid;place-items:center}
-.dcc-performance-card small{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#756e65}
-.dcc-performance-card strong{display:block;font-size:11px;margin-top:3px}
-.dcc-performance-card span:last-child{display:block;font-size:8px;color:#756e65;margin-top:4px;line-height:1.4}
+/* Advertencias financieras: una línea, no otra tarjeta. */
+.dcc-finance-warning{
+  border:0;
+  border-left:3px solid #d5ad60;
+  background:transparent;
+  border-radius:0;
+  padding:4px 0 4px 11px;
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  color:#76521e;
+  font-size:9px;
+  line-height:1.45;
+}
 
-.dcc-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.dcc-column{border:1px solid #d8d1c7;border-radius:20px;background:#fff;overflow:hidden}
-.dcc-column>header{padding:14px 16px;border-bottom:1px solid #eee8df;display:flex;align-items:center;gap:9px}
-.dcc-column>header>span{width:30px;height:30px;border:1px solid #ddd5cb;border-radius:50%;display:grid;place-items:center}
-.dcc-column>header strong{display:block;font-size:12px}
-.dcc-column>header small{display:block;font-size:9px;color:#756e65;margin-top:1px}
+/* Prioridad principal: señal clara, sin otra gran "casilla". */
+.dcc-priority{
+  border:0;
+  border-top:1px solid #ded7cd;
+  border-bottom:1px solid #ded7cd;
+  background:transparent;
+  border-radius:0;
+  padding:13px 4px;
+  display:grid;
+  grid-template-columns:34px 1fr auto;
+  gap:10px;
+  align-items:center;
+  text-align:left;
+  cursor:pointer;
+}
+.dcc-priority:hover{background:#faf7f2}
+.dcc-priority-icon{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:#f7e5d7;
+  color:#9f4b24;
+  display:grid;
+  place-items:center;
+}
+.dcc-priority small{
+  display:block;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.09em;
+  color:#9f4b24;
+}
+.dcc-priority strong{
+  display:block;
+  font-size:13px;
+  margin-top:2px;
+}
+.dcc-priority em{
+  display:block;
+  font-style:normal;
+  color:#756e65;
+  font-size:10px;
+  margin-top:2px;
+}
+
+/* Rendimiento detallado pertenece a Reportes, no a Inicio. */
+.dcc-performance{display:none}
+
+/* 3. Siguientes pasos:
+   un solo bloque visual con Comercial / Finanzas / Operación.
+   Máximo dos elementos por área. */
+.dcc-columns{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:0;
+  border:1px solid #d8d1c7;
+  border-radius:20px;
+  background:#fff;
+  overflow:hidden;
+}
+.dcc-column{
+  border:0;
+  border-right:1px solid #ece6de;
+  border-radius:0;
+  background:transparent;
+  overflow:hidden;
+}
+.dcc-column:last-child{border-right:0}
+.dcc-column>header{
+  padding:14px 16px 11px;
+  border-bottom:1px solid #eee8df;
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+.dcc-column>header>span{
+  width:30px;
+  height:30px;
+  border:1px solid #ddd5cb;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+}
+.dcc-column>header strong{
+  display:block;
+  font-size:12px;
+}
+.dcc-column>header small{
+  display:block;
+  font-size:9px;
+  color:#756e65;
+  margin-top:1px;
+}
 .dcc-column-body{padding:7px}
-.dcc-action-row{width:100%;border:0;background:transparent;border-radius:12px;padding:10px;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:7px;text-align:left;cursor:pointer}
+
+/* Solo los 2 primeros pendientes de cada área. */
+.dcc-column-body > *:nth-child(n+3){display:none}
+
+.dcc-action-row{
+  width:100%;
+  border:0;
+  background:transparent;
+  border-radius:12px;
+  padding:10px;
+  display:grid;
+  grid-template-columns:1fr auto auto;
+  align-items:center;
+  gap:7px;
+  text-align:left;
+  cursor:pointer;
+}
 .dcc-action-row:hover{background:#f8f5ef}
 .dcc-action-row strong{display:block;font-size:10px}
-.dcc-action-row small{display:block;color:#756e65;font-size:9px;margin-top:2px}
-.dcc-action-row em{font-style:normal;font-size:7px;font-weight:900;letter-spacing:.06em;border:1px solid #ddd5cb;border-radius:999px;padding:4px 6px;color:#6e685f}
-.dcc-readiness{width:100%;border:0;background:transparent;border-radius:12px;padding:10px;text-align:left;cursor:pointer}
+.dcc-action-row small{
+  display:block;
+  color:#756e65;
+  font-size:9px;
+  margin-top:2px;
+}
+.dcc-action-row em{
+  font-style:normal;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.06em;
+  border:1px solid #ddd5cb;
+  border-radius:999px;
+  padding:4px 6px;
+  color:#6e685f;
+}
+
+.dcc-readiness{
+  width:100%;
+  border:0;
+  background:transparent;
+  border-radius:12px;
+  padding:10px;
+  text-align:left;
+  cursor:pointer;
+}
 .dcc-readiness:hover{background:#f8f5ef}
-.dcc-readiness-top{display:flex;justify-content:space-between;gap:10px}
+.dcc-readiness-top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+}
 .dcc-readiness-top strong{display:block;font-size:10px}
-.dcc-readiness-top small{display:block;font-size:8px;color:#756e65;margin-top:2px}
+.dcc-readiness-top small{
+  display:block;
+  font-size:8px;
+  color:#756e65;
+  margin-top:2px;
+}
 .dcc-readiness-top b{font-size:12px}
-.dcc-progress{height:5px;background:#ece7df;border-radius:999px;overflow:hidden;margin:7px 0 6px}
-.dcc-progress span{display:block;height:100%;background:#222;border-radius:999px;transition:width .35s cubic-bezier(.2,.8,.2,1)}
-.dcc-readiness-bottom{display:flex;justify-content:space-between;gap:8px;align-items:center}
-.dcc-readiness-bottom span{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.dcc-progress{
+  height:5px;
+  background:#ece7df;
+  border-radius:999px;
+  overflow:hidden;
+  margin:7px 0 6px;
+}
+.dcc-progress span{
+  display:block;
+  height:100%;
+  background:#222;
+  border-radius:999px;
+  transition:width .35s cubic-bezier(.2,.8,.2,1);
+}
+.dcc-readiness-bottom{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:center;
+}
+.dcc-readiness-bottom span{
+  font-size:8px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
 .dcc-readiness-bottom span.ready{color:#247244}
 .dcc-readiness-bottom span.review{color:#9b5c1d}
-.dcc-readiness-bottom small{font-size:8px;color:#756e65;text-align:right}
-.dcc-empty{padding:15px 10px;color:#756e65;font-size:9px;display:flex;gap:7px;align-items:center}
+.dcc-readiness-bottom small{
+  font-size:8px;
+  color:#756e65;
+  text-align:right;
+}
+.dcc-empty{
+  padding:15px 10px;
+  color:#756e65;
+  font-size:9px;
+  display:flex;
+  gap:7px;
+  align-items:center;
+}
 
-@media(max-width:1180px){
-  .dcc-exec-metrics,.dcc-performance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .dcc-performance-card:nth-child(2){border-right:0}
-  .dcc-performance-card:nth-child(-n+2){border-bottom:1px solid #eee8df}
-}
-@media(max-width:1100px){
-  .dcc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* Inicio ya no repite el embudo, ranking y próximas experiencias.
+   Esos datos viven en Pipeline / Clientes / Operaciones / Reportes. */
+.daily-command-center + .sales-focus-overview{display:none!important}
+.daily-command-center ~ .content-grid.two{display:none!important}
+
+/* Clases antiguas conservadas por compatibilidad, pero fuera de Inicio simplificado. */
+.dcc-performance-grid,
+.dcc-performance-card,
+.dcc-performance-icon{}
+
+/* Responsive */
+@media(max-width:1050px){
   .dcc-columns{grid-template-columns:1fr}
+  .dcc-column{
+    border-right:0;
+    border-bottom:1px solid #ece6de;
+  }
+  .dcc-column:last-child{border-bottom:0}
 }
-@media(max-width:700px){
+@media(max-width:760px){
   .dcc-head{flex-direction:column}
-  .dcc-head-actions{width:100%;justify-content:stretch}
-  .dcc-period{flex:1}.dcc-period select{width:100%;min-width:0}
-  .dcc-exec-metrics,.dcc-metrics,.dcc-performance-grid{grid-template-columns:1fr}
-  .dcc-performance-card{border-right:0;border-bottom:1px solid #eee8df}
-  .dcc-performance-card:last-child{border-bottom:0}
-  .dcc-performance>header{align-items:flex-start;flex-direction:column}
-  .dcc-performance>header>small{text-align:left}
-  .dcc-metric{grid-template-columns:34px 1fr}
-  .dcc-metric>b{display:none}
+  .dcc-head-actions{
+    width:100%;
+    justify-content:stretch;
+  }
+  .dcc-period{flex:1}
+  .dcc-period select{
+    width:100%;
+    min-width:0;
+  }
+  .dcc-exec-metrics{grid-template-columns:1fr}
+  .dcc-exec-metric{
+    border-right:0!important;
+    border-bottom:1px solid #ece6de;
+  }
+  .dcc-exec-metric:nth-child(6){border-bottom:0}
 }
