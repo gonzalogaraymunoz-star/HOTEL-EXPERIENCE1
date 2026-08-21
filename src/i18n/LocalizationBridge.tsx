@@ -48,7 +48,6 @@ const D:Record<string,Translation>={
   'Productos y valores':{en:'Products and prices','pt-BR':'Produtos e valores'},
   'Control de operación':{en:'Operations control','pt-BR':'Controle operacional'},
   'Fichas operacionales':{en:'Operations records','pt-BR':'Cadastros operacionais'},
-  'Asistente comercial':{en:'Commercial assistant','pt-BR':'Assistente comercial'},
 
   // Lead / sales common
   'Oportunidades':{en:'Opportunities','pt-BR':'Oportunidades'},
@@ -161,7 +160,7 @@ const D:Record<string,Translation>={
   'Registra':{en:'Register','pt-BR':'Cadastre'},
   'Completa tus datos y alojamiento.':{en:'Complete your details and accommodation.','pt-BR':'Preencha seus dados e hospedagem.'},
   'Solicita':{en:'Request','pt-BR':'Solicite'},
-  'Agrega todos los productos necesarios.':{en:'Add all the experiences you need.','pt-BR':'Adicione todas as experiências necessárias.'},
+  'Agrega todos los productos necesarios.':{en:'Add all the experiences you need.','pt-BR':'Adicione todos os produtos necessários.'},
   'Confirma':{en:'Confirm','pt-BR':'Confirme'},
   'Revisamos disponibilidad y pago.':{en:'We review availability and payment.','pt-BR':'Verificamos disponibilidade e pagamento.'},
   'Datos del pasajero':{en:'Passenger details','pt-BR':'Dados do passageiro'},
