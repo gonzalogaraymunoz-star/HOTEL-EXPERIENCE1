@@ -4,6 +4,7 @@ import type {Lead,LeadService,Supplier,ServiceAssignment} from '../types';
 import {assertSupabase} from '../lib/supabase';
 import {updateService} from '../lib/api';
 import HotelPartnerReport from './HotelPartnerReport';
+import FinancialReconciliationPanel from './FinancialReconciliationPanel';
 
 type CostItem={
   id:string;
@@ -224,7 +225,15 @@ export default function FinancialWorkspace({
     </section>
 
     {mode==='payments'
-      ?<PaymentsMode rows={rows} totals={totals} canEdit={canEdit} onPayment={openPayment}/>
+      ?<>
+        <PaymentsMode rows={rows} totals={totals} canEdit={canEdit} onPayment={openPayment}/>
+        <FinancialReconciliationPanel
+          leads={leads}
+          services={services}
+          month={month}
+          userRole={userRole}
+        />
+      </>
       :<>
         <ReportsMode rows={rows} totals={totals}/>
         <HotelPartnerReport rows={rows} leads={leads} month={month}/>
