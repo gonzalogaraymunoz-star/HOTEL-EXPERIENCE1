@@ -7,10 +7,13 @@ import AiActionQueue from './AiActionQueue';
 import './AiActionQueue.css';
 
 type Msg={role:'user'|'assistant';content:string;mode?:string};
-type AiAction={type:'create_lead'|'create_task'|'update_lead'|'add_note';payload:any};
+type AiAction={
+  type:'create_lead'|'create_task'|'update_lead'|'add_note'|'update_service_operation'|'update_service_pickup';
+  payload:any;
+};
 
 export default function AiAssistant({leads,role,onChanged}:{leads:Lead[];role:string;onChanged?:()=>void}){
-  const [messages,setMessages]=useState<Msg[]>([{role:'assistant',content:'Hola. Soy una herramienta de apoyo comercial dentro de Hotel Experience. Puedo analizar el CRM y, cuando me pidas ejecutar una acción compatible, preparar el cambio para que tú lo confirmes antes de aplicarlo.',mode:'general'}]);
+  const [messages,setMessages]=useState<Msg[]>([{role:'assistant',content:'Hola. Soy una herramienta de apoyo comercial y operacional dentro de Hotel Experience. Puedo analizar CRM, salidas próximas y bloqueos operativos. Cuando me pidas ejecutar un cambio compatible, lo preparo para que tú lo confirmes antes de aplicarlo.',mode:'general'}]);
   const [input,setInput]=useState('');
   const [leadId,setLeadId]=useState('');
   const [sending,setSending]=useState(false);
@@ -44,8 +47,9 @@ export default function AiAssistant({leads,role,onChanged}:{leads:Lead[];role:st
         const ar=await fetch('/api/ai-action-plan',{method:'POST',headers,body:JSON.stringify({message:prompt,leadId:leadId||null,history:[...prior,{role:'assistant',content:d.answer}]})});
         if(ar.ok){const planned=await ar.json();if(Array.isArray(planned.actions)&&planned.actions.length)setActions(planned.actions)}
       }
-    }catch(e:any){setMessages(m=>[...m,{role:'assistant',content:`Error: ${e.message||'No fue posible responder.'}`,mode:'general'}])}
-    finally{setSending(false)}
+    }catch(e:any){
+      setMessages(m=>[...m,{role:'assistant',content:`Error: ${e.message||'No fue posible responder.'}`,mode:'general'}]);
+    }finally{setSending(false)}
   };
 
   const actionExecuted=(text:string)=>{
@@ -56,7 +60,7 @@ export default function AiAssistant({leads,role,onChanged}:{leads:Lead[];role:st
   return <div className="ai-layout">
     <section className="ai-main">
       <header className="ai-hero">
-        <div><span className="eyebrow">HERRAMIENTA DE APOYO · API CONECTABLE</span><h2>Asistente comercial</h2><p>Consulta tu CRM y prepara acciones en lenguaje natural. <b>Ningún cambio se ejecuta sin tu confirmación.</b></p></div>
+        <div><span className="eyebrow">APOYO COMERCIAL + OPERACIONAL · API CONECTABLE</span><h2>Asistente Hotel Experience</h2><p>Consulta CRM, catálogo y operación próxima. <b>Ningún cambio se ejecuta sin tu confirmación.</b></p></div>
         <div className={config?.isEnabled&&config?.hasKey?'ai-status online':'ai-status'}><span/><div><b>{config?.isEnabled&&config?.hasKey?'API conectada':'Sin configurar'}</b><small>{config?.model||'API compatible'}</small></div></div>
       </header>
 
@@ -66,32 +70,33 @@ export default function AiAssistant({leads,role,onChanged}:{leads:Lead[];role:st
       </div>
 
       <div className="quick-ai">{[
-        '¿Qué leads necesitan seguimiento hoy?',
+        '¿Qué salidas de hoy o mañana tienen bloqueos operativos?',
+        'Revisa pickups, proveedor, pasajeros y hoja de riesgo de los próximos 2 días.',
         'Dame un resumen comercial para comenzar el día.',
         'Revisa pagos y operación pendientes.',
         'Sugiere productos para el lead seleccionado.',
-        'Crea una tarea para el lead seleccionado y déjala pendiente.',
-        'Agrega una nota al lead seleccionado con lo que te indicaré.'
+        'Crea tareas para resolver los bloqueos que acabas de detectar.'
       ].map(x=><button key={x} onClick={()=>send(x)}><WandSparkles size={15}/>{x}</button>)}</div>
 
       <section className="chat-window">
         {messages.map((m,i)=><article className={`chat-message ${m.role}`} key={i}><div className="chat-avatar">{m.role==='assistant'?<Bot size={17}/>:<span>U</span>}</div><div><small>{m.role==='assistant'?'Hotel Experience IA':'Tú'}</small>{m.role==='assistant'?<AiResponse content={m.content} mode={m.mode}/>:<p>{m.content}</p>}</div></article>)}
-        {sending&&<article className="chat-message assistant ai-thinking" aria-live="polite" aria-busy="true"><div className="chat-avatar thinking-avatar"><Sparkles size={17}/></div><div><small>Hotel Experience IA · generando respuesta</small><div className="thinking-bubble"><span>Consultando CRM, catálogo y reglas de venta</span><span className="thinking-dots"><i></i><i></i><i></i></span></div></div></article>}
+        {sending&&<article className="chat-message assistant ai-thinking" aria-live="polite" aria-busy="true"><div className="chat-avatar thinking-avatar"><Sparkles size={17}/></div><div><small>Hotel Experience IA · generando respuesta</small><div className="thinking-bubble"><span>Consultando CRM, catálogo y operación real</span><span className="thinking-dots"><i></i><i></i><i></i></span></div></div></article>}
         <div ref={endRef}/>
       </section>
 
       <AiActionQueue actions={actions} setActions={setActions} leads={leads} onExecuted={actionExecuted}/>
 
-      <div className="chat-composer"><textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}} placeholder="Pregunta o pide una acción: crear tarea, cambiar estado, agregar nota…"/><button className="primary-button ai-send-button" disabled={sending||!input.trim()} onClick={()=>send()}>{sending?<span className="send-spinner"/>:<Send size={17}/>}</button></div>
+      <div className="chat-composer"><textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}} placeholder="Pregunta o pide una acción: crear tarea, coordinar estado, fijar pickup, agregar nota…"/><button className="primary-button ai-send-button" disabled={sending||!input.trim()} onClick={()=>send()}>{sending?<span className="send-spinner"/>:<Send size={17}/>}</button></div>
     </section>
 
     <aside className="ai-guide">
       <span className="eyebrow">CÓMO TRABAJA</span><h3>Reglas integradas</h3>
-      <div className="ai-rule"><CircleCheck size={16}/><span>Analiza CRM, catálogo y valores oficiales.</span></div>
+      <div className="ai-rule"><CircleCheck size={16}/><span>Analiza CRM, catálogo, reservas y salidas próximas.</span></div>
+      <div className="ai-rule"><CircleCheck size={16}/><span>Revisa pickup, proveedor, pax, hoja de riesgo y responsables según el tipo de operación.</span></div>
       <div className="ai-rule"><CircleCheck size={16}/><span>TV1.2 se resuelve por tour_id → modalidad → pax.</span></div>
-      <div className="ai-rule"><CircleCheck size={16}/><span>No inventa valores ni tramos faltantes.</span></div>
-      <div className="ai-rule"><CircleCheck size={16}/><span>Puede preparar leads, tareas, notas y cambios de estado/prioridad.</span></div>
-      <div className="ai-rule"><CircleCheck size={16}/><span>Las acciones aparecen como propuesta editable.</span></div>
+      <div className="ai-rule"><CircleCheck size={16}/><span>No inventa valores, recursos ni coordinaciones faltantes.</span></div>
+      <div className="ai-rule"><CircleCheck size={16}/><span>Puede preparar tareas, notas, estado operacional y pickup.</span></div>
+      <div className="ai-rule"><CircleCheck size={16}/><span>No puede cerrar tours, registrar pagos ni asignar proveedores automáticamente.</span></div>
       <div className="ai-rule"><CircleCheck size={16}/><span>Nada se modifica hasta que una persona pulse Confirmar.</span></div>
       {config?.salesPrompt&&<div className="ai-custom-rule"><span className="eyebrow">PROMPT COMERCIAL ACTIVO</span><p>{config.salesPrompt}</p></div>}
     </aside>
