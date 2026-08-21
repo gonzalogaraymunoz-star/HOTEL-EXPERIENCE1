@@ -3,6 +3,7 @@ import {Building2,CheckCircle2,CircleDollarSign,Clock3,Pencil,Plus,RefreshCw,Tra
 import type {Lead,LeadService,Supplier,ServiceAssignment} from '../types';
 import {assertSupabase} from '../lib/supabase';
 import {updateService} from '../lib/api';
+import HotelPartnerReport from './HotelPartnerReport';
 
 type CostItem={
   id:string;
@@ -224,7 +225,10 @@ export default function FinancialWorkspace({
 
     {mode==='payments'
       ?<PaymentsMode rows={rows} totals={totals} canEdit={canEdit} onPayment={openPayment}/>
-      :<ReportsMode rows={rows} totals={totals}/>}
+      :<>
+        <ReportsMode rows={rows} totals={totals}/>
+        <HotelPartnerReport rows={rows} leads={leads} month={month}/>
+      </>}
 
     {target&&<PaymentModal
       row={target}
@@ -292,7 +296,7 @@ function PaymentsMode({rows,totals,canEdit,onPayment}:any){
 
 function ReportsMode({rows,totals}:any){
   const byProduct=groupRows(rows,(r:any)=>r.service.producto||'Sin producto');
-  const byHotel=groupRows(rows,(r:any)=>r.lead?.empresa_ejecuta||'Sin hotel');
+  const byChannel=groupRows(rows,(r:any)=>r.lead?.canal||'Sin canal');
   const bySupplier=groupRows(
     rows.filter((r:any)=>r.assignment?.supplier_id),
     (r:any)=>r.supplier?.name||'Proveedor sin nombre'
@@ -313,7 +317,7 @@ function ReportsMode({rows,totals}:any){
 
     <section className="content-grid two">
       <SummaryTable title="Rentabilidad por producto" rows={byProduct}/>
-      <SummaryTable title="Rentabilidad por hotel / canal" rows={byHotel}/>
+      <SummaryTable title="Rentabilidad por canal" rows={byChannel}/>
     </section>
 
     <section className="surface-card" style={{padding:0,overflow:'hidden'}}>
