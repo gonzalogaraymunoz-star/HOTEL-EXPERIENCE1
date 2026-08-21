@@ -17,6 +17,7 @@ import OperationsHub from './OperationsHub';
 import ServiceOperationModal from './ServiceOperationModal';
 import TasksWorkspace from './TasksWorkspace';
 import OperationsAdminTools from './OperationsAdminTools';
+import OperationsControl from './OperationsControl';
 import { assertSupabase } from '../lib/supabase';
 
 type View = 'dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'ai'|'team';
@@ -129,8 +130,8 @@ export default function CRMApp({profile}:{profile:any}) {
         {view==='service_people'&&<OperationsHub role={profile?.role||'agent'} initialTab="people"/>}
         {view==='vehicles'&&<OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/>}
         {view==='resources'&&<OperationsHub role={profile?.role||'agent'} initialTab="resources"/>}
-        {view==='operations'&&<OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/>}
-        {['suppliers','service_people','vehicles','resources','operations'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>}
+        {view==='operations'&&<OperationsControl leads={leads} services={services} onLead={setSelectedLead} onOperation={setOperationService}/>}
+        {['suppliers','service_people','vehicles','resources'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>}
         {view==='ai'&&<AiAssistant leads={leads} role={profile?.role||'agent'}/>}
         {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>}
       </>}
@@ -306,7 +307,7 @@ function MoneyInput({value,onSave}:{value:number;onSave:(value:number)=>Promise<
 function Stat({title,value,detail,icon}:any){return <div className="stat-card"><div className="stat-icon">{icon}</div><span>{title}</span><strong>{value}</strong><small>{detail}</small></div>}
 function SectionHead({title,subtitle}:{title:string;subtitle:string}){return <div className="section-head-crm"><div><h2>{title}</h2><p>{subtitle}</p></div></div>}
 function Rank({title,items}:any){const max=Math.max(1,...items.map((x:any)=>x[1]));return <div className="surface-card"><SectionHead title={title} subtitle="Distribución actual"/><div className="rank-list">{items.slice(0,8).map((x:any)=><div key={x[0]}><div><span>{x[0]}</span><b>{x[1]}</b></div><div className="bar"><span style={{width:`${x[1]/max*100}%`}}/></div></div>)}</div></div>}
-const titles:any={dashboard:'Inicio',leads:'Clientes',pipeline:'Pipeline comercial',reservations:'Reservas',calendar:'Calendario operacional',tasks:'Tareas y seguimiento',payments:'Pagos',reports:'Reportes',products:'Productos y valores',suppliers:'Proveedores',service_people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',operations:'Centro operacional',ai:'Asistente comercial',team:'Equipo'};
+const titles:any={dashboard:'Inicio',leads:'Clientes',pipeline:'Pipeline comercial',reservations:'Reservas',calendar:'Calendario operacional',tasks:'Tareas y seguimiento',payments:'Pagos',reports:'Reportes',products:'Productos y valores',suppliers:'Proveedores',service_people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',operations:'Control de operación',ai:'Asistente comercial',team:'Equipo'};
 const money=(n:any)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0));
 const dateFmt=(d:any)=>d?new Date(String(d)+'T12:00:00').toLocaleDateString('es-CL'):'Sin fecha';
 const cap=(s:string)=>String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1);
