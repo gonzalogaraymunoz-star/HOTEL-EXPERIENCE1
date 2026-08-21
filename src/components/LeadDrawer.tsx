@@ -6,6 +6,7 @@ import ReservationOperations from './ReservationOperations';
 import ServiceOperationModal from './ServiceOperationModal';
 import OperationalDocuments from './OperationalDocuments';
 import CommunicationsCenter from './CommunicationsCenter';
+import ServiceClosures from './ServiceClosures';
 import { availableModalities, familyById, modalityLabel, pricingFamilies, resolveFamilyPrice, type TourModality } from '../lib/tvPricing';
 import { createActivity, createTask, updateLead, updateService, deleteLead, assignLead, loadTeamDirectory, createLeadService, loadOperationsData, loadOperationsDirectory } from '../lib/api';
 
@@ -288,6 +289,10 @@ export default function LeadDrawer({
 
         <section className="drawer-section">
           <ReservationOperations lead={lead} services={leadServices} userRole={userRole} onChanged={changed}/>
+        </section>
+
+        <section className="drawer-section">
+          <ServiceClosures lead={lead} services={leadServices} userRole={userRole} onChanged={changed}/>
         </section>
 
         <section className="drawer-section">

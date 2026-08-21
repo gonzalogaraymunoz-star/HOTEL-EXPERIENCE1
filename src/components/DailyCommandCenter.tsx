@@ -19,6 +19,19 @@ type PaymentMovement={
   paid_at:string;
 };
 type CostItem={lead_service_id:string;amount:number};
+type ServiceClosure={
+  lead_service_id:string;
+  closure_status:'open'|'closed';
+  refund_amount:number;
+  refund_status:string;
+  sale_snapshot:number;
+  supplier_cost_snapshot:number;
+  extra_cost_snapshot:number;
+  total_cost_snapshot:number;
+  net_sale_snapshot:number;
+  margin_snapshot:number;
+  margin_pct_snapshot:number;
+};
 type OpsSnapshot={
   passengers:Passenger[];
   assignments:ServiceAssignment[];
@@ -26,6 +39,7 @@ type OpsSnapshot={
   suppliers:Supplier[];
   payments:PaymentMovement[];
   costs:CostItem[];
+  closures:ServiceClosure[];
 };
 type CoverageKey='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
 type Period='all'|string;
@@ -40,7 +54,7 @@ export default function DailyCommandCenter({
 }){
   const currentMonth=monthKey(new Date());
   const [ops,setOps]=useState<OpsSnapshot>({
-    passengers:[],assignments:[],documents:[],suppliers:[],payments:[],costs:[]
+    passengers:[],assignments:[],documents:[],suppliers:[],payments:[],costs:[],closures:[]
   });
   const [loading,setLoading]=useState(true);
   const [period,setPeriod]=useState<Period>(currentMonth);
@@ -59,23 +73,26 @@ export default function DailyCommandCenter({
   const load=async()=>{
     setLoading(true);
     try{
-      const [operational,payments,costs]=await Promise.all([
+      const [operational,payments,costs,closures]=await Promise.all([
         loadOperationsData(),
         assertSupabase().from('payment_movements').select('id,lead_service_id,party_type,amount,paid_at'),
-        assertSupabase().from('service_cost_items').select('lead_service_id,amount')
+        assertSupabase().from('service_cost_items').select('lead_service_id,amount'),
+        assertSupabase().from('service_closures').select('lead_service_id,closure_status,refund_amount,refund_status,sale_snapshot,supplier_cost_snapshot,extra_cost_snapshot,total_cost_snapshot,net_sale_snapshot,margin_snapshot,margin_pct_snapshot')
       ]);
       if(payments.error)throw payments.error;
       if(costs.error)throw costs.error;
+      if(closures.error)throw closures.error;
       setOps({
         passengers:(operational.passengers||[]) as Passenger[],
         assignments:(operational.assignments||[]) as ServiceAssignment[],
         documents:(operational.documents||[]) as ReservationDocument[],
         suppliers:(operational.suppliers||[]) as Supplier[],
         payments:(payments.data||[]) as PaymentMovement[],
-        costs:(costs.data||[]) as CostItem[]
+        costs:(costs.data||[]) as CostItem[],
+        closures:(closures.data||[]) as ServiceClosure[]
       });
     }catch{
-      setOps({passengers:[],assignments:[],documents:[],suppliers:[],payments:[],costs:[]});
+      setOps({passengers:[],assignments:[],documents:[],suppliers:[],payments:[],costs:[],closures:[]});
     }finally{setLoading(false)}
   };
   useEffect(()=>{load()},[]);
@@ -111,7 +128,7 @@ export default function DailyCommandCenter({
       <ExecMetric icon={<Clock3/>} label="Por cobrar" value={money(model.clientPending)} detail={`${model.clientPendingCount} servicio(s) con saldo`} warn={model.clientPending>0} onClick={onOpenPayments}/>
       <ExecMetric icon={<WalletCards/>} label="Costos registrados" value={money(model.totalCosts)} detail={`${money(model.supplierCosts)} proveedor + ${money(model.extraCosts)} extras`} onClick={onOpenPayments}/>
       <ExecMetric icon={<Building2/>} label="Por pagar proveedores" value={money(model.supplierPending)} detail={`${money(model.supplierPaid)} pagado`} warn={model.supplierPending>0} onClick={onOpenPayments}/>
-      <ExecMetric icon={<TrendingUp/>} label="Margen registrado" value={money(model.margin)} detail={`${pct(model.marginPct)} sobre ventas`} good={model.margin>=0} warn={model.margin<0} onClick={onOpenPayments}/>
+      <ExecMetric icon={<TrendingUp/>} label="Margen registrado" value={money(model.margin)} detail={`${pct(model.marginPct)} · ${model.closedFinancialCount} resultado(s) final(es)`} good={model.margin>=0} warn={model.margin<0} onClick={onOpenPayments}/>
       <ExecMetric icon={<Percent/>} label="Margen %" value={pct(model.marginPct)} detail={model.costCoverage<100?'Provisional por costos faltantes':'Costos cubiertos'} warn={model.costCoverage<100} onClick={onOpenPayments}/>
       <ExecMetric icon={<BarChart3/>} label="Cobertura de costos" value={`${model.costCoverage}%`} detail={`${model.costedServices}/${model.financialServiceCount} servicios con costos`} warn={model.costCoverage<100} onClick={onOpenPayments}/>
     </div>
@@ -126,6 +143,11 @@ export default function DailyCommandCenter({
     {model.costCoverage<100&&model.sales>0&&<div className="dcc-finance-warning">
       <AlertCircle size={16}/>
       <span><b>Margen provisional:</b> {model.financialServiceCount-model.costedServices} servicio(s) del periodo todavía no tienen costos cargados. El margen puede verse artificialmente alto.</span>
+    </div>}
+
+    {model.refundPending>0&&<div className="dcc-finance-warning">
+      <AlertCircle size={16}/>
+      <span><b>Reembolsos pendientes:</b> hay {money(model.refundPending)} comprometidos en cierres operacionales y aún marcados como pendientes.</span>
     </div>}
 
     {model.topPriority&&<button className="dcc-priority" onClick={()=>model.topPriority!.lead&&onLead(model.topPriority!.lead!)}>
@@ -199,23 +221,27 @@ function buildModel({
   const financialRows=financialServices.map(s=>{
     const lead=leads.find(l=>l.id===s.lead_id);
     const assignment=assignmentByService.get(s.id);
+    const closure=ops.closures.find(x=>x.lead_service_id===s.id&&x.closure_status==='closed');
     const movements=paymentsByService.get(s.id)||[];
     const clientMoves=movements.filter(x=>x.party_type==='client');
     const supplierMoves=movements.filter(x=>x.party_type==='supplier');
-    const sale=Number(s.precio_venta||0);
+    const grossSale=Number(s.precio_venta||0);
+    const sale=closure?Number(closure.net_sale_snapshot||0):grossSale;
     const clientPaid=clientMoves.length
       ?clientMoves.reduce((a,x)=>a+Number(x.amount||0),0)
       :(s.estado_pago==='Pagado'?sale:0);
-    const supplierCost=Number(assignment?.supplier_cost||0);
+    const supplierCost=closure?Number(closure.supplier_cost_snapshot||0):Number(assignment?.supplier_cost||0);
     const supplierPaid=supplierMoves.length
       ?supplierMoves.reduce((a,x)=>a+Number(x.amount||0),0)
       :(assignment?.supplier_payment_status==='Pagado'?supplierCost:0);
-    const extraCost=(costsByService.get(s.id)||[]).reduce((a,x)=>a+Number(x.amount||0),0);
-    const totalCost=supplierCost+extraCost;
+    const extraCost=closure
+      ?Number(closure.extra_cost_snapshot||0)
+      :(costsByService.get(s.id)||[]).reduce((a,x)=>a+Number(x.amount||0),0);
+    const totalCost=closure?Number(closure.total_cost_snapshot||0):supplierCost+extraCost;
     const clientBalance=Math.max(0,sale-clientPaid);
     const supplierBalance=Math.max(0,supplierCost-supplierPaid);
     const supplier=ops.suppliers.find(x=>x.id===assignment?.supplier_id);
-    const hasCostData=totalCost>0;
+    const hasCostData=Boolean(closure)||totalCost>0;
 
     if(clientBalance>0&&lead){
       finance.push({
@@ -231,9 +257,9 @@ function buildModel({
     }
 
     return {
-      service:s,lead,assignment,supplier,sale,clientPaid,clientBalance,
+      service:s,lead,assignment,supplier,closure,grossSale,sale,clientPaid,clientBalance,
       supplierCost,supplierPaid,supplierBalance,extraCost,totalCost,
-      margin:sale-totalCost,hasCostData
+      margin:closure?Number(closure.margin_snapshot||0):sale-totalCost,hasCostData
     };
   });
   finance.sort((a,b)=>b.amount-a.amount);
@@ -253,6 +279,10 @@ function buildModel({
   const financialServiceCount=financialRows.length;
   const costCoverage=financialServiceCount?Math.round(costedServices/financialServiceCount*100):100;
   const clientPendingCount=financialRows.filter(r=>r.clientBalance>0).length;
+  const closedFinancialCount=financialRows.filter(r=>r.closure).length;
+  const refundPending=financialRows
+    .filter(r=>r.closure?.refund_status==='Pendiente')
+    .reduce((sum,r)=>sum+Number(r.closure?.refund_amount||0),0);
   const periodDescription=period==='all'?'Todo el histórico':periodLabel(period);
 
   const lastActivity=new Map<string,number>();
@@ -352,6 +382,7 @@ function buildModel({
     sales,clientPaid,clientPending,clientPendingCount,collectionPct,
     supplierCosts,supplierPaid,supplierPending,extraCosts,totalCosts,
     margin,marginPct,costedServices,financialServiceCount,costCoverage,
+    closedFinancialCount,refundPending,
     finance,commercial,upcomingReservations,next48,todayServices,
     readyReservations,avgReadiness,topPriority,headline,
     overdueCount:overdue.length,periodDescription,performance
