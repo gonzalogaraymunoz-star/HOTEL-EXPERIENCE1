@@ -2,11 +2,12 @@ import React,{useEffect,useRef,useState} from 'react';
 import {Bot,ChevronDown,CircleCheck,KeyRound,Send,Sparkles,Settings2,WandSparkles} from 'lucide-react';
 import {assertSupabase} from '../lib/supabase';
 import type {Lead} from '../types';
+import AiResponse from './AiResponse';
 
-type Msg={role:'user'|'assistant';content:string};
+type Msg={role:'user'|'assistant';content:string;mode?:string};
 
 export default function AiAssistant({leads,role}:{leads:Lead[];role:string}){
-  const [messages,setMessages]=useState<Msg[]>([{role:'assistant',content:'Hola. Soy una herramienta de apoyo comercial dentro de Hotel Experience. Uso el catálogo, los valores oficiales, las reglas de venta y el contexto permitido del CRM para ayudarte a analizar y preparar decisiones. No confirmo reservas ni modifico datos por mi cuenta.'}]);
+  const [messages,setMessages]=useState<Msg[]>([{role:'assistant',content:'Hola. Soy una herramienta de apoyo comercial dentro de Hotel Experience. Uso el catálogo, los valores oficiales, las reglas de venta y el contexto permitido del CRM para ayudarte a analizar y preparar decisiones. No confirmo reservas ni modifico datos por mi cuenta.',mode:'general'}]);
   const [input,setInput]=useState('');
   const [leadId,setLeadId]=useState('');
   const [sending,setSending]=useState(false);
@@ -29,12 +30,12 @@ export default function AiAssistant({leads,role}:{leads:Lead[];role:string}){
     setMessages(m=>[...m,{role:'user',content:prompt}]); setInput(''); setSending(true);
     try{
       const {data:{session}}=await assertSupabase().auth.getSession();
-      const r=await fetch('/api/ai-chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session?.access_token||''}`},body:JSON.stringify({message:prompt,leadId:leadId||null,history:messages.slice(-8)})});
+      const r=await fetch('/api/ai-chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session?.access_token||''}`},body:JSON.stringify({message:prompt,leadId:leadId||null,history:messages.slice(-10)})});
       const d=await r.json();
       if(!r.ok)throw new Error(d.error||'No se pudo consultar la IA.');
-      setMessages(m=>[...m,{role:'assistant',content:d.answer}]);
+      setMessages(m=>[...m,{role:'assistant',content:d.answer,mode:d.responseMode||'general'}]);
       if(d.action?.type==='create_lead') setLeadDraft(d.action.payload);
-    }catch(e:any){setMessages(m=>[...m,{role:'assistant',content:`Error: ${e.message||'No fue posible responder.'}`}]);}
+    }catch(e:any){setMessages(m=>[...m,{role:'assistant',content:`Error: ${e.message||'No fue posible responder.'}`,mode:'general'}]);}
     finally{setSending(false);}
   };
 
@@ -62,7 +63,7 @@ export default function AiAssistant({leads,role}:{leads:Lead[];role:string}){
       </div>
 
       <section className="chat-window">
-        {messages.map((m,i)=><article className={`chat-message ${m.role}`} key={i}><div className="chat-avatar">{m.role==='assistant'?<Bot size={17}/>:<span>U</span>}</div><div><small>{m.role==='assistant'?'Hotel Experience IA':'Tú'}</small><p>{m.content}</p></div></article>)}
+        {messages.map((m,i)=><article className={`chat-message ${m.role}`} key={i}><div className="chat-avatar">{m.role==='assistant'?<Bot size={17}/>:<span>U</span>}</div><div><small>{m.role==='assistant'?'Hotel Experience IA':'Tú'}</small>{m.role==='assistant'?<AiResponse content={m.content} mode={m.mode}/>:<p>{m.content}</p>}</div></article>)}
         {sending&&<article className="chat-message assistant ai-thinking" aria-live="polite" aria-busy="true"><div className="chat-avatar thinking-avatar"><Sparkles size={17}/></div><div><small>Hotel Experience IA · generando respuesta</small><div className="thinking-bubble"><span>Consultando CRM, catálogo y reglas de venta</span><span className="thinking-dots"><i></i><i></i><i></i></span></div></div></article>}
         <div ref={endRef}/>
       </section>
@@ -77,7 +78,7 @@ export default function AiAssistant({leads,role}:{leads:Lead[];role:string}){
           <label><span>Canal</span><input value={leadDraft.canal||'IA'} onChange={e=>setLeadDraft({...leadDraft,canal:e.target.value})}/></label>
           <label><span>Interés</span><input value={leadDraft.servicio||''} onChange={e=>setLeadDraft({...leadDraft,servicio:e.target.value})}/></label>
         </div>
-        <div className="ai-action-buttons"><button className="secondary-button" onClick={()=>setLeadDraft(null)}>Cancelar</button><button className="primary-button" disabled={creatingLead||!leadDraft.reserva?.trim()} onClick={async()=>{setCreatingLead(true);try{const {createManualLead}=await import('../lib/api');const created=await createManualLead(leadDraft);setMessages(m=>[...m,{role:'assistant',content:`Lead creado correctamente: ${created.codigo} · ${created.reserva}.`}]);setLeadDraft(null);}catch(e:any){alert(e.message||'No se pudo crear el lead.')}finally{setCreatingLead(false)}}}>{creatingLead?'Creando...':'Confirmar creación'}</button></div>
+        <div className="ai-action-buttons"><button className="secondary-button" onClick={()=>setLeadDraft(null)}>Cancelar</button><button className="primary-button" disabled={creatingLead||!leadDraft.reserva?.trim()} onClick={async()=>{setCreatingLead(true);try{const {createManualLead}=await import('../lib/api');const created=await createManualLead(leadDraft);setMessages(m=>[...m,{role:'assistant',content:`Lead creado correctamente: ${created.codigo} · ${created.reserva}.`,mode:'lead'}]);setLeadDraft(null);}catch(e:any){alert(e.message||'No se pudo crear el lead.')}finally{setCreatingLead(false)}}}>{creatingLead?'Creando...':'Confirmar creación'}</button></div>
       </section>}
 
       <div className="chat-composer">
