@@ -4,6 +4,7 @@ import {assertSupabase} from '../lib/supabase';
 import type {Lead} from '../types';
 import AiResponse from './AiResponse';
 import AiActionQueue from './AiActionQueue';
+import AiControlPanel from './AiControlPanel';
 import './AiActionQueue.css';
 
 type Msg={role:'user'|'assistant';content:string;mode?:string};
@@ -68,6 +69,11 @@ export default function AiAssistant({leads,role,onChanged}:{leads:Lead[];role:st
         <label><span>Contexto de lead</span><select value={leadId} onChange={e=>setLeadId(e.target.value)}><option value="">CRM general</option>{leads.map(l=><option key={l.id} value={l.id}>{l.reserva} · {l.codigo}</option>)}</select></label>
         {role==='admin'&&<button className="secondary-button" onClick={()=>setSettingsOpen(true)}><Settings2 size={16}/> Configurar IA</button>}
       </div>
+
+      <AiControlPanel
+        onAnalyze={()=>send('Audita las anomalías y contradicciones actuales del CRM. Prioriza los problemas que pueden afectar una salida, un pago o un cierre. Dime qué debo corregir primero y por qué.')}
+        onSelectLead={(id)=>setLeadId(id)}
+      />
 
       <div className="quick-ai">{[
         '¿Qué salidas de hoy o mañana tienen bloqueos operativos?',
