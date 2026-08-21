@@ -1,9 +1,11 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {ClipboardList,FileText,MapPinned,Printer,RefreshCw,TicketCheck,Users} from 'lucide-react';
+import {Archive,ClipboardList,ExternalLink,FileText,FolderOpen,History,Link2,MapPinned,Printer,RefreshCw,Save,TicketCheck,Users,X} from 'lucide-react';
 import type {Lead,LeadService,Passenger,ReservationDocument,ServiceAssignment,ServicePerson,Supplier,Vehicle,OperationalResource,ServiceResourceAssignment} from '../types';
-import {loadOperationsData,loadOperationsDirectory} from '../lib/api';
+import {createActivity,loadOperationsData,loadOperationsDirectory,upsertReservationDocument} from '../lib/api';
+import {assertSupabase} from '../lib/supabase';
 
 type DocKind='operation'|'manifest'|'voucher'|'itinerary';
+type DocumentVersion={id:string;lead_id:string;document_type:string;title:string;url:string;drive_file_id?:string|null;version:number;status:string;notes?:string|null;created_at:string;created_by?:string|null};
 type OpsData={
   passengers:Passenger[];
   suppliers:Supplier[];
@@ -19,15 +21,35 @@ const coverageLabels:Record<string,string>={
   vehicle:'Vehículo',driver:'Conductor',guide:'Guía',food:'Alimentación',coordination:'Coordinación',resources:'Insumos',entrances:'Entradas'
 };
 const fullCoverage=Object.keys(coverageLabels);
+const docMeta:Record<DocKind,{label:string;dbType:string;folderUrl:string}>={
+  operation:{label:'Hoja operacional',dbType:'operation_sheet',folderUrl:'https://drive.google.com/drive/folders/1Qna2TvbY40HNRLnmK0yc9idEbLGPiQtP'},
+  manifest:{label:'Manifiesto de pasajeros',dbType:'manifest',folderUrl:'https://drive.google.com/drive/folders/1lCwbfLDwOLKTt4CS9bvR4XxQ8vSz9HhP'},
+  voucher:{label:'Voucher cliente',dbType:'voucher',folderUrl:'https://drive.google.com/drive/folders/1aJBsMAQ9JLmKq76Ccf98g4sw1jGW9kse'},
+  itinerary:{label:'Itinerario',dbType:'itinerary',folderUrl:'https://drive.google.com/drive/folders/1SpS5qVQkKmDxW1IQRSxi4AUwWD10aH1s'}
+};
+const driveRoot='https://drive.google.com/drive/folders/12K2s_10oacUL4lHhvjBG19E12c0nDP6E';
+
 
 export default function OperationalDocuments({lead,services}:{lead:Lead;services:LeadService[]}){
   const [data,setData]=useState<OpsData>({passengers:[],suppliers:[],vehicles:[],assignments:[],documents:[],people:[],resources:[],resourceAssignments:[]});
   const [loading,setLoading]=useState(true);
+  const [versions,setVersions]=useState<DocumentVersion[]>([]);
+  const [archiveKind,setArchiveKind]=useState<DocKind|null>(null);
+  const [archiveUrl,setArchiveUrl]=useState('');
+  const [archiveNotes,setArchiveNotes]=useState('');
+  const [savingArchive,setSavingArchive]=useState(false);
 
   const load=async()=>{
     setLoading(true);
     try{
-      const [ops,dir]=await Promise.all([loadOperationsData(),loadOperationsDirectory()]);
+      const db=assertSupabase();
+      const [ops,dir,history]=await Promise.all([
+        loadOperationsData(),
+        loadOperationsDirectory(),
+        db.from('reservation_document_versions').select('*').eq('lead_id',lead.id).order('created_at',{ascending:false})
+      ]);
+      if(history.error)throw history.error;
+      setVersions((history.data||[]) as DocumentVersion[]);
       setData({
         passengers:(ops.passengers||[]).filter((p:Passenger)=>p.lead_id===lead.id),
         suppliers:ops.suppliers||[],
@@ -56,28 +78,92 @@ export default function OperationalDocuments({lead,services}:{lead:Lead;services
     w.document.close();
   };
 
+  const nextVersion=(kind:DocKind)=>{
+    const type=docMeta[kind].dbType;
+    return Math.max(0,...versions.filter(v=>v.document_type===type).map(v=>Number(v.version||0)))+1;
+  };
+  const openArchive=(kind:DocKind)=>{
+    setArchiveKind(kind);setArchiveUrl('');setArchiveNotes('');
+  };
+  const saveArchive=async()=>{
+    if(!archiveKind)return;
+    const url=archiveUrl.trim();
+    if(!/^https?:\/\//i.test(url))return alert('Pega un link válido de Google Drive u otra ubicación web.');
+    setSavingArchive(true);
+    try{
+      const db=assertSupabase();
+      const {data:{user}}=await db.auth.getUser();
+      const meta=docMeta[archiveKind];
+      const version=nextVersion(archiveKind);
+      const title=`${lead.codigo} · ${meta.label} · v${version}`;
+      const driveId=extractDriveId(url);
+      const {error}=await db.from('reservation_document_versions').insert({
+        lead_id:lead.id,document_type:meta.dbType,title,url,drive_file_id:driveId,version,
+        status:'Archivado',notes:archiveNotes.trim()||null,created_by:user?.id||null
+      });
+      if(error)throw error;
+      await upsertReservationDocument(lead.id,meta.dbType,{title:meta.label,url,status:'Archivado'});
+      await createActivity({
+        lead_id:lead.id,type:'document_archived',title:'Documento archivado',
+        body:`${meta.label} · versión ${version}${driveId?' · Google Drive':''}`,created_by:'CRM'
+      });
+      setArchiveKind(null);setArchiveUrl('');setArchiveNotes('');await load();
+    }catch(e:any){alert(e?.message||'No se pudo archivar el documento.');}
+    finally{setSavingArchive(false);}
+  };
+
   return <section className="ops-block">
     <div className="ops-head">
-      <div><span className="eyebrow">DOCUMENTOS OPERACIONALES</span><h3>Generar desde la ficha 360°</h3></div>
-      <button className="secondary-button compact-btn" onClick={load} disabled={loading}><RefreshCw size={14}/> Actualizar datos</button>
+      <div><span className="eyebrow">DOCUMENTOS OPERACIONALES</span><h3>Generar y archivar desde la ficha 360°</h3></div>
+      <div className="ops-actions"><a className="secondary-button compact-btn" href={driveRoot} target="_blank" rel="noreferrer"><FolderOpen size={14}/> Drive</a><button className="secondary-button compact-btn" onClick={load} disabled={loading}><RefreshCw size={14}/> Actualizar</button></div>
     </div>
-    <p style={{margin:'0 0 14px',fontSize:11,color:'#6e685f',lineHeight:1.5}}>Los documentos usan la información actual del CRM. Se abren en una vista limpia para imprimir o guardar como PDF; no incluyen datos que no estén registrados.</p>
+    <p style={{margin:'0 0 14px',fontSize:11,color:'#6e685f',lineHeight:1.5}}>Genera el documento con los datos vivos del CRM. Después de guardarlo como PDF en Drive, registra su enlace para mantener una versión trazable dentro de la reserva.</p>
     <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>
-      <DocButton icon={<ClipboardList/>} title="Hoja operacional" detail="Proveedor, cobertura, pickup, equipo, recursos y estado de riesgo." disabled={loading} onClick={()=>generate('operation')}/>
-      <DocButton icon={<Users/>} title="Manifiesto de pasajeros" detail="Lista nominal completa con documentos, contacto y restricciones." disabled={loading} onClick={()=>generate('manifest')}/>
-      <DocButton icon={<TicketCheck/>} title="Voucher cliente" detail="Confirmación limpia para entregar al pasajero, sin costos internos." disabled={loading} onClick={()=>generate('voucher')}/>
-      <DocButton icon={<MapPinned/>} title="Itinerario" detail="Experiencias ordenadas por fecha, pickup, encuentro y observaciones." disabled={loading} onClick={()=>generate('itinerary')}/>
+      <DocButton icon={<ClipboardList/>} title="Hoja operacional" detail="Proveedor, cobertura, pickup, equipo, recursos y estado de riesgo." disabled={loading} onClick={()=>generate('operation')} onArchive={()=>openArchive('operation')} folderUrl={docMeta.operation.folderUrl} version={nextVersion('operation')}/>
+      <DocButton icon={<Users/>} title="Manifiesto de pasajeros" detail="Lista nominal completa con documentos, contacto y restricciones." disabled={loading} onClick={()=>generate('manifest')} onArchive={()=>openArchive('manifest')} folderUrl={docMeta.manifest.folderUrl} version={nextVersion('manifest')}/>
+      <DocButton icon={<TicketCheck/>} title="Voucher cliente" detail="Confirmación limpia para entregar al pasajero, sin costos internos." disabled={loading} onClick={()=>generate('voucher')} onArchive={()=>openArchive('voucher')} folderUrl={docMeta.voucher.folderUrl} version={nextVersion('voucher')}/>
+      <DocButton icon={<MapPinned/>} title="Itinerario" detail="Experiencias ordenadas por fecha, pickup, encuentro y observaciones." disabled={loading} onClick={()=>generate('itinerary')} onArchive={()=>openArchive('itinerary')} folderUrl={docMeta.itinerary.folderUrl} version={nextVersion('itinerary')}/>
     </div>
     {!data.passengers.length&&<div className="ops-warning" style={{marginTop:12}}><FileText size={15}/><span>El manifiesto puede generarse, pero aún no hay pasajeros individuales registrados.</span></div>}
+
+    <div style={{marginTop:16,borderTop:'1px solid #ddd6ca',paddingTop:15}}>
+      <div className="ops-head"><div><span className="eyebrow">ARCHIVO DOCUMENTAL</span><h3>Historial de versiones</h3></div><span className="status-badge neutral">{versions.length} archivo(s)</span></div>
+      {versions.length?<div style={{display:'grid',gap:7}}>
+        {versions.map(v=><a key={v.id} href={v.url} target="_blank" rel="noreferrer" style={{display:'grid',gridTemplateColumns:'34px 1fr auto',gap:10,alignItems:'center',border:'1px solid #ded7cc',borderRadius:9,padding:'10px 12px',textDecoration:'none',color:'inherit'}}>
+          <span style={{width:32,height:32,border:'1px solid #d7d0c5',borderRadius:'50%',display:'grid',placeItems:'center'}}><History size={14}/></span>
+          <span><b style={{display:'block',fontSize:11}}>{v.title}</b><small style={{fontSize:9,color:'#6e685f'}}>{new Date(v.created_at).toLocaleString('es-CL')}{v.notes?` · ${v.notes}`:''}</small></span>
+          <ExternalLink size={14}/>
+        </a>)}
+      </div>:<div className="empty-card">Todavía no hay versiones archivadas para esta reserva.</div>}
+    </div>
+
+    {archiveKind&&<div className="modal-backdrop" onMouseDown={()=>setArchiveKind(null)}>
+      <section className="modal-card" style={{maxWidth:620}} onMouseDown={e=>e.stopPropagation()}>
+        <header><div><span className="eyebrow">ARCHIVAR DOCUMENTO</span><h2>{docMeta[archiveKind].label} · v{nextVersion(archiveKind)}</h2><p>Guarda primero el PDF en la carpeta indicada y pega aquí su enlace.</p></div><button className="icon-button" onClick={()=>setArchiveKind(null)}><X/></button></header>
+        <div style={{display:'grid',gap:10}}>
+          <a className="secondary-button" href={docMeta[archiveKind].folderUrl} target="_blank" rel="noreferrer"><FolderOpen size={15}/> Abrir carpeta de Drive</a>
+          <label><span>Link del documento *</span><div style={{display:'flex',gap:7,alignItems:'center'}}><Link2 size={15}/><input style={{flex:1}} value={archiveUrl} onChange={e=>setArchiveUrl(e.target.value)} placeholder="https://drive.google.com/..."/></div></label>
+          <label><span>Nota de versión</span><input value={archiveNotes} onChange={e=>setArchiveNotes(e.target.value)} placeholder="Ej: versión enviada al pasajero / pickup corregido"/></label>
+          <div style={{display:'flex',justifyContent:'flex-end',gap:8}}><button className="secondary-button" onClick={()=>setArchiveKind(null)}>Cancelar</button><button className="primary-button" disabled={savingArchive} onClick={saveArchive}><Save size={14}/> {savingArchive?'Guardando…':'Registrar versión'}</button></div>
+        </div>
+      </section>
+    </div>}
   </section>;
 }
 
-function DocButton({icon,title,detail,disabled,onClick}:{icon:React.ReactNode;title:string;detail:string;disabled:boolean;onClick:()=>void}){
-  return <button type="button" disabled={disabled} onClick={onClick} className="secondary-button" style={{justifyContent:'flex-start',textAlign:'left',height:'auto',padding:14,gap:11}}>
-    <span style={{display:'grid',placeItems:'center',width:34,height:34,border:'1px solid #d7d0c5',borderRadius:'50%',flex:'0 0 auto'}}>{icon}</span>
-    <span style={{display:'grid',gap:3}}><b style={{fontSize:12}}>{title}</b><small style={{fontSize:9,lineHeight:1.35,color:'#6e685f'}}>{detail}</small></span>
-    <Printer size={14} style={{marginLeft:'auto'}}/>
-  </button>;
+function DocButton({icon,title,detail,disabled,onClick,onArchive,folderUrl,version}:{icon:React.ReactNode;title:string;detail:string;disabled:boolean;onClick:()=>void;onArchive:()=>void;folderUrl:string;version:number}){
+  return <div style={{border:'1px solid #d7d0c5',borderRadius:10,padding:12,display:'grid',gap:10}}>
+    <button type="button" disabled={disabled} onClick={onClick} style={{border:0,background:'transparent',padding:0,display:'grid',gridTemplateColumns:'34px 1fr auto',gap:11,alignItems:'center',textAlign:'left',cursor:'pointer'}}>
+      <span style={{display:'grid',placeItems:'center',width:34,height:34,border:'1px solid #d7d0c5',borderRadius:'50%'}}>{icon}</span>
+      <span style={{display:'grid',gap:3}}><b style={{fontSize:12}}>{title}</b><small style={{fontSize:9,lineHeight:1.35,color:'#6e685f'}}>{detail}</small></span>
+      <Printer size={14}/>
+    </button>
+    <div style={{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',borderTop:'1px solid #ebe5db',paddingTop:8}}>
+      <span style={{marginRight:'auto',fontSize:8,fontWeight:800,color:'#6e685f'}}>SIGUIENTE v{version}</span>
+      <a className="secondary-button compact-btn" href={folderUrl} target="_blank" rel="noreferrer"><FolderOpen size={13}/> Carpeta</a>
+      <button className="secondary-button compact-btn" onClick={onArchive}><Archive size={13}/> Archivar</button>
+    </div>
+  </div>;
 }
 
 function buildDocument(kind:DocKind,lead:Lead,services:LeadService[],data:OpsData,risk?:ReservationDocument){
@@ -156,6 +242,11 @@ function itineraryBody(lead:Lead,services:LeadService[],data:OpsData){
 function cell(label:string,value:any){return `<div class="cell"><small>${h(label)}</small><b>${h(String(value??''))}</b></div>`}
 function h(v:any){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]||m));}
 function dateFmt(d:any){return d?new Date(`${d}T12:00:00`).toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'}):'Fecha por definir';}
+
+function extractDriveId(url:string){
+  const match=url.match(/(?:\/d\/|id=|folders\/)([A-Za-z0-9_-]{10,})/);
+  return match?.[1]||null;
+}
 
 const printCss=`
 *{box-sizing:border-box}body{margin:0;background:#f4f0e8;color:#151515;font-family:Arial,Helvetica,sans-serif}.print-tools{position:sticky;top:0;padding:10px 20px;background:#111;display:flex;justify-content:flex-end}.print-tools button{border:0;background:#fff;color:#111;padding:9px 14px;border-radius:999px;font-weight:700;cursor:pointer}main{max-width:1000px;margin:24px auto;background:#fff;padding:38px}.brand{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:18px}.brand span,.section-title small{font-size:10px;letter-spacing:.12em}.brand h1{font-size:30px;margin:6px 0 0}.code{font-size:15px;font-weight:800}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}.summary>div,.cell{border:1px solid #d8d2c8;border-radius:8px;padding:10px}.summary small,.cell small{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#6c665f;margin-bottom:5px}.summary b,.cell b{font-size:11px}.section-title{margin:28px 0 12px}.section-title h2{margin:0 0 5px;font-size:18px}.section-title p{margin:0;color:#5f5a53;font-size:11px}.service-card,.voucher-service{border:1px solid #d8d2c8;border-radius:10px;padding:16px;margin-bottom:12px;break-inside:avoid}.service-head{display:flex;justify-content:space-between;gap:20px;margin-bottom:12px}.service-head h2,.voucher-service h2,.itinerary-row h2{margin:3px 0;font-size:17px}.service-head small,.voucher-service small,.itinerary-row small{font-size:9px;color:#6c665f}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.note{font-size:10px;line-height:1.45;background:#f7f4ef;padding:9px;border-radius:7px;margin:9px 0 0}.notice{border:1px solid #111;padding:12px;margin-top:18px;font-size:10px;line-height:1.45}.itinerary-row{display:grid;grid-template-columns:38px 1fr;gap:14px;border-top:1px solid #d8d2c8;padding:16px 0;break-inside:avoid}.day{width:32px;height:32px;border:1px solid #111;border-radius:50%;display:grid;place-items:center;font-weight:800}.itinerary-row p{margin:4px 0;font-size:10px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid #d8d2c8;padding:7px;text-align:left;vertical-align:top}th{background:#f3f0ea;text-transform:uppercase;font-size:7px;letter-spacing:.06em}footer{margin-top:28px;padding-top:12px;border-top:1px solid #d8d2c8;color:#777;font-size:8px}@media print{body{background:#fff}.print-tools{display:none}main{max-width:none;margin:0;padding:0}.service-card,.voucher-service,.itinerary-row{page-break-inside:avoid}}@media(max-width:700px){main{margin:0;padding:18px}.summary,.grid{grid-template-columns:1fr 1fr}}
