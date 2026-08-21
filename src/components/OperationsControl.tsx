@@ -59,12 +59,20 @@ export default function OperationsControl({
           passengers:passengers.length>=Math.max(1,Number(service.numero_pax||lead?.numero_pax||1)),
           risk:Boolean(risk?.url)||String(risk?.status||'').toLowerCase().includes('complet')
         };
-        const score=Object.values(checks).filter(Boolean).length;
-        const ready=score===6;
+        // Si existe un proveedor responsable, entendemos que el tour puede estar derivado
+        // completamente. En ese caso guía, conductor y vehículo pasan a ser información
+        // opcional del proveedor y no bloquean la salida.
+        const delegated=checks.supplier;
+        const requiredKeys=delegated
+          ? (['supplier','passengers','risk'] as const)
+          : (['guide','driver','vehicle','passengers','risk'] as const);
+        const score=requiredKeys.filter(k=>checks[k]).length;
+        const target=requiredKeys.length;
+        const ready=score===target;
         const date=service.fecha_servicio?startOfDay(new Date(`${service.fecha_servicio}T12:00:00`)):null;
         const hours=date?(date.getTime()-Date.now())/36e5:null;
         const urgent=!ready&&hours!==null&&hours>=0&&hours<=48;
-        return {service,lead,assignment,passengers,risk,checks,score,ready,date,urgent};
+        return {service,lead,assignment,passengers,risk,checks,score,target,ready,date,urgent,delegated};
       })
       .filter(row=>{
         if(horizon==='upcoming'&&row.date&&row.date<today)return false;
@@ -94,14 +102,18 @@ export default function OperationsControl({
       const assignment=ops.assignments.find(a=>a.lead_service_id===service.id);
       const passengers=ops.passengers.filter(p=>p.lead_id===service.lead_id);
       const risk=ops.documents.find(d=>d.lead_id===service.lead_id&&d.document_type==='risk_sheet');
-      const ready=[
-        assignment?.supplier_id,
-        assignment?.guide_person_id||assignment?.guide_name,
-        assignment?.driver_person_id||assignment?.driver_name,
-        assignment?.vehicle_id,
-        passengers.length>=Math.max(1,Number(service.numero_pax||lead?.numero_pax||1)),
-        Boolean(risk?.url)||String(risk?.status||'').toLowerCase().includes('complet')
-      ].every(Boolean);
+      const hasSupplier=Boolean(assignment?.supplier_id);
+      const paxOk=passengers.length>=Math.max(1,Number(service.numero_pax||lead?.numero_pax||1));
+      const riskOk=Boolean(risk?.url)||String(risk?.status||'').toLowerCase().includes('complet');
+      const ready=hasSupplier
+        ? [hasSupplier,paxOk,riskOk].every(Boolean)
+        : [
+            assignment?.guide_person_id||assignment?.guide_name,
+            assignment?.driver_person_id||assignment?.driver_name,
+            assignment?.vehicle_id,
+            paxOk,
+            riskOk
+          ].every(Boolean);
       const date=service.fecha_servicio?new Date(`${service.fecha_servicio}T12:00:00`):null;
       const urgent=!ready&&date&&((date.getTime()-Date.now())/36e5)>=0&&((date.getTime()-Date.now())/36e5)<=48;
       return {ready,urgent};
@@ -120,7 +132,7 @@ export default function OperationsControl({
         <div>
           <span className="eyebrow">CONTROL DE SALIDAS</span>
           <h2 style={{fontSize:30,margin:'6px 0'}}>¿Está lista la operación?</h2>
-          <p style={{margin:0,color:'#6e685f',maxWidth:680,lineHeight:1.5}}>Cada tour se considera listo cuando tiene proveedor, guía, conductor, vehículo, pasajeros completos y hoja de riesgo registrada.</p>
+          <p style={{margin:0,color:'#6e685f',maxWidth:680,lineHeight:1.5}}>El control se adapta a la forma de ejecutar el tour. Si asignas un proveedor responsable, el servicio puede quedar derivado sin exigir guía, conductor ni vehículo propios. Si no hay proveedor responsable, se controla la coordinación directa.</p>
         </div>
         <button className="operation-button" onClick={load}><Truck size={14}/> Actualizar operación</button>
       </div>
@@ -150,19 +162,19 @@ export default function OperationsControl({
       <div style={{padding:'18px 20px',borderBottom:'1px solid #d7d0c5'}}><h2 style={{margin:0,fontSize:21}}>Salidas</h2><p style={{margin:'4px 0 0',fontSize:11,color:'#6e685f'}}>{rows.length} servicio(s) según los filtros actuales.</p></div>
       <div style={{overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse'}}>
-          <thead><tr><th>Fecha</th><th>Cliente / tour</th><th>Proveedor</th><th>Guía</th><th>Conductor</th><th>Vehículo</th><th>Pax</th><th>Riesgo</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Cliente / tour</th><th>Ejecución</th><th>Proveedor</th><th>Guía</th><th>Conductor</th><th>Vehículo</th><th>Pax</th><th>Riesgo</th><th>Estado</th><th></th></tr></thead>
           <tbody>{rows.map(row=>{
-            const missing=missingLabels(row.checks);
             return <tr key={row.service.id} style={row.urgent?{background:'#fff3ee'}:undefined}>
               <td><strong>{dateFmt(row.service.fecha_servicio)}</strong>{row.urgent&&<span style={{display:'block',fontSize:8,fontWeight:800,color:'#9f3124',marginTop:4}}>≤ 48 HORAS</span>}</td>
               <td><button onClick={()=>row.lead&&onLead(row.lead)} style={linkButton}><strong>{row.lead?.reserva||'Cliente'}</strong><span style={{display:'block',fontSize:9,color:'#6e685f'}}>{row.lead?.codigo||'—'} · {row.service.producto}</span></button></td>
-              <ReadyCell ok={row.checks.supplier} label="Proveedor" icon={<Building2 size={13}/>}/>
-              <ReadyCell ok={row.checks.guide} label="Guía" icon={<Users size={13}/>}/>
-              <ReadyCell ok={row.checks.driver} label="Conductor" icon={<Users size={13}/>}/>
-              <ReadyCell ok={row.checks.vehicle} label="Vehículo" icon={<CarFront size={13}/>}/>
+              <td><span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:9,fontWeight:800,color:row.delegated?'#2f5f8f':'#6e685f'}}>{row.delegated?<><Building2 size={13}/> DERIVADA</>:<><Wrench size={13}/> DIRECTA</>}</span></td>
+              <ReadyCell ok={row.checks.supplier} optional={!row.delegated} label={row.delegated?'Responsable':'Opcional'} icon={<Building2 size={13}/>}/>
+              <ReadyCell ok={row.checks.guide} optional={row.delegated} label={row.delegated&&!row.checks.guide?'Proveedor': 'Guía'} icon={<Users size={13}/>}/>
+              <ReadyCell ok={row.checks.driver} optional={row.delegated} label={row.delegated&&!row.checks.driver?'Proveedor':'Conductor'} icon={<Users size={13}/>}/>
+              <ReadyCell ok={row.checks.vehicle} optional={row.delegated} label={row.delegated&&!row.checks.vehicle?'Proveedor':'Vehículo'} icon={<CarFront size={13}/>}/>
               <ReadyCell ok={row.checks.passengers} label={`${row.passengers.length}/${Math.max(1,Number(row.service.numero_pax||1))}`} icon={<Users size={13}/>}/>
               <ReadyCell ok={row.checks.risk} label="Riesgo" icon={<ClipboardCheck size={13}/>}/>
-              <td><div style={{display:'grid',gap:4,minWidth:110}}><span style={{fontWeight:800,fontSize:11,color:row.ready?'#247244':'#8e5c1c'}}>{row.ready?'LISTA':`${row.score}/6`}</span>{!row.ready&&<small style={{fontSize:8,color:'#6e685f',lineHeight:1.25}}>{missing.join(' · ')}</small>}</div></td>
+              <td><div style={{display:'grid',gap:4,minWidth:110}}><span style={{fontWeight:800,fontSize:11,color:row.ready?'#247244':'#8e5c1c'}}>{row.ready?'LISTA':`${row.score}/${row.target}`}</span>{!row.ready&&<small style={{fontSize:8,color:'#6e685f',lineHeight:1.25}}>{missingLabels(row.checks,row.delegated).join(' · ')}</small>}</div></td>
               <td><button className="operation-button" onClick={()=>onOperation(row.service)}><Wrench size={13}/> {row.ready?'Revisar':'Completar'}</button></td>
             </tr>
           })}</tbody>
@@ -173,8 +185,9 @@ export default function OperationsControl({
   </div>
 }
 
-function ReadyCell({ok,label,icon}:{ok:boolean;label:string;icon:React.ReactNode}){
-  return <td><span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:9,fontWeight:700,color:ok?'#247244':'#8a8177'}}>{ok?<CheckCircle2 size={14}/>:<AlertCircle size={14}/>} {icon}{label}</span></td>;
+function ReadyCell({ok,label,icon,optional=false}:{ok:boolean;label:string;icon:React.ReactNode;optional?:boolean}){
+  const color=ok?'#247244':optional?'#8a8177':'#9b5c1d';
+  return <td><span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:9,fontWeight:700,color}}>{ok?<CheckCircle2 size={14}/>:optional?<span style={{fontSize:11}}>—</span>:<AlertCircle size={14}/>} {icon}{label}</span></td>;
 }
 
 function Metric({label,value,icon,good,warn,danger}:{label:string;value:number;icon:React.ReactNode;good?:boolean;warn?:boolean;danger?:boolean}){
@@ -182,9 +195,15 @@ function Metric({label,value,icon,good,warn,danger}:{label:string;value:number;i
   return <div className="surface-card" style={{padding:16,display:'grid',gridTemplateColumns:'38px 1fr',gap:10,alignItems:'center'}}><div style={{width:36,height:36,border:'1px solid #cfc8bd',borderRadius:'50%',display:'grid',placeItems:'center',color}}>{icon}</div><div><span style={{display:'block',fontSize:9,textTransform:'uppercase',letterSpacing:'.08em',color:'#6e685f'}}>{label}</span><strong style={{fontSize:27,lineHeight:1,color}}>{value}</strong></div></div>;
 }
 
-function missingLabels(checks:any){
+function missingLabels(checks:any,delegated:boolean){
+  if(delegated){
+    return [
+      !checks.supplier&&'Proveedor',
+      !checks.passengers&&'Pax',
+      !checks.risk&&'Hoja riesgo'
+    ].filter(Boolean) as string[];
+  }
   return [
-    !checks.supplier&&'Proveedor',
     !checks.guide&&'Guía',
     !checks.driver&&'Conductor',
     !checks.vehicle&&'Vehículo',
