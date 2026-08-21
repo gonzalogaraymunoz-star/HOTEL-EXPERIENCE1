@@ -164,7 +164,7 @@ export default function FinancialReconciliationPanel({
         service,lead,assignment,closure,record,closed,grossSale,refundAmount,refundPaid,
         expectedNetSale,clientCollected,clientCash,clientVariance,
         supplierCost,supplierCash,supplierVariance,extraCost,totalCost,expectedMargin,
-        refundResolved,balanced,legacy,drift,supplier
+        refundResolved,balanced,legacy,drift,supplier,clientLegacyPaid,supplierLegacyPaid
       };
     }).sort((a,b)=>{
       if(a.record?.status==='reconciled'!== (b.record?.status==='reconciled')){
