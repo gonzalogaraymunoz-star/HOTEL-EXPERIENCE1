@@ -1,12 +1,13 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {
-  CalendarDays,ChevronLeft,ChevronRight,Clock3,Filter,GripVertical,
-  List,Rows3,Square,Users,MapPin
+  Building2,CalendarDays,ChevronLeft,ChevronRight,Clock3,Filter,GripVertical,
+  List,MapPin,Rows3,Square,Truck,Users
 } from 'lucide-react';
-import type {Lead,LeadService} from '../types';
-import {updateService} from '../lib/api';
+import type {Lead,LeadService,ServiceAssignment,Supplier} from '../types';
+import {loadOperationsData,updateService} from '../lib/api';
 
 type ViewMode='month'|'week'|'day'|'agenda';
+type OpsState={assignments:ServiceAssignment[];suppliers:Supplier[]};
 
 export default function CalendarWorkspace({
   leads,services,onLead,onChanged,userRole
@@ -15,15 +16,54 @@ export default function CalendarWorkspace({
   const [cursor,setCursor]=useState(()=>startOfDay(new Date()));
   const [selectedDate,setSelectedDate]=useState(()=>isoDate(new Date()));
   const [statuses,setStatuses]=useState<string[]>(['Pendiente','Coordinado','En curso','Completado']);
+  const [confirmedOnly,setConfirmedOnly]=useState(true);
+  const [ops,setOps]=useState<OpsState>({assignments:[],suppliers:[]});
   const canEdit=userRole!=='viewer';
 
-  const dated=useMemo(()=>services.filter(s=>s.fecha_servicio),[services]);
-  const undated=useMemo(()=>services.filter(s=>!s.fecha_servicio),[services]);
-  const visible=useMemo(()=>dated.filter(s=>statuses.includes(s.estado_operacion||'Pendiente')),[dated,statuses]);
+  const loadOps=async()=>{
+    try{
+      const data=await loadOperationsData();
+      setOps({
+        assignments:(data.assignments||[]) as ServiceAssignment[],
+        suppliers:(data.suppliers||[]) as Supplier[]
+      });
+    }catch{
+      setOps({assignments:[],suppliers:[]});
+    }
+  };
+  useEffect(()=>{loadOps()},[]);
+
+  const leadFor=(id:string)=>leads.find(l=>l.id===id);
+  const contextFor=(service:LeadService)=>{
+    const assignment=ops.assignments.find(a=>a.lead_service_id===service.id);
+    const supplier=ops.suppliers.find(s=>s.id===assignment?.supplier_id);
+    const mode=assignment?.operation_mode||(assignment?.supplier_id?'delegated_full':'direct');
+    return {assignment,supplier,mode};
+  };
+
+  const scoped=useMemo(()=>services.filter(s=>{
+    if(confirmedOnly){
+      const lead=leads.find(l=>l.id===s.lead_id);
+      if(lead?.estado!=='confirmado')return false;
+    }
+    return true;
+  }),[services,leads,confirmedOnly]);
+
+  const dated=useMemo(()=>scoped.filter(s=>s.fecha_servicio),[scoped]);
+  const undated=useMemo(()=>scoped.filter(s=>!s.fecha_servicio),[scoped]);
+  const visible=useMemo(
+    ()=>dated.filter(s=>statuses.includes(s.estado_operacion||'Pendiente')),
+    [dated,statuses]
+  );
+
+  const todayIso=isoDate(new Date());
+  const tomorrowIso=isoDate(addDays(new Date(),1));
+  const todayCount=visible.filter(s=>s.fecha_servicio===todayIso).length;
+  const tomorrowCount=visible.filter(s=>s.fecha_servicio===tomorrowIso).length;
 
   useEffect(()=>{
     const handler=(e:KeyboardEvent)=>{
-      if((e.target as HTMLElement)?.tagName==='INPUT'||(e.target as HTMLElement)?.tagName==='TEXTAREA'||(e.target as HTMLElement)?.tagName==='SELECT')return;
+      if(['INPUT','TEXTAREA','SELECT'].includes((e.target as HTMLElement)?.tagName))return;
       const k=e.key.toLowerCase();
       if(k==='t'){e.preventDefault();goToday();}
       if(k==='m'||k==='3'){e.preventDefault();setView('month');}
@@ -47,7 +87,6 @@ export default function CalendarWorkspace({
     else if(view==='day')setCursor(addDays(cursor,dir));
     else setCursor(addDays(cursor,14*dir));
   };
-
   const handleDrop=async(serviceId:string,date:string)=>{
     if(!canEdit)return;
     await updateService(serviceId,{fecha_servicio:date});
@@ -55,7 +94,6 @@ export default function CalendarWorkspace({
     onChanged();
   };
 
-  const leadFor=(id:string)=>leads.find(l=>l.id===id);
   const label=periodLabel(cursor,view);
 
   return <div className="calendar-workspace">
@@ -64,26 +102,39 @@ export default function CalendarWorkspace({
         <button className="today-button" onClick={goToday}>Hoy</button>
         <button className="icon-button compact-icon" onClick={()=>move(-1)} title="Periodo anterior"><ChevronLeft size={18}/></button>
         <button className="icon-button compact-icon" onClick={()=>move(1)} title="Periodo siguiente"><ChevronRight size={18}/></button>
-        <h2>{label}</h2>
+        <div>
+          <h2 style={{marginBottom:2}}>{label}</h2>
+          <small style={{fontSize:9,color:'#6e685f'}}>Calendario vivo desde las reservas · mover una fecha actualiza el servicio, no crea duplicados.</small>
+        </div>
       </div>
       <div className="calendar-view-switch">
-        <button className={view==='month'?'active':''} onClick={()=>setView('month')} title="Mes · M"><CalendarDays size={16}/> Mes</button>
-        <button className={view==='week'?'active':''} onClick={()=>setView('week')} title="Semana · W"><Rows3 size={16}/> Semana</button>
-        <button className={view==='day'?'active':''} onClick={()=>setView('day')} title="Día · D"><Square size={16}/> Día</button>
-        <button className={view==='agenda'?'active':''} onClick={()=>setView('agenda')} title="Agenda · A"><List size={16}/> Agenda</button>
+        <button className={view==='month'?'active':''} onClick={()=>setView('month')}><CalendarDays size={16}/> Mes</button>
+        <button className={view==='week'?'active':''} onClick={()=>setView('week')}><Rows3 size={16}/> Semana</button>
+        <button className={view==='day'?'active':''} onClick={()=>setView('day')}><Square size={16}/> Día</button>
+        <button className={view==='agenda'?'active':''} onClick={()=>setView('agenda')}><List size={16}/> Agenda</button>
       </div>
     </header>
 
     <div className="calendar-body">
       <aside className="calendar-sidebar-panel">
-        <MiniMonth cursor={cursor} selectedDate={selectedDate} onSelect={date=>{setSelectedDate(date);setCursor(parseISO(date));}} visible={visible}/>
+        <MiniMonth cursor={cursor} selectedDate={selectedDate} onSelect={(date:string)=>{setSelectedDate(date);setCursor(parseISO(date));}} visible={visible}/>
+
         <section className="calendar-filter-box">
-          <div className="filter-title"><Filter size={15}/><b>Operación</b></div>
+          <div className="filter-title"><Truck size={15}/><b>Operación</b></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:10}}>
+            <MiniMetric label="Hoy" value={todayCount}/>
+            <MiniMetric label="Mañana" value={tomorrowCount}/>
+          </div>
+          <label className="calendar-check">
+            <input type="checkbox" checked={confirmedOnly} onChange={e=>setConfirmedOnly(e.target.checked)}/>
+            <span>Solo reservas confirmadas</span>
+          </label>
           {['Pendiente','Coordinado','En curso','Completado','Cancelado'].map(status=><label key={status} className="calendar-check">
             <input type="checkbox" checked={statuses.includes(status)} onChange={()=>setStatuses(s=>s.includes(status)?s.filter(x=>x!==status):[...s,status])}/>
             <span className={`calendar-color ${slug(status)}`}/><span>{status}</span>
           </label>)}
         </section>
+
         <section className="calendar-filter-box">
           <div className="filter-title"><Clock3 size={15}/><b>Sin fecha</b><span className="sidebar-counter">{undated.length}</span></div>
           <div className="undated-list">
@@ -95,16 +146,20 @@ export default function CalendarWorkspace({
             {!undated.length&&<small>Todo tiene fecha asignada.</small>}
           </div>
         </section>
-        <div className="calendar-shortcuts">
-          <b>Atajos</b><span>T hoy · M mes · W semana · D día · A agenda</span>
-        </div>
+
+        <section className="calendar-filter-box">
+          <div className="filter-title"><Filter size={15}/><b>Lectura</b></div>
+          <small style={{fontSize:9,lineHeight:1.45,color:'#6e685f'}}>
+            Cada evento toma pickup, proveedor, modalidad de ejecución, hotel y pax desde la misma reserva operacional.
+          </small>
+        </section>
       </aside>
 
       <main className="calendar-main-panel">
-        {view==='month'&&<MonthView cursor={cursor} selectedDate={selectedDate} setSelectedDate={setSelectedDate} services={visible} leadFor={leadFor} onLead={onLead} onDrop={handleDrop} canEdit={canEdit} setCursor={setCursor} setView={setView}/>}
-        {view==='week'&&<WeekView cursor={cursor} selectedDate={selectedDate} setSelectedDate={setSelectedDate} services={visible} leadFor={leadFor} onLead={onLead} onDrop={handleDrop} canEdit={canEdit}/>}
-        {view==='day'&&<DayView cursor={cursor} services={visible} leadFor={leadFor} onLead={onLead}/>}
-        {view==='agenda'&&<AgendaView cursor={cursor} services={visible} leadFor={leadFor} onLead={onLead}/>}
+        {view==='month'&&<MonthView cursor={cursor} selectedDate={selectedDate} setSelectedDate={setSelectedDate} services={visible} leadFor={leadFor} contextFor={contextFor} onLead={onLead} onDrop={handleDrop} canEdit={canEdit} setCursor={setCursor} setView={setView}/>}
+        {view==='week'&&<WeekView cursor={cursor} selectedDate={selectedDate} setSelectedDate={setSelectedDate} services={visible} leadFor={leadFor} contextFor={contextFor} onLead={onLead} onDrop={handleDrop} canEdit={canEdit}/>}
+        {view==='day'&&<DayView cursor={cursor} services={visible} leadFor={leadFor} contextFor={contextFor} onLead={onLead}/>}
+        {view==='agenda'&&<AgendaView cursor={cursor} services={visible} leadFor={leadFor} contextFor={contextFor} onLead={onLead}/>}
       </main>
     </div>
   </div>
@@ -117,109 +172,134 @@ function MiniMonth({cursor,selectedDate,onSelect,visible}:any){
   return <section className="mini-month">
     <header><b>{monthYear(cursor)}</b></header>
     <div className="mini-weekdays">{['L','M','X','J','V','S','D'].map(x=><span key={x}>{x}</span>)}</div>
-    <div className="mini-grid">
-      {days.map(d=>{
-        const iso=isoDate(d),outside=d.getMonth()!==cursor.getMonth();
-        return <button key={iso} className={`${outside?'outside ':''}${selectedDate===iso?'selected ':''}${isToday(d)?'today':''}`} onClick={()=>onSelect(iso)}>
-          <span>{d.getDate()}</span>{counts[iso]?<i/>:null}
-        </button>
-      })}
-    </div>
+    <div className="mini-grid">{days.map(d=>{
+      const iso=isoDate(d),outside=d.getMonth()!==cursor.getMonth();
+      return <button key={iso} className={`${outside?'outside ':''}${selectedDate===iso?'selected ':''}${isToday(d)?'today':''}`} onClick={()=>onSelect(iso)}>
+        <span>{d.getDate()}</span>{counts[iso]?<i/>:null}
+      </button>
+    })}</div>
   </section>
 }
 
-function MonthView({cursor,selectedDate,setSelectedDate,services,leadFor,onLead,onDrop,canEdit,setCursor,setView}:any){
+function MonthView({cursor,selectedDate,setSelectedDate,services,leadFor,contextFor,onLead,onDrop,canEdit,setCursor,setView}:any){
   const first=startOfWeek(startOfMonth(cursor));
   const days=Array.from({length:42},(_,i)=>addDays(first,i));
   return <div className="month-calendar">
     <div className="month-weekdays">{['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x=><div key={x}>{x}</div>)}</div>
-    <div className="month-grid">
-      {days.map(d=>{
-        const iso=isoDate(d);
-        const events=services.filter((s:LeadService)=>s.fecha_servicio===iso);
-        const outside=d.getMonth()!==cursor.getMonth();
-        return <section key={iso} className={`month-cell ${outside?'outside':''} ${isToday(d)?'today':''} ${selectedDate===iso?'selected':''}`}
-          onClick={()=>setSelectedDate(iso)}
-          onDragOver={e=>canEdit&&e.preventDefault()}
-          onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('service');if(id)onDrop(id,iso);}}>
-          <button className="day-number" onDoubleClick={()=>{setCursor(d);setView('day')}}>{d.getDate()}</button>
-          <div className="month-events">
-            {events.slice(0,3).map((s:LeadService)=><CalendarEvent key={s.id} service={s} lead={leadFor(s.lead_id)} onLead={onLead} draggable={canEdit}/>)}
-            {events.length>3&&<button className="more-events" onClick={e=>{e.stopPropagation();setCursor(d);setView('day')}}>+{events.length-3} más</button>}
-          </div>
-        </section>
-      })}
-    </div>
+    <div className="month-grid">{days.map(d=>{
+      const iso=isoDate(d);
+      const events=sortByPickup(services.filter((s:LeadService)=>s.fecha_servicio===iso),contextFor);
+      const outside=d.getMonth()!==cursor.getMonth();
+      return <section key={iso} className={`month-cell ${outside?'outside':''} ${isToday(d)?'today':''} ${selectedDate===iso?'selected':''}`}
+        onClick={()=>setSelectedDate(iso)}
+        onDragOver={e=>canEdit&&e.preventDefault()}
+        onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('service');if(id)onDrop(id,iso);}}>
+        <button className="day-number" onDoubleClick={()=>{setCursor(d);setView('day')}}>{d.getDate()}</button>
+        <div className="month-events">
+          {events.slice(0,3).map((s:LeadService)=><CalendarEvent key={s.id} service={s} lead={leadFor(s.lead_id)} context={contextFor(s)} onLead={onLead} draggable={canEdit}/>)}
+          {events.length>3&&<button className="more-events" onClick={e=>{e.stopPropagation();setCursor(d);setView('day')}}>+{events.length-3} más</button>}
+        </div>
+      </section>
+    })}</div>
   </div>
 }
 
-function WeekView({cursor,selectedDate,setSelectedDate,services,leadFor,onLead,onDrop,canEdit}:any){
+function WeekView({cursor,selectedDate,setSelectedDate,services,leadFor,contextFor,onLead,onDrop,canEdit}:any){
   const start=startOfWeek(cursor);
   const days=Array.from({length:7},(_,i)=>addDays(start,i));
   return <div className="week-calendar">
-    <div className="week-label-column"><div className="week-all-day-label">TODO<br/>EL DÍA</div></div>
+    <div className="week-label-column"><div className="week-all-day-label">PICKUP<br/>/ DÍA</div></div>
     {days.map(d=>{
-      const iso=isoDate(d),events=services.filter((s:LeadService)=>s.fecha_servicio===iso);
+      const iso=isoDate(d),events=sortByPickup(services.filter((s:LeadService)=>s.fecha_servicio===iso),contextFor);
       return <section key={iso} className={`week-day ${isToday(d)?'today':''} ${selectedDate===iso?'selected':''}`}
         onClick={()=>setSelectedDate(iso)}
         onDragOver={e=>canEdit&&e.preventDefault()}
         onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('service');if(id)onDrop(id,iso);}}>
         <header><span>{weekdayShort(d)}</span><strong>{d.getDate()}</strong></header>
         <div className="week-event-area">
-          {events.map((s:LeadService)=><CalendarEvent key={s.id} service={s} lead={leadFor(s.lead_id)} onLead={onLead} draggable={canEdit} expanded/>)}
+          {events.map((s:LeadService)=><CalendarEvent key={s.id} service={s} lead={leadFor(s.lead_id)} context={contextFor(s)} onLead={onLead} draggable={canEdit} expanded/>)}
           {!events.length&&<span className="empty-day">Sin servicios</span>}
         </div>
       </section>
-    })}
-  </div>
+    })}</div>
 }
 
-function DayView({cursor,services,leadFor,onLead}:any){
-  const iso=isoDate(cursor),events=services.filter((s:LeadService)=>s.fecha_servicio===iso);
+function DayView({cursor,services,leadFor,contextFor,onLead}:any){
+  const iso=isoDate(cursor),events=sortByPickup(services.filter((s:LeadService)=>s.fecha_servicio===iso),contextFor);
   return <div className="day-calendar">
     <header className="day-view-header"><span>{weekdayLong(cursor)}</span><strong>{cursor.getDate()}</strong><small>{monthYear(cursor)}</small></header>
-    <div className="day-all-day-row"><div className="day-time-label">TODO EL DÍA</div><div className="day-events-list">
-      {events.map((s:LeadService)=><DetailedEvent key={s.id} service={s} lead={leadFor(s.lead_id)} onLead={onLead}/>)}
+    <div className="day-all-day-row"><div className="day-time-label">OPERACIÓN</div><div className="day-events-list">
+      {events.map((s:LeadService)=><DetailedEvent key={s.id} service={s} lead={leadFor(s.lead_id)} context={contextFor(s)} onLead={onLead}/>)}
       {!events.length&&<div className="empty-calendar-day">No hay experiencias programadas para este día.</div>}
     </div></div>
   </div>
 }
 
-function AgendaView({cursor,services,leadFor,onLead}:any){
+function AgendaView({cursor,services,leadFor,contextFor,onLead}:any){
   const from=isoDate(addDays(cursor,-7)),to=isoDate(addDays(cursor,30));
-  const upcoming=services.filter((s:LeadService)=>s.fecha_servicio!>=from&&s.fecha_servicio!<=to).sort((a:LeadService,b:LeadService)=>String(a.fecha_servicio).localeCompare(String(b.fecha_servicio)));
-  const groups:any={}; upcoming.forEach((s:LeadService)=>(groups[s.fecha_servicio!]||=[]).push(s));
+  const upcoming=services.filter((s:LeadService)=>s.fecha_servicio!>=from&&s.fecha_servicio!<=to)
+    .sort((a:LeadService,b:LeadService)=>String(a.fecha_servicio).localeCompare(String(b.fecha_servicio)));
+  const groups:any={};upcoming.forEach((s:LeadService)=>(groups[s.fecha_servicio!]||=[]).push(s));
   return <div className="agenda-calendar">
     {Object.entries(groups).map(([date,items]:any)=><section className="agenda-day" key={date}>
       <header><div><strong>{parseISO(date).getDate()}</strong><span>{weekdayShort(parseISO(date))}</span></div><p>{longDate(parseISO(date))}</p></header>
-      <div>{items.map((s:LeadService)=><DetailedEvent key={s.id} service={s} lead={leadFor(s.lead_id)} onLead={onLead}/>)}</div>
+      <div>{sortByPickup(items,contextFor).map((s:LeadService)=><DetailedEvent key={s.id} service={s} lead={leadFor(s.lead_id)} context={contextFor(s)} onLead={onLead}/>)}</div>
     </section>)}
     {!upcoming.length&&<div className="empty-calendar-day">No hay servicios en este rango.</div>}
   </div>
 }
 
-function CalendarEvent({service,lead,onLead,draggable,expanded=false}:any){
+function CalendarEvent({service,lead,context,onLead,draggable,expanded=false}:any){
+  const pickup=context.assignment?.pickup_time?String(context.assignment.pickup_time).slice(0,5):null;
   return <button className={`calendar-event ${slug(service.estado_operacion)} ${expanded?'expanded':''}`}
     draggable={draggable}
     onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData('service',service.id);e.dataTransfer.effectAllowed='move'}}
     onClick={e=>{e.stopPropagation();lead&&onLead(lead)}}>
     {draggable&&expanded?<GripVertical size={13}/>:null}
     <span className="event-dot"/>
-    <b>{service.producto}</b>
-    {expanded&&<small>{lead?.reserva||'Lead'} · {service.numero_pax} pax</small>}
+    <b>{pickup?`${pickup} · `:''}{service.producto}</b>
+    {expanded&&<small>{lead?.reserva||'Lead'} · {service.numero_pax} pax{context.supplier?` · ${context.supplier.name}`:''}</small>}
   </button>
 }
 
-function DetailedEvent({service,lead,onLead}:any){
+function DetailedEvent({service,lead,context,onLead}:any){
+  const a=context.assignment;
+  const pickup=a?.pickup_time?String(a.pickup_time).slice(0,5):'Sin hora';
+  const mode=modeLabel(context.mode);
   return <button className={`detailed-event ${slug(service.estado_operacion)}`} onClick={()=>lead&&onLead(lead)}>
     <div className="event-status-line"/>
-    <div className="detailed-event-main"><strong>{service.producto}</strong><span>{lead?.reserva||'Lead'} · {lead?.codigo||''}</span></div>
+    <div className="detailed-event-main">
+      <strong>{pickup} · {service.producto}</strong>
+      <span>{lead?.reserva||'Lead'} · {lead?.codigo||''}</span>
+      {a?.meeting_point&&<small style={{display:'block',marginTop:3}}>{a.meeting_point}</small>}
+    </div>
     <div className="event-detail"><Users size={14}/><span>{service.numero_pax} pax</span></div>
     <div className="event-detail"><MapPin size={14}/><span>{lead?.empresa_ejecuta||'Sin hotel'}</span></div>
+    <div className="event-detail">{context.supplier?<Building2 size={14}/>:<Truck size={14}/>}<span>{context.supplier?.name||'Operación interna'} · {mode}</span></div>
     <span className="status-badge neutral">{service.estado_operacion}</span>
   </button>
 }
 
+function MiniMetric({label,value}:{label:string;value:number}){
+  return <div style={{border:'1px solid #ddd6cb',borderRadius:8,padding:'8px 9px'}}>
+    <small style={{display:'block',fontSize:8,textTransform:'uppercase',color:'#6e685f'}}>{label}</small>
+    <strong style={{fontSize:19}}>{value}</strong>
+  </div>
+}
+
+function sortByPickup(items:LeadService[],contextFor:(s:LeadService)=>any){
+  return [...items].sort((a,b)=>{
+    const aa=contextFor(a).assignment?.pickup_time||'99:99';
+    const bb=contextFor(b).assignment?.pickup_time||'99:99';
+    return String(aa).localeCompare(String(bb))||a.producto.localeCompare(b.producto);
+  });
+}
+
+function modeLabel(mode:string){
+  if(mode==='delegated_full')return 'Derivada integral';
+  if(mode==='delegated_partial')return 'Derivada parcial';
+  return 'Directa';
+}
 function startOfDay(d:Date){const x=new Date(d);x.setHours(0,0,0,0);return x}
 function addDays(d:Date,n:number){const x=new Date(d);x.setDate(x.getDate()+n);return x}
 function addMonths(d:Date,n:number){const x=new Date(d);x.setMonth(x.getMonth()+n);return x}
