@@ -8,7 +8,14 @@ import './DailyCommandCenter.css';
 type PaymentMovement={id:string;lead_service_id:string;party_type:'client'|'supplier';amount:number;paid_at:string};
 type OpsSnapshot={passengers:Passenger[];assignments:ServiceAssignment[];documents:ReservationDocument[];payments:PaymentMovement[]};
 type CoverageKey='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
+type DayRange=7|30|90|'all';
 const fullCoverage:CoverageKey[]=['vehicle','driver','guide','food','coordination','resources','entrances'];
+const rangeOptions:{value:DayRange;label:string}[]=[
+  {value:7,label:'7 días'},
+  {value:30,label:'30 días'},
+  {value:90,label:'90 días'},
+  {value:'all',label:'Todo'}
+];
 
 export default function DailyCommandCenter({
   leads,services,tasks,activities,onLead,onOpenOperations,onOpenPayments,onOpenAI
@@ -18,6 +25,7 @@ export default function DailyCommandCenter({
 }){
   const [ops,setOps]=useState<OpsSnapshot>({passengers:[],assignments:[],documents:[],payments:[]});
   const [loading,setLoading]=useState(true);
+  const [range,setRange]=useState<DayRange>(30);
 
   const load=async()=>{
     setLoading(true);
@@ -39,7 +47,7 @@ export default function DailyCommandCenter({
   };
   useEffect(()=>{load()},[]);
 
-  const model=useMemo(()=>buildModel({leads,services,tasks,activities,ops}),[leads,services,tasks,activities,ops]);
+  const model=useMemo(()=>buildModel({leads,services,tasks,activities,ops,range}),[leads,services,tasks,activities,ops,range]);
 
   return <section className="daily-command-center">
     <header className="dcc-head">
@@ -48,7 +56,13 @@ export default function DailyCommandCenter({
         <h2>{todayLabel()}</h2>
         <p>{loading?'Cruzando ventas, cobros y operación…':model.headline}</p>
       </div>
-      <button className="dcc-ai" onClick={onOpenAI}><Sparkles size={16}/> Analizar con IA</button>
+      <div className="dcc-head-actions">
+        <div className="dcc-range-filter" aria-label="Filtrar panel por días">
+          <span><Clock3 size={13}/> Rango</span>
+          <div>{rangeOptions.map(option=><button key={String(option.value)} className={range===option.value?'active':''} onClick={()=>setRange(option.value)}>{option.label}</button>)}</div>
+        </div>
+        <button className="dcc-ai" onClick={onOpenAI}><Sparkles size={16}/> Analizar con IA</button>
+      </div>
     </header>
 
     <div className="dcc-metrics">
@@ -67,12 +81,12 @@ export default function DailyCommandCenter({
     <div className="dcc-columns">
       <Column title="Comercial" icon={<Users size={17}/>} subtitle="Qué necesita seguimiento ahora">
         {model.commercial.slice(0,4).map(item=><ActionRow key={item.key} title={item.title} detail={item.detail} badge={item.badge} onClick={()=>item.lead&&onLead(item.lead)}/>) }
-        {!model.commercial.length&&<Empty text="No hay seguimientos urgentes detectados."/>}
+        {!model.commercial.length&&<Empty text="No hay seguimientos urgentes detectados en este rango."/>}
       </Column>
 
       <Column title="Finanzas" icon={<WalletCards size={17}/>} subtitle="Saldos reales registrados">
         {model.finance.slice(0,4).map(item=><ActionRow key={item.key} title={item.title} detail={item.detail} badge={item.badge} onClick={item.lead?()=>onLead(item.lead!):onOpenPayments}/>) }
-        {!model.finance.length&&<Empty text="No hay saldos pendientes cuantificados."/>}
+        {!model.finance.length&&<Empty text="No hay saldos pendientes en este rango."/>}
       </Column>
 
       <Column title="Operación" icon={<Truck size={17}/>} subtitle="Readiness adaptativo por ejecución">
@@ -81,22 +95,31 @@ export default function DailyCommandCenter({
           <div className="dcc-progress"><span style={{width:`${row.percent}%`}}/></div>
           <div className="dcc-readiness-bottom"><span className={row.ready?'ready':'review'}>{row.ready?'Lista para operar':'Por revisar'}</span><small>{row.note}</small></div>
         </button>)}
-        {!model.upcomingReservations.length&&<Empty text="No hay reservas próximas para revisar."/>}
+        {!model.upcomingReservations.length&&<Empty text="No hay reservas próximas en este rango."/>}
       </Column>
     </div>
   </section>;
 }
 
-function buildModel({leads,services,tasks,activities,ops}:{leads:Lead[];services:LeadService[];tasks:CRMTask[];activities:CRMActivity[];ops:OpsSnapshot}){
+function buildModel({leads,services,tasks,activities,ops,range}:{leads:Lead[];services:LeadService[];tasks:CRMTask[];activities:CRMActivity[];ops:OpsSnapshot;range:DayRange}){
   const today=startOfDay(new Date());
   const in48=new Date(Date.now()+48*3600*1000);
+  const rangeStart=range==='all'?null:new Date(today.getTime()-Number(range)*86400000);
+  const rangeEnd=range==='all'?null:new Date(today.getTime()+(Number(range)+1)*86400000-1);
+  const inRange=(value:any)=>{
+    if(range==='all')return true;
+    if(!value)return false;
+    const d=new Date(value);
+    return Number.isFinite(d.getTime())&&d>=rangeStart!&&d<=rangeEnd!;
+  };
+  const serviceDate=(s:LeadService)=>s.fecha_servicio?new Date(`${s.fecha_servicio}T12:00:00`):new Date(s.created_at);
   const assignmentByService=new Map(ops.assignments.map(a=>[a.lead_service_id,a]));
   const paymentsByService=new Map<string,PaymentMovement[]>();
   for(const p of ops.payments){const list=paymentsByService.get(p.lead_service_id)||[];list.push(p);paymentsByService.set(p.lead_service_id,list)}
 
   let clientPending=0,supplierPending=0;
   const finance:any[]=[];
-  for(const s of services){
+  for(const s of services.filter(s=>range==='all'||inRange(serviceDate(s)))){
     const lead=leads.find(l=>l.id===s.lead_id);
     const sale=Number(s.precio_venta||0);
     const assignment=assignmentByService.get(s.id);
@@ -118,7 +141,7 @@ function buildModel({leads,services,tasks,activities,ops}:{leads:Lead[];services
   for(const a of activities){if(a.lead_id&&!lastActivity.has(a.lead_id))lastActivity.set(a.lead_id,new Date(a.created_at).getTime())}
   const commercial:any[]=[];
   const openTasks=tasks.filter(t=>t.status!=='Completada');
-  const overdue=openTasks.filter(t=>t.due_date&&new Date(t.due_date).getTime()<Date.now());
+  const overdue=openTasks.filter(t=>t.due_date&&new Date(t.due_date).getTime()<Date.now()&&(range==='all'||inRange(t.due_date)));
   for(const t of overdue){
     const lead=t.lead_id?leads.find(l=>l.id===t.lead_id):undefined;
     commercial.push({key:`task-${t.id}`,lead,title:t.title,detail:`${lead?.reserva||'Tarea general'} · vencida`,badge:t.priority||'TAREA',score:100});
@@ -127,11 +150,17 @@ function buildModel({leads,services,tasks,activities,ops}:{leads:Lead[];services
     const ts=lastActivity.get(l.id)||new Date(l.updated_at||l.created_at).getTime();
     const days=Math.floor((Date.now()-ts)/86400000);
     const hasOpen=openTasks.some(t=>t.lead_id===l.id);
-    if(days>=2&&!hasOpen)commercial.push({key:`stale-${l.id}`,lead:l,title:`Retomar ${l.reserva}`,detail:`${cap(l.estado)} · ${days} días sin actividad registrada`,badge:'SEGUIMIENTO',score:60+days});
+    const visible=range==='all'||(rangeStart!==null&&new Date(ts)>=rangeStart);
+    if(days>=2&&!hasOpen&&visible)commercial.push({key:`stale-${l.id}`,lead:l,title:`Retomar ${l.reserva}`,detail:`${cap(l.estado)} · ${days} días sin actividad registrada`,badge:'SEGUIMIENTO',score:60+days});
   }
   commercial.sort((a,b)=>b.score-a.score);
 
-  const upcomingServices=services.filter(s=>s.estado_operacion!=='Cancelado'&&(!s.fecha_servicio||new Date(`${s.fecha_servicio}T23:59:00`)>=today));
+  const upcomingServices=services.filter(s=>{
+    if(s.estado_operacion==='Cancelado')return false;
+    if(!s.fecha_servicio)return range==='all';
+    const date=new Date(`${s.fecha_servicio}T23:59:00`);
+    return date>=today&&(range==='all'||date<=rangeEnd!);
+  });
   const rows=upcomingServices.map(service=>readinessForService(service,leads.find(l=>l.id===service.lead_id),ops,paymentsByService.get(service.id)||[]));
   const byLead=new Map<string,any[]>();
   for(const r of rows){if(!r.lead)continue;const list=byLead.get(r.lead.id)||[];list.push(r);byLead.set(r.lead.id,list)}
@@ -160,7 +189,8 @@ function buildModel({leads,services,tasks,activities,ops}:{leads:Lead[];services
     :commercialUrgent?{lead:commercialUrgent.lead,title:commercialUrgent.title,detail:commercialUrgent.detail}
     :moneyUrgent?{lead:moneyUrgent.lead,title:moneyUrgent.title,detail:moneyUrgent.detail}:null;
 
-  const headline=topPriority?`Hay una acción prioritaria: ${topPriority.title}. El resto del panel ya está ordenado por urgencia.`:'No detecté bloqueos críticos con los datos actuales.';
+  const rangeLabel=range==='all'?'todo el historial':`ventana de ${range} días`;
+  const headline=topPriority?`Hay una acción prioritaria en la ${rangeLabel}: ${topPriority.title}.`:`No detecté bloqueos críticos en la ${rangeLabel}.`;
   return {clientPending,supplierPending,finance,commercial,upcomingReservations,next48,readyReservations,avgReadiness,topPriority,headline};
 }
 
