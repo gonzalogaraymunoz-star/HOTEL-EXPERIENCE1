@@ -18,6 +18,7 @@ import ServiceOperationModal from './ServiceOperationModal';
 import TasksWorkspace from './TasksWorkspace';
 import OperationsAdminTools from './OperationsAdminTools';
 import OperationsControl from './OperationsControl';
+import FinancialWorkspace from './FinancialWorkspace';
 import { assertSupabase } from '../lib/supabase';
 
 type View = 'dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'ai'|'team';
@@ -123,8 +124,8 @@ export default function CRMApp({profile}:{profile:any}) {
         {view==='reservations'&&<ReservationsView leads={leads} services={services} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>}
         {view==='calendar'&&<CalendarWorkspace leads={leads} services={services} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>}
         {view==='tasks'&&<TasksWorkspace leads={leads} tasks={tasks} refresh={refresh}/>}
-        {view==='payments'&&<PaymentsView leads={leads} services={services} refresh={refresh}/>}
-        {view==='reports'&&<ReportsView leads={leads} services={services} totalSales={totalSales} paidSales={paidSales} conversion={conversion}/>}
+        {view==='payments'&&<FinancialWorkspace mode="payments" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>} 
+        {view==='reports'&&<FinancialWorkspace mode="reports" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>} 
         {view==='products'&&<ProductCatalogView role={profile?.role||'agent'}/>}
         {view==='suppliers'&&<OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/>}
         {view==='service_people'&&<OperationsHub role={profile?.role||'agent'} initialTab="people"/>}
