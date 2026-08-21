@@ -15,7 +15,12 @@ type CostItem={
   updated_at:string;
 };
 
+type CoverageKey='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
 const categories=['Entradas','Guía','Conductor','Vehículo','Alimentación','Insumos','Comisión','Otros'];
+const categoryCoverage:Record<string,CoverageKey|undefined>={
+  Entradas:'entrances',Guía:'guide',Conductor:'driver',Vehículo:'vehicle',Alimentación:'food',Insumos:'resources'
+};
+const coverageLabels:Record<CoverageKey,string>={vehicle:'vehículo',driver:'conductor',guide:'guía',food:'alimentación',coordination:'coordinación',resources:'insumos',entrances:'entradas'};
 
 export default function ServiceFinanceCard({
   service,assignment,suppliers,userRole,onChanged
@@ -33,7 +38,13 @@ export default function ServiceFinanceCard({
   const [amount,setAmount]=useState('');
   const [saving,setSaving]=useState(false);
   const canEdit=userRole!=='viewer';
-  const delegated=Boolean((assignment as any)?.supplier_id);
+  const supplierId=(assignment as any)?.supplier_id;
+  const operationMode=(assignment as any)?.operation_mode||(supplierId?'delegated_full':'direct');
+  const delegated=Boolean(supplierId)&&operationMode!=='direct';
+  const coverage:CoverageKey[]=operationMode==='delegated_full'
+    ? ['vehicle','driver','guide','food','coordination','resources','entrances']
+    : (Array.isArray((assignment as any)?.supplier_coverage)?(assignment as any).supplier_coverage:[]);
+  const supplier=suppliers.find(s=>s.id===supplierId);
 
   const load=async()=>{
     setLoading(true);
@@ -50,7 +61,7 @@ export default function ServiceFinanceCard({
   useEffect(()=>{load()},[service.id]);
 
   const sale=Number(service.precio_venta||0);
-  const supplierCost=Number((assignment as any)?.supplier_cost||0);
+  const supplierCost=delegated?Number((assignment as any)?.supplier_cost||0):0;
   const extraCosts=useMemo(()=>items.reduce((sum,item)=>sum+Number(item.amount||0),0),[items]);
   const totalCost=supplierCost+extraCosts;
   const margin=sale-totalCost;
@@ -59,6 +70,11 @@ export default function ServiceFinanceCard({
   const add=async()=>{
     const parsed=parseMoney(amount);
     if(parsed<=0)return alert('Ingresa un costo mayor a 0.');
+    const coveredKey=categoryCoverage[category];
+    if(delegated&&coveredKey&&coverage.includes(coveredKey)){
+      const ok=confirm(`${category} figura como cubierto por ${supplier?.name||'el proveedor'}. ¿Este monto es realmente un costo adicional fuera del precio de adquisición?`);
+      if(!ok)return;
+    }
     setSaving(true);
     try{
       const {data:{user}}=await assertSupabase().auth.getUser();
@@ -88,22 +104,33 @@ export default function ServiceFinanceCard({
     await load();onChanged?.();
   };
 
+  const modeLabel=operationMode==='delegated_full'?'Integral':operationMode==='delegated_partial'?'Parcial':'Directo';
+  const modeDescription=operationMode==='delegated_full'
+    ? `Compra integral a ${supplier?.name||'proveedor'}: el precio de adquisición es el costo principal del servicio.`
+    : operationMode==='delegated_partial'
+      ? `Compra parcial a ${supplier?.name||'proveedor'}: el precio de adquisición cubre ${coverage.length?coverage.map(x=>coverageLabels[x]).join(', '):'los ítems que selecciones'}.`
+      : 'Operación directa: agrega solo los costos que realmente correspondan.';
+
   return <div style={{marginTop:14,border:'1px solid #d7d0c5',borderRadius:14,padding:14,background:'#fbfaf7'}}>
     <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',flexWrap:'wrap'}}>
       <div>
         <span className="eyebrow">RENTABILIDAD DEL TOUR</span>
-        <h4 style={{margin:'4px 0 2px',fontSize:16}}>Venta, costos y margen</h4>
-        <p style={{margin:0,fontSize:10,color:'#6e685f'}}>{delegated?'Tour derivado: el costo del proveedor es el costo principal. Los demás son opcionales.':'Operación directa: agrega solo los costos que realmente correspondan.'}</p>
+        <h4 style={{margin:'4px 0 2px',fontSize:16}}>Venta, adquisición y margen</h4>
+        <p style={{margin:0,fontSize:10,color:'#6e685f'}}>{modeDescription}</p>
       </div>
-      <span className="mode-chip">{delegated?'Derivado':'Directo'}</span>
+      <span className="mode-chip">{modeLabel}</span>
     </div>
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:8,marginTop:12}}>
       <FinanceStat label="Venta" value={sale}/>
-      <FinanceStat label="Costo proveedor" value={supplierCost}/>
-      <FinanceStat label="Otros costos" value={extraCosts}/>
+      <FinanceStat label={delegated?'Precio adquisición':'Costo proveedor'} value={supplierCost}/>
+      <FinanceStat label="Costos adicionales" value={extraCosts}/>
       <FinanceStat label={`Margen ${sale>0?`· ${marginPct.toFixed(1)}%`:''}`} value={margin} emphasis/>
     </div>
+
+    {delegated&&coverage.length>0&&<div style={{marginTop:10,padding:'9px 10px',border:'1px solid #cbd8cd',borderRadius:10,background:'#f1f6f1',fontSize:9,lineHeight:1.4,color:'#3d5e42'}}>
+      <b>Incluido en adquisición:</b> {coverage.map(x=>coverageLabels[x]).join(' · ')}. Agrega debajo solo costos que queden fuera de ese precio.
+    </div>}
 
     {loading?<div style={{fontSize:10,color:'#6e685f',marginTop:12}}>Cargando costos…</div>:<>
       {items.length>0&&<div style={{display:'grid',gap:6,marginTop:12}}>
@@ -119,7 +146,7 @@ export default function ServiceFinanceCard({
 
       {canEdit&&<div style={{display:'grid',gridTemplateColumns:'130px minmax(160px,1fr) 130px auto',gap:6,alignItems:'end',marginTop:12}}>
         <label style={fieldStyle}><span style={labelStyle}>Tipo</span><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(x=><option key={x}>{x}</option>)}</select></label>
-        <label style={fieldStyle}><span style={labelStyle}>Detalle</span><input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Ej. Entrada Valle de la Luna"/></label>
+        <label style={fieldStyle}><span style={labelStyle}>Detalle</span><input value={description} onChange={e=>setDescription(e.target.value)} placeholder={delegated?'Ej. servicio extra fuera de adquisición':'Ej. Entrada Valle de la Luna'}/></label>
         <label style={fieldStyle}><span style={labelStyle}>Costo CLP</span><input inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value.replace(/[^\d.,]/g,''))} placeholder="0"/></label>
         <button className="secondary-button compact-btn" disabled={saving} onClick={add}><Plus size={14}/>{saving?'Guardando…':'Agregar costo'}</button>
       </div>}

@@ -2,6 +2,8 @@ export type LeadStatus='nuevo'|'contactado'|'cotizado'|'confirmado'|'perdido';
 export type PaymentStatus='Pendiente'|'Parcial'|'Pagado'|'Reembolsado';
 export type OperationStatus='Pendiente'|'Coordinado'|'En curso'|'Completado'|'Cancelado';
 export type TourModality='low'|'semiprivado'|'privado';
+export type OperationExecutionMode='direct'|'delegated_full'|'delegated_partial';
+export type SupplierCoverageKey='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
 
 export interface Lead{
   id:string;codigo:string;reserva:string;numero_pax:number;servicio?:string|null;
@@ -60,6 +62,7 @@ export interface ServiceAssignment{
   id:string;lead_service_id:string;supplier_id?:string|null;vehicle_id?:string|null;guide_person_id?:string|null;
   driver_person_id?:string|null;cook_person_id?:string|null;coordinator_person_id?:string|null;guide_name?:string|null;
   driver_name?:string|null;pickup_time?:string|null;meeting_point?:string|null;supplier_cost?:number|null;
+  operation_mode?:OperationExecutionMode|string|null;supplier_coverage?:SupplierCoverageKey[]|string[]|null;
   supplier_payment_status:string;supplier_payment_date?:string|null;notes?:string|null;created_by?:string|null;
   updated_by?:string|null;created_at:string;updated_at:string;
 }
