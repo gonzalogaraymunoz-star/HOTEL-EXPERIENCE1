@@ -2,10 +2,11 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {
   LayoutDashboard,Users,KanbanSquare,CalendarDays,ListChecks,WalletCards,BarChart3,BedDouble,
   Search,RefreshCw,ChevronRight,Plus,UsersRound,LogOut,Sparkles,PackageSearch,Handshake,Truck,
-  UserRoundCog,CarFront,Box,AlertCircle,Star
+  UserRoundCog,CarFront,Box,AlertCircle,Star,Target
 } from 'lucide-react';
 import type {Lead,LeadService,CRMTask,CRMActivity} from '../types';
 import {loadCRMData,updateLead,updateService} from '../lib/api';
+import {focusLabel,rankSalesLeads} from '../lib/salesFocus';
 import LeadDrawer from './LeadDrawer';
 import BrandLogo from './BrandLogo';
 import TeamView from './TeamView';
@@ -21,6 +22,7 @@ import OperationsControl from './OperationsControl';
 import FinancialWorkspace from './FinancialWorkspace';
 import DailyCommandCenter from './DailyCommandCenter';
 import ReviewWorkspace from './ReviewWorkspace';
+import SalesFocusOverview from './SalesFocusOverview';
 import {assertSupabase} from '../lib/supabase';
 
 type View='dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'review'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'ai'|'team';
@@ -39,6 +41,7 @@ export default function CRMApp({profile}:{profile:any}){
   const [newLeadOpen,setNewLeadOpen]=useState(false);
   const [directory,setDirectory]=useState<any[]>([]);
   const [leadScope,setLeadScope]=useState<'all'|'mine'|'unassigned'>(profile?.role==='agent'?'mine':'all');
+  const [salesFocusOnly,setSalesFocusOnly]=useState(true);
 
   const refresh=async()=>{
     setLoading(true);setError('');
@@ -64,11 +67,20 @@ export default function CRMApp({profile}:{profile:any}){
     if(leadScope==='mine')return activeLeads.filter(l=>l.assigned_to===currentUserId||l.created_by===currentUserId);
     return activeLeads;
   },[activeLeads,leadScope,currentUserId]);
-  const filtered=useMemo(()=>{
+
+  const searchedLeads=useMemo(()=>{
     const q=search.toLowerCase().trim();
     if(!q)return scopedLeads;
     return scopedLeads.filter(l=>[l.reserva,l.codigo,l.contacto,l.empresa_ejecuta,l.servicio].some(v=>String(v||'').toLowerCase().includes(q)));
   },[scopedLeads,search]);
+
+  const salesRanking=useMemo(()=>rankSalesLeads(searchedLeads,activeServices),[searchedLeads,activeServices]);
+  const focusedIds=useMemo(()=>new Set(salesRanking.filter(x=>x.visible).map(x=>x.lead.id)),[salesRanking]);
+  const filtered=useMemo(()=>{
+    if(search.trim())return searchedLeads;
+    return salesFocusOnly?searchedLeads.filter(l=>focusedIds.has(l.id)):searchedLeads;
+  },[searchedLeads,salesFocusOnly,focusedIds,search]);
+  const hiddenByFocus=search.trim()?0:Math.max(0,searchedLeads.length-filtered.length);
 
   const pendingTasks=tasks.filter(t=>t.status!=='Completada');
   const upcoming=activeServices.filter(s=>s.fecha_servicio&&new Date(s.fecha_servicio+'T23:59:00')>=new Date()).sort((a,b)=>String(a.fecha_servicio).localeCompare(String(b.fecha_servicio)));
@@ -113,40 +125,42 @@ export default function CRMApp({profile}:{profile:any}){
 
       {error&&<div className="error-banner"><AlertCircle size={18}/>{error}</div>}
       {loading?<div className="loading-card">Cargando CRM...</div>:<>
-        {view==='dashboard'&&<Dashboard leads={activeLeads} services={activeServices} tasks={tasks} activities={activities} upcoming={upcoming} onLead={setSelectedLead} onOpenAI={()=>setView('ai')} onOpenOperations={()=>setView('operations')} onOpenPayments={()=>setView('payments')}/>} 
-        {view==='leads'&&<LeadsView leads={filtered} services={activeServices} onLead={setSelectedLead} directory={directory} leadScope={leadScope} setLeadScope={setLeadScope} canCreate={profile?.role!=='viewer'} onNewLead={()=>setNewLeadOpen(true)}/>} 
-        {view==='pipeline'&&<PipelineView leads={filtered} services={activeServices} onLead={setSelectedLead} refresh={refresh}/>} 
-        {view==='reservations'&&<ReservationsView leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>} 
-        {view==='calendar'&&<CalendarWorkspace leads={activeLeads} services={activeServices} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>} 
-        {view==='tasks'&&<TasksWorkspace leads={leads} tasks={tasks} refresh={refresh}/>} 
-        {view==='payments'&&<FinancialWorkspace mode="payments" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>} 
-        {view==='reports'&&<FinancialWorkspace mode="reports" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>} 
-        {view==='products'&&<ProductCatalogView role={profile?.role||'agent'}/>} 
-        {view==='review'&&<ReviewWorkspace leads={leads} services={services} userRole={profile?.role||'agent'} onLead={setSelectedLead} onChanged={refresh}/>} 
+        {view==='dashboard'&&<Dashboard leads={activeLeads} services={activeServices} tasks={tasks} activities={activities} upcoming={upcoming} onLead={setSelectedLead} onOpenAI={()=>setView('ai')} onOpenOperations={()=>setView('operations')} onOpenPayments={()=>setView('payments')}/>}
+        {view==='leads'&&<LeadsView leads={filtered} services={activeServices} onLead={setSelectedLead} directory={directory} leadScope={leadScope} setLeadScope={setLeadScope} canCreate={profile?.role!=='viewer'} onNewLead={()=>setNewLeadOpen(true)} salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>}
+        {view==='pipeline'&&<PipelineView leads={filtered} services={activeServices} onLead={setSelectedLead} refresh={refresh} salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>}
+        {view==='reservations'&&<ReservationsView leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>}
+        {view==='calendar'&&<CalendarWorkspace leads={activeLeads} services={activeServices} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>}
+        {view==='tasks'&&<TasksWorkspace leads={leads} tasks={tasks} refresh={refresh}/>}
+        {view==='payments'&&<FinancialWorkspace mode="payments" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>}
+        {view==='reports'&&<FinancialWorkspace mode="reports" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>}
+        {view==='products'&&<ProductCatalogView role={profile?.role||'agent'}/>}
+        {view==='review'&&<ReviewWorkspace leads={leads} services={services} userRole={profile?.role||'agent'} onLead={setSelectedLead} onChanged={refresh}/>}
         {view==='suppliers'&&<OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/>}
         {view==='service_people'&&<OperationsHub role={profile?.role||'agent'} initialTab="people"/>}
         {view==='vehicles'&&<OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/>}
         {view==='resources'&&<OperationsHub role={profile?.role||'agent'} initialTab="resources"/>}
-        {view==='operations'&&<OperationsControl leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService}/>} 
-        {['suppliers','service_people','vehicles','resources'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>} 
-        {view==='ai'&&<AiAssistant leads={leads} role={profile?.role||'agent'} onChanged={refresh}/>} 
-        {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>} 
+        {view==='operations'&&<OperationsControl leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService}/>}
+        {['suppliers','service_people','vehicles','resources'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>}
+        {view==='ai'&&<AiAssistant leads={leads} role={profile?.role||'agent'} onChanged={refresh}/>}
+        {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>}
       </>}
     </main>
 
-    {newLeadOpen&&<NewLeadModal onClose={()=>setNewLeadOpen(false)} onCreated={refresh}/>} 
-    {selectedLead&&<LeadDrawer lead={selectedLead} services={services} tasks={tasks} activities={activities} userRole={profile?.role||'agent'} onClose={()=>setSelectedLead(null)} onChanged={refresh}/>} 
-    {operationService&&<ServiceOperationModal lead={leads.find(l=>l.id===operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} onClose={()=>setOperationService(null)} onChanged={refresh}/>} 
+    {newLeadOpen&&<NewLeadModal onClose={()=>setNewLeadOpen(false)} onCreated={refresh}/>}
+    {selectedLead&&<LeadDrawer lead={selectedLead} services={services} tasks={tasks} activities={activities} userRole={profile?.role||'agent'} onClose={()=>setSelectedLead(null)} onChanged={refresh}/>}
+    {operationService&&<ServiceOperationModal lead={leads.find(l=>l.id===operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} onClose={()=>setOperationService(null)} onChanged={refresh}/>}
   </div>;
 }
 
 function Dashboard({leads,services,tasks,activities,upcoming,onLead,onOpenAI,onOpenOperations,onOpenPayments}:any){
+  const ranking=rankSalesLeads(leads,services).filter(x=>x.visible).slice(0,6);
   return <div className="view-stack">
     <DailyCommandCenter leads={leads} services={services} tasks={tasks} activities={activities} onLead={onLead} onOpenOperations={onOpenOperations} onOpenPayments={onOpenPayments} onOpenAI={onOpenAI}/>
+    <SalesFocusOverview leads={leads} services={services} onLead={onLead}/>
     <section className="content-grid two">
       <div className="surface-card">
-        <SectionHead title="Leads recientes" subtitle="Últimas solicitudes activas"/>
-        <div className="compact-list">{leads.slice(0,6).map((l:Lead)=><button key={l.id} onClick={()=>onLead(l)}><div><strong>{l.reserva}</strong><span>{l.codigo} · {l.empresa_ejecuta||'Sin hotel'}</span></div><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span><ChevronRight size={17}/></button>)}</div>
+        <SectionHead title="Foco comercial" subtitle="Leads con mayor señal de venta ahora"/>
+        <div className="compact-list">{ranking.map((item:any)=><button key={item.lead.id} onClick={()=>onLead(item.lead)}><div><strong>{item.lead.reserva}</strong><span>{item.lead.codigo} · {item.reasons.slice(0,2).join(' · ')||'Sin venta cargada'}</span></div><span className={`sales-focus-badge ${item.band}`}>{focusLabel(item.band)}</span><ChevronRight size={17}/></button>)}{!ranking.length&&<div className="empty-state">No hay leads con foco comercial.</div>}</div>
       </div>
       <div className="surface-card">
         <SectionHead title="Próximas experiencias" subtitle="Operación por fecha"/>
@@ -156,18 +170,38 @@ function Dashboard({leads,services,tasks,activities,upcoming,onLead,onOpenAI,onO
   </div>;
 }
 
-function LeadsView({leads,services,onLead,directory,leadScope,setLeadScope,canCreate,onNewLead}:any){
-  const owner=(id:any)=>directory.find((u:any)=>u.id===id);
-  return <div className="view-stack">
-    <section className="lead-toolbar"><div className="scope-tabs"><button className={leadScope==='all'?'active':''} onClick={()=>setLeadScope('all')}>Todos</button><button className={leadScope==='mine'?'active':''} onClick={()=>setLeadScope('mine')}>Mis leads</button><button className={leadScope==='unassigned'?'active':''} onClick={()=>setLeadScope('unassigned')}>Sin asignar</button></div>{canCreate&&<button className="primary-button" onClick={onNewLead}><Plus size={16}/> Nuevo lead</button>}</section>
-    <div className="surface-card"><SectionHead title="Clientes" subtitle="Clientes activos antes de postventa"/><div className="table-wrap"><table><thead><tr><th>Cliente</th><th>Responsable</th><th>Hotel</th><th>Experiencias</th><th>Venta</th><th>Pago</th><th>Etapa</th><th></th></tr></thead><tbody>{leads.map((l:Lead)=>{const ss=services.filter((s:LeadService)=>s.lead_id===l.id);const sale=ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0);const paid=ss.length&&ss.every((s:LeadService)=>s.estado_pago==='Pagado');const o=owner(l.assigned_to);return <tr key={l.id} onClick={()=>onLead(l)}><td><strong>{l.reserva}</strong><span>{l.codigo}</span></td><td>{o?<><strong>{o.full_name||o.email}</strong><span>{o.role}</span></>:<span className="unassigned-pill">Sin asignar</span>}</td><td>{l.empresa_ejecuta||'-'}</td><td><b>{ss.length}</b> servicios</td><td>{money(sale)}</td><td><span className={paid?'status-badge confirmado':'status-badge neutral'}>{paid?'Pagado':'Pendiente'}</span></td><td><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span></td><td><ChevronRight size={17}/></td></tr>})}</tbody></table></div></div>
+function FocusControls({salesFocusOnly,setSalesFocusOnly,hiddenByFocus}:any){
+  return <div className="sales-focus-controls">
+    <button className={salesFocusOnly?'active':''} onClick={()=>setSalesFocusOnly(true)}><Target size={14}/> Enfoque ventas</button>
+    <button className={!salesFocusOnly?'active':''} onClick={()=>setSalesFocusOnly(false)}>Mostrar todos</button>
+    {salesFocusOnly&&hiddenByFocus>0&&<small>{hiddenByFocus} oculto(s) por baja señal</small>}
   </div>;
 }
 
-function PipelineView({leads,services,onLead,refresh}:any){
+function LeadsView({leads,services,onLead,directory,leadScope,setLeadScope,canCreate,onNewLead,salesFocusOnly,setSalesFocusOnly,hiddenByFocus}:any){
+  const owner=(id:any)=>directory.find((u:any)=>u.id===id);
+  const focusMap=new Map(rankSalesLeads(leads,services).map(x=>[x.lead.id,x]));
+  return <div className="view-stack">
+    <section className="lead-toolbar sales-focus-toolbar">
+      <div className="scope-tabs"><button className={leadScope==='all'?'active':''} onClick={()=>setLeadScope('all')}>Todos</button><button className={leadScope==='mine'?'active':''} onClick={()=>setLeadScope('mine')}>Mis leads</button><button className={leadScope==='unassigned'?'active':''} onClick={()=>setLeadScope('unassigned')}>Sin asignar</button></div>
+      <FocusControls salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>
+      {canCreate&&<button className="primary-button" onClick={onNewLead}><Plus size={16}/> Nuevo lead</button>}
+    </section>
+    <div className="surface-card"><SectionHead title="Clientes" subtitle={salesFocusOnly?'Solo leads con señal comercial relevante':'Todos los clientes activos antes de postventa'}/><div className="table-wrap"><table><thead><tr><th>Cliente</th><th>Foco</th><th>Responsable</th><th>Hotel</th><th>Experiencias</th><th>Venta</th><th>Pago</th><th>Etapa</th><th></th></tr></thead><tbody>{leads.map((l:Lead)=>{const ss=services.filter((s:LeadService)=>s.lead_id===l.id);const sale=ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0);const paid=ss.length&&ss.every((s:LeadService)=>s.estado_pago==='Pagado');const o=owner(l.assigned_to);const f:any=focusMap.get(l.id);return <tr key={l.id} onClick={()=>onLead(l)}><td><strong>{l.reserva}</strong><span>{l.codigo}</span></td><td className="sales-focus-cell">{f&&<><span className={`sales-focus-badge ${f.band}`}>{focusLabel(f.band)}</span><small>{f.reasons[0]||`${f.daysSinceUpdate} días sin movimiento`}</small></>}</td><td>{o?<><strong>{o.full_name||o.email}</strong><span>{o.role}</span></>:<span className="unassigned-pill">Sin asignar</span>}</td><td>{l.empresa_ejecuta||'-'}</td><td><b>{ss.length}</b> servicios</td><td>{money(sale)}</td><td><span className={paid?'status-badge confirmado':'status-badge neutral'}>{paid?'Pagado':'Pendiente'}</span></td><td><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span></td><td><ChevronRight size={17}/></td></tr>})}</tbody></table></div></div>
+  </div>;
+}
+
+function PipelineView({leads,services,onLead,refresh,salesFocusOnly,setSalesFocusOnly,hiddenByFocus}:any){
   const stages=['nuevo','contactado','cotizado','confirmado','perdido'];
   const move=async(id:string,status:string)=>{await updateLead(id,{estado:status});refresh()};
-  return <div className="kanban-board">{stages.map(stage=><section className="kanban-col" key={stage} onDragOver={e=>e.preventDefault()} onDrop={e=>move(e.dataTransfer.getData('lead'),stage)}><header><div><b>{cap(stage)}</b><span>{leads.filter((l:Lead)=>l.estado===stage).length}</span></div></header><div>{leads.filter((l:Lead)=>l.estado===stage).map((l:Lead)=>{const ss=services.filter((s:LeadService)=>s.lead_id===l.id);return <article className="kanban-card" key={l.id} draggable onDragStart={e=>e.dataTransfer.setData('lead',l.id)} onClick={()=>onLead(l)}><span className="eyebrow">{l.codigo}</span><h3>{l.reserva}</h3><p>{l.empresa_ejecuta||'Sin hotel'}</p><div><span>{ss.length} experiencia(s)</span><strong>{money(ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0))}</strong></div></article>})}</div></section>)}</div>;
+  const focusMap=new Map(rankSalesLeads(leads,services).map(x=>[x.lead.id,x]));
+  return <div className="view-stack">
+    <section className="lead-toolbar sales-focus-toolbar">
+      <div><span className="eyebrow">VISIBILIDAD COMERCIAL</span><p style={{margin:'4px 0 0',fontSize:10,color:'#746d64'}}>Oculta ruido sin borrar ningún lead.</p></div>
+      <FocusControls salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>
+    </section>
+    <div className="kanban-board">{stages.map(stage=><section className="kanban-col" key={stage} onDragOver={e=>e.preventDefault()} onDrop={e=>move(e.dataTransfer.getData('lead'),stage)}><header><div><b>{cap(stage)}</b><span>{leads.filter((l:Lead)=>l.estado===stage).length}</span></div></header><div>{leads.filter((l:Lead)=>l.estado===stage).map((l:Lead)=>{const ss=services.filter((s:LeadService)=>s.lead_id===l.id);const f:any=focusMap.get(l.id);return <article className="kanban-card" key={l.id} draggable onDragStart={e=>e.dataTransfer.setData('lead',l.id)} onClick={()=>onLead(l)}><span className="eyebrow">{l.codigo}</span><h3>{l.reserva}</h3><p>{l.empresa_ejecuta||'Sin hotel'}</p><div><span>{ss.length} experiencia(s)</span><strong>{money(ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0))}</strong></div>{f&&<div className="kanban-focus-meta"><span className={`sales-focus-badge ${f.band}`}>{focusLabel(f.band)}</span><small>{f.reasons[0]||`${f.daysSinceUpdate} días`}</small></div>}</article>})}</div></section>)}</div>
+  </div>;
 }
 
 function ReservationsView({leads,services,onLead,onOperation,refresh}:any){
