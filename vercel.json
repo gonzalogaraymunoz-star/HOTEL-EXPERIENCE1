@@ -14,6 +14,14 @@
     {
       "source": "/viaje/:path*",
       "destination": "/index.html"
+    },
+    {
+      "source": "/b2b",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/b2b/admin",
+      "destination": "/index.html"
     }
   ]
 }
