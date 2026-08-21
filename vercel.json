@@ -6,6 +6,14 @@
     {
       "source": "/registro",
       "destination": "/index.html"
+    },
+    {
+      "source": "/viaje",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/viaje/:path*",
+      "destination": "/index.html"
     }
   ]
 }

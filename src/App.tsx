@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import type {Session} from '@supabase/supabase-js';
 import CRMApp from './components/CRMApp';
 import PublicRegistration from './components/PublicRegistration';
+import PassengerPortal from './components/PassengerPortal';
 import LoginScreen from './components/LoginScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import {supabase} from './lib/supabase';
@@ -43,6 +44,7 @@ export default function App(){
   },[session?.user.id]);
 
   if(path==='/registro') return <ErrorBoundary><PublicRegistration/></ErrorBoundary>;
+  if(path==='/viaje'||path.startsWith('/viaje/')) return <ErrorBoundary><PassengerPortal/></ErrorBoundary>;
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
   if(!session) return <LoginScreen/>;
   if(profileLoading||!profile) return <div className="app-loading">Preparando tu CRM…</div>;
