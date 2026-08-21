@@ -43,6 +43,7 @@ export default function CRMApp({profile}:{profile:any}){
   const [directory,setDirectory]=useState<any[]>([]);
   const [leadScope,setLeadScope]=useState<'all'|'mine'|'unassigned'>(profile?.role==='agent'?'mine':'all');
   const [salesFocusOnly,setSalesFocusOnly]=useState(true);
+  const [clientMode,setClientMode]=useState<'opportunities'|'historical'>('opportunities');
 
   const refresh=async()=>{
     setLoading(true);setError('');
@@ -58,8 +59,11 @@ export default function CRMApp({profile}:{profile:any}){
   useEffect(()=>{void refresh()},[]);
 
   const activeLeads=useMemo(()=>leads.filter(l=>String((l as any).lifecycle_stage||'active')==='active'),[leads]);
+  const historicalLeads=useMemo(()=>leads.filter(l=>String((l as any).lifecycle_stage)==='historical'),[leads]);
   const activeLeadIds=useMemo(()=>new Set(activeLeads.map(l=>l.id)),[activeLeads]);
+  const historicalLeadIds=useMemo(()=>new Set(historicalLeads.map(l=>l.id)),[historicalLeads]);
   const activeServices=useMemo(()=>services.filter(s=>activeLeadIds.has(s.lead_id)),[services,activeLeadIds]);
+  const historicalServices=useMemo(()=>services.filter(s=>historicalLeadIds.has(s.lead_id)),[services,historicalLeadIds]);
   const reviewCount=leads.filter(l=>String((l as any).lifecycle_stage)==='review').length;
 
   const currentUserId=profile?.id||null;
@@ -82,6 +86,15 @@ export default function CRMApp({profile}:{profile:any}){
     return salesFocusOnly?searchedLeads.filter(l=>focusedIds.has(l.id)):searchedLeads;
   },[searchedLeads,salesFocusOnly,focusedIds,search]);
   const hiddenByFocus=search.trim()?0:Math.max(0,searchedLeads.length-filtered.length);
+
+  const historicalFiltered=useMemo(()=>{
+    let base=historicalLeads;
+    if(leadScope==='unassigned')base=base.filter(l=>!l.assigned_to);
+    if(leadScope==='mine')base=base.filter(l=>l.assigned_to===currentUserId||l.created_by===currentUserId);
+    const q=search.toLowerCase().trim();
+    if(q)base=base.filter(l=>[l.reserva,l.codigo,l.contacto,l.empresa_ejecuta,l.servicio].some(v=>String(v||'').toLowerCase().includes(q)));
+    return [...base].sort((a,b)=>String(b.checkout||b.checkin||b.updated_at||'').localeCompare(String(a.checkout||a.checkin||a.updated_at||'')));
+  },[historicalLeads,leadScope,currentUserId,search]);
 
   const pendingTasks=tasks.filter(t=>t.status!=='Completada');
   const upcoming=activeServices.filter(s=>s.fecha_servicio&&new Date(s.fecha_servicio+'T23:59:00')>=new Date()).sort((a,b)=>String(a.fecha_servicio).localeCompare(String(b.fecha_servicio)));
@@ -128,7 +141,7 @@ export default function CRMApp({profile}:{profile:any}){
       {error&&<div className="error-banner"><AlertCircle size={18}/>{error}</div>}
       {loading?<div className="loading-card">Cargando CRM...</div>:<>
         {view==='dashboard'&&<Dashboard leads={activeLeads} services={activeServices} tasks={tasks} activities={activities} upcoming={upcoming} onLead={setSelectedLead} onOpenAI={()=>setView('ai')} onOpenOperations={()=>setView('operations')} onOpenPayments={()=>setView('payments')}/>}
-        {view==='leads'&&<LeadsView leads={filtered} services={activeServices} onLead={setSelectedLead} directory={directory} leadScope={leadScope} setLeadScope={setLeadScope} canCreate={profile?.role!=='viewer'} onNewLead={()=>setNewLeadOpen(true)} salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>}
+        {view==='leads'&&<LeadsView leads={clientMode==='historical'?historicalFiltered:filtered} services={clientMode==='historical'?historicalServices:activeServices} onLead={setSelectedLead} directory={directory} leadScope={leadScope} setLeadScope={setLeadScope} canCreate={profile?.role!=='viewer'} onNewLead={()=>setNewLeadOpen(true)} salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus} clientMode={clientMode} setClientMode={setClientMode} opportunityCount={activeLeads.length} historicalCount={historicalLeads.length}/>}
         {view==='pipeline'&&<PipelineView leads={filtered} services={activeServices} onLead={setSelectedLead} refresh={refresh} salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>}
         {view==='reservations'&&<ReservationsView leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>}
         {view==='calendar'&&<CalendarWorkspace leads={activeLeads} services={activeServices} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>}
@@ -181,16 +194,60 @@ function FocusControls({salesFocusOnly,setSalesFocusOnly,hiddenByFocus}:any){
   </div>;
 }
 
-function LeadsView({leads,services,onLead,directory,leadScope,setLeadScope,canCreate,onNewLead,salesFocusOnly,setSalesFocusOnly,hiddenByFocus}:any){
+function LeadsView({leads,services,onLead,directory,leadScope,setLeadScope,canCreate,onNewLead,salesFocusOnly,setSalesFocusOnly,hiddenByFocus,clientMode,setClientMode,opportunityCount,historicalCount}:any){
   const owner=(id:any)=>directory.find((u:any)=>u.id===id);
+  const historical=clientMode==='historical';
   const focusMap=new Map(rankSalesLeads(leads,services).map(x=>[x.lead.id,x]));
   return <div className="view-stack">
     <section className="lead-toolbar sales-focus-toolbar">
-      <div className="scope-tabs"><button className={leadScope==='all'?'active':''} onClick={()=>setLeadScope('all')}>Todos</button><button className={leadScope==='mine'?'active':''} onClick={()=>setLeadScope('mine')}>Mis leads</button><button className={leadScope==='unassigned'?'active':''} onClick={()=>setLeadScope('unassigned')}>Sin asignar</button></div>
-      <FocusControls salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>
-      {canCreate&&<button className="primary-button" onClick={onNewLead}><Plus size={16}/> Nuevo lead</button>}
+      <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+        <div className="scope-tabs">
+          <button className={!historical?'active':''} onClick={()=>setClientMode('opportunities')}>Oportunidades <span>{opportunityCount}</span></button>
+          <button className={historical?'active':''} onClick={()=>setClientMode('historical')}>Histórico <span>{historicalCount}</span></button>
+        </div>
+        <div className="scope-tabs">
+          <button className={leadScope==='all'?'active':''} onClick={()=>setLeadScope('all')}>Todos</button>
+          <button className={leadScope==='mine'?'active':''} onClick={()=>setLeadScope('mine')}>Mis leads</button>
+          <button className={leadScope==='unassigned'?'active':''} onClick={()=>setLeadScope('unassigned')}>Sin asignar</button>
+        </div>
+      </div>
+      {!historical&&<FocusControls salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>}
+      {canCreate&&!historical&&<button className="primary-button" onClick={onNewLead}><Plus size={16}/> Nuevo lead</button>}
     </section>
-    <div className="surface-card"><SectionHead title="Clientes" subtitle={salesFocusOnly?'Solo leads con señal comercial relevante':'Todos los clientes activos antes de postventa'}/><div className="table-wrap"><table><thead><tr><th>Cliente</th><th>Foco</th><th>Responsable</th><th>Hotel</th><th>Experiencias</th><th>Venta</th><th>Pago</th><th>Etapa</th><th></th></tr></thead><tbody>{leads.map((l:Lead)=>{const ss=services.filter((s:LeadService)=>s.lead_id===l.id);const sale=ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0);const paid=ss.length&&ss.every((s:LeadService)=>s.estado_pago==='Pagado');const o=owner(l.assigned_to);const f:any=focusMap.get(l.id);return <tr key={l.id} onClick={()=>onLead(l)}><td><strong>{l.reserva}</strong><span>{l.codigo}</span></td><td className="sales-focus-cell">{f&&<><span className={`sales-focus-badge ${f.band}`}>{focusLabel(f.band)}</span><small>{f.reasons[0]||`${f.daysSinceUpdate} días sin movimiento`}</small></>}</td><td>{o?<><strong>{o.full_name||o.email}</strong><span>{o.role}</span></>:<span className="unassigned-pill">Sin asignar</span>}</td><td>{l.empresa_ejecuta||'-'}</td><td><b>{ss.length}</b> servicios</td><td>{money(sale)}</td><td><span className={paid?'status-badge confirmado':'status-badge neutral'}>{paid?'Pagado':'Pendiente'}</span></td><td><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span></td><td><ChevronRight size={17}/></td></tr>})}</tbody></table></div></div>
+    <div className="surface-card">
+      <SectionHead
+        title={historical?'Histórico comercial':'Oportunidades'}
+        subtitle={historical
+          ?'Viajes vencidos, oportunidades perdidas o leads sin actividad útil. Se conservan para consulta y reportes.'
+          :salesFocusOnly?'Negocio comercial vigente con foco en lo que todavía se puede accionar.':'Todas las oportunidades comerciales vigentes.'}
+      />
+      <div className="table-wrap"><table>
+        <thead><tr><th>Cliente</th><th>{historical?'Archivo':'Foco'}</th><th>Responsable</th><th>Hotel</th><th>Experiencias</th><th>Venta</th><th>Pago</th><th>Etapa</th><th></th></tr></thead>
+        <tbody>{leads.map((l:Lead)=>{
+          const ss=services.filter((s:LeadService)=>s.lead_id===l.id);
+          const sale=ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0);
+          const paid=ss.length&&ss.every((s:LeadService)=>s.estado_pago==='Pagado');
+          const o=owner(l.assigned_to);
+          const f:any=focusMap.get(l.id);
+          return <tr key={l.id} onClick={()=>onLead(l)}>
+            <td><strong>{l.reserva}</strong><span>{l.codigo}</span></td>
+            <td className="sales-focus-cell">
+              {historical
+                ?<><span className="status-badge neutral">Histórico</span><small>{historicalReason(l)}</small></>
+                :f&&<><span className={`sales-focus-badge ${f.band}`}>{focusLabel(f.band)}</span><small>{f.reasons[0]||`${f.daysSinceUpdate} días sin movimiento`}</small></>}
+            </td>
+            <td>{o?<><strong>{o.full_name||o.email}</strong><span>{o.role}</span></>:<span className="unassigned-pill">Sin asignar</span>}</td>
+            <td>{l.empresa_ejecuta||'-'}</td>
+            <td><b>{ss.length}</b> servicios</td>
+            <td>{money(sale)}</td>
+            <td><span className={paid?'status-badge confirmado':'status-badge neutral'}>{paid?'Pagado':'Pendiente'}</span></td>
+            <td><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span></td>
+            <td><ChevronRight size={17}/></td>
+          </tr>
+        })}</tbody>
+      </table></div>
+      {!leads.length&&<div className="empty-state">{historical?'No hay registros históricos en este filtro.':'No hay oportunidades vigentes en este filtro.'}</div>}
+    </div>
   </div>;
 }
 
@@ -216,4 +273,10 @@ function SectionHead({title,subtitle}:{title:string;subtitle:string}){return <di
 const titles:any={dashboard:'Inicio',leads:'Clientes',pipeline:'Pipeline comercial',reservations:'Reservas',calendar:'Calendario operacional',tasks:'Tareas y seguimiento',payments:'Pagos',reports:'Reportes',products:'Productos y valores',review:'Review',suppliers:'Proveedores',service_people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',operations:'Control de operación',records:'Fichas operacionales',ai:'Asistente comercial',team:'Equipo'};
 const money=(n:any)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0));
 const dateFmt=(d:any)=>d?new Date(String(d)+'T12:00:00').toLocaleDateString('es-CL'):'Sin fecha';
+function historicalReason(l:Lead){
+  if(String(l.estado).toLowerCase()==='perdido')return 'Oportunidad marcada perdida';
+  if(l.checkout)return `Checkout ${dateFmt(l.checkout)} · fuera de ventana comercial`;
+  if(l.checkin)return `Estadía ${dateFmt(l.checkin)} · fuera de ventana comercial`;
+  return 'Más de 30 días sin actividad comercial vigente';
+}
 const cap=(s:string)=>String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1);
