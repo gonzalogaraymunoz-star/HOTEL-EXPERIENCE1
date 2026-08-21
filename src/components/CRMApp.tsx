@@ -15,6 +15,8 @@ import NewLeadModal from './NewLeadModal';
 import CalendarWorkspace from './CalendarWorkspace';
 import OperationsHub from './OperationsHub';
 import ServiceOperationModal from './ServiceOperationModal';
+import TasksWorkspace from './TasksWorkspace';
+import OperationsAdminTools from './OperationsAdminTools';
 import { assertSupabase } from '../lib/supabase';
 
 type View = 'dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'ai'|'team';
@@ -119,7 +121,7 @@ export default function CRMApp({profile}:{profile:any}) {
         {view==='pipeline'&&<PipelineView leads={filtered} services={services} onLead={setSelectedLead} refresh={refresh}/>}
         {view==='reservations'&&<ReservationsView leads={leads} services={services} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>}
         {view==='calendar'&&<CalendarWorkspace leads={leads} services={services} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>}
-        {view==='tasks'&&<TasksView leads={leads} tasks={tasks} refresh={refresh}/>}
+        {view==='tasks'&&<TasksWorkspace leads={leads} tasks={tasks} refresh={refresh}/>}
         {view==='payments'&&<PaymentsView leads={leads} services={services} refresh={refresh}/>}
         {view==='reports'&&<ReportsView leads={leads} services={services} totalSales={totalSales} paidSales={paidSales} conversion={conversion}/>}
         {view==='products'&&<ProductCatalogView role={profile?.role||'agent'}/>}
@@ -128,6 +130,7 @@ export default function CRMApp({profile}:{profile:any}) {
         {view==='vehicles'&&<OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/>}
         {view==='resources'&&<OperationsHub role={profile?.role||'agent'} initialTab="resources"/>}
         {view==='operations'&&<OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/>}
+        {['suppliers','service_people','vehicles','resources','operations'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>}
         {view==='ai'&&<AiAssistant leads={leads} role={profile?.role||'agent'}/>}
         {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>}
       </>}
