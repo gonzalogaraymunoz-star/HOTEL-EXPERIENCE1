@@ -4,6 +4,7 @@ import {
   RefreshCw,Scale,ShieldAlert,ShieldCheck,X
 } from 'lucide-react';
 import {assertSupabase} from '../lib/supabase';
+import CancellationCasesPanel from './CancellationCasesPanel';
 import './CancellationPoliciesWorkspace.css';
 
 type Policy={
@@ -253,6 +254,13 @@ export default function CancellationPoliciesWorkspace({role,onClose}:{role:strin
             </>}
           </div>
         </section>
+
+        <CancellationCasesPanel
+          policy={policy}
+          rules={policyRules}
+          role={role}
+          onChanged={load}
+        />
 
         <PolicySimulator rules={policyRules}/>
 
