@@ -1,0 +1,200 @@
+/* HOTEL EXPERIENCE — motion system
+   Suave, rapido y sobrio. Solo anima propiedades baratas para el navegador. */
+
+:root{
+  --motion-instant:120ms;
+  --motion-fast:180ms;
+  --motion-base:260ms;
+  --motion-view:340ms;
+  --motion-modal:320ms;
+  --ease-apple:cubic-bezier(.22,1,.36,1);
+  --ease-control:cubic-bezier(.2,.8,.2,1);
+  --ease-press:cubic-bezier(.3,0,.2,1);
+}
+
+html{scroll-behavior:smooth}
+
+/* Controles: respuesta inmediata, sin rebote */
+button:not(:disabled),
+a,
+.clickable,
+.compact-list>button,
+.kanban-card,
+.product-tile,
+.task-check,
+.category-pills button,
+.scope-tabs button,
+.status-badge{
+  transition:
+    transform var(--motion-fast) var(--ease-control),
+    background-color var(--motion-fast) var(--ease-control),
+    border-color var(--motion-fast) var(--ease-control),
+    color var(--motion-fast) var(--ease-control),
+    opacity var(--motion-fast) var(--ease-control),
+    box-shadow var(--motion-fast) var(--ease-control);
+  will-change:transform;
+}
+
+input,
+textarea,
+select,
+.searchbox,
+.input-icon{
+  transition:
+    border-color var(--motion-fast) var(--ease-control),
+    box-shadow var(--motion-fast) var(--ease-control),
+    background-color var(--motion-fast) var(--ease-control),
+    opacity var(--motion-fast) var(--ease-control);
+}
+
+.primary-button:not(:disabled):hover,
+.secondary-button:not(:disabled):hover,
+.add-button:not(:disabled):hover,
+.icon-button:not(:disabled):hover,
+.danger-icon-button:not(:disabled):hover{
+  transform:translateY(-1px);
+}
+
+.primary-button:not(:disabled):active,
+.secondary-button:not(:disabled):active,
+.add-button:not(:disabled):active,
+.icon-button:not(:disabled):active,
+.danger-icon-button:not(:disabled):active,
+.quick-ai button:not(:disabled):active,
+.category-pills button:not(:disabled):active,
+.scope-tabs button:not(:disabled):active{
+  transform:translateY(0) scale(.975);
+  transition-duration:var(--motion-instant);
+  transition-timing-function:var(--ease-press);
+}
+
+/* Navegacion: la seleccion se desliza visualmente, no salta */
+.nav-item{
+  transition:
+    background-color var(--motion-base) var(--ease-apple),
+    color var(--motion-base) var(--ease-apple),
+    transform var(--motion-fast) var(--ease-control);
+}
+.nav-item>span,.nav-item svg,.nav-item small{
+  transition:
+    transform var(--motion-base) var(--ease-apple),
+    background-color var(--motion-base) var(--ease-apple),
+    color var(--motion-base) var(--ease-apple),
+    opacity var(--motion-base) var(--ease-apple);
+}
+.nav-item:not(.active):hover{transform:translateX(2px)}
+.nav-item.active>span{transform:translateX(1px)}
+
+/* Cada nueva vista del CRM entra suavemente despues del click del menu. */
+.crm-main>:not(.crm-topbar):not(.error-banner):not(.loading-card){
+  animation:he-view-enter var(--motion-view) var(--ease-apple) both;
+  transform-origin:50% 0;
+}
+
+/* Contenido que aparece dinamicamente */
+.chat-message,
+.ai-action-card,
+.action-message,
+.error-banner,
+.loading-card{
+  animation:he-content-enter var(--motion-base) var(--ease-apple) both;
+}
+
+/* Filas y elementos interactivos */
+.compact-list>button:hover,
+tbody tr:hover{
+  transition:background-color var(--motion-fast) var(--ease-control);
+}
+.kanban-card:hover,
+.product-tile:hover{
+  transform:translateY(-2px);
+}
+.kanban-card:active,
+.product-tile:active{
+  transform:translateY(0) scale(.99);
+}
+
+/* Modal: fondo suave + tarjeta que se asienta */
+.modal-backdrop{
+  animation:he-backdrop-in var(--motion-fast) var(--ease-control) both;
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px);
+}
+.modal-card{
+  animation:he-modal-in var(--motion-modal) var(--ease-apple) both;
+  transform-origin:50% 46%;
+}
+
+/* Drawer de cliente */
+.drawer-backdrop{
+  animation:he-backdrop-in var(--motion-fast) var(--ease-control) both;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+.lead-drawer{
+  animation:he-drawer-in var(--motion-modal) var(--ease-apple) both;
+  transform-origin:100% 50%;
+}
+
+/* Barras, progreso y estados */
+.progress-track>div,
+.bar span{
+  transition:
+    width 480ms var(--ease-apple),
+    transform var(--motion-base) var(--ease-apple),
+    opacity var(--motion-base) var(--ease-apple);
+}
+
+/* Respuesta IA: entra como una pieza de interfaz, no como texto que aparece de golpe. */
+.ai-response{
+  animation:he-content-enter var(--motion-base) var(--ease-apple) both;
+}
+.ai-response-body>*{
+  animation:he-line-enter var(--motion-base) var(--ease-apple) both;
+}
+.ai-response-body>*:nth-child(2){animation-delay:20ms}
+.ai-response-body>*:nth-child(3){animation-delay:40ms}
+.ai-response-body>*:nth-child(4){animation-delay:60ms}
+.ai-response-body>*:nth-child(5){animation-delay:80ms}
+.ai-response-body>*:nth-child(n+6){animation-delay:100ms}
+
+@keyframes he-view-enter{
+  from{opacity:.45;transform:translate3d(0,8px,0) scale(.996)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+
+@keyframes he-content-enter{
+  from{opacity:0;transform:translate3d(0,6px,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+
+@keyframes he-line-enter{
+  from{opacity:0;transform:translate3d(0,4px,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+
+@keyframes he-backdrop-in{
+  from{opacity:0;background:rgba(0,0,0,0)}
+  to{opacity:1}
+}
+
+@keyframes he-modal-in{
+  from{opacity:0;transform:translate3d(0,10px,0) scale(.985)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+
+@keyframes he-drawer-in{
+  from{opacity:.35;transform:translate3d(26px,0,0) scale(.995)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+
+/* Respeta la preferencia de accesibilidad del sistema operativo. */
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
