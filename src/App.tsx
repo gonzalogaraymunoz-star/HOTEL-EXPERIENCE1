@@ -1,10 +1,8 @@
 import React,{useEffect,useState} from 'react';
 import type {Session} from '@supabase/supabase-js';
 import CRMApp from './components/CRMApp';
+import AppEnhancements from './components/AppEnhancements';
 import PublicRegistration from './components/PublicRegistration';
-import PassengerPortal from './components/PassengerPortal';
-import PartnerPortal from './components/PartnerPortal';
-import PartnerAccountsAdmin from './components/PartnerAccountsAdmin';
 import LoginScreen from './components/LoginScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import {supabase} from './lib/supabase';
@@ -46,20 +44,13 @@ export default function App(){
   },[session?.user.id]);
 
   if(path==='/registro') return <ErrorBoundary><PublicRegistration/></ErrorBoundary>;
-  if(path==='/viaje'||path.startsWith('/viaje/')) return <ErrorBoundary><PassengerPortal/></ErrorBoundary>;
-  if(path==='/b2b') return <ErrorBoundary><PartnerPortal/></ErrorBoundary>;
-
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
   if(!session) return <LoginScreen/>;
   if(profileLoading||!profile) return <div className="app-loading">Preparando tu CRM…</div>;
   if(profile.is_active===false) return <main className="blocked-screen"><h1>Cuenta desactivada</h1><p>Solicita acceso a un administrador.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
-
-  if(path==='/b2b/admin'){
-    if(!['admin','manager'].includes(String(profile.role||''))){
-      return <main className="blocked-screen"><h1>Acceso restringido</h1><p>La administración del portal B2B requiere rol manager o admin.</p><a className="primary-button" href="/">Volver al CRM</a></main>;
-    }
-    return <ErrorBoundary><PartnerAccountsAdmin/></ErrorBoundary>;
-  }
-
-  return <ErrorBoundary><CRMApp profile={profile}/></ErrorBoundary>;
+  return <ErrorBoundary>
+    <AppEnhancements profile={profile}>
+      <CRMApp profile={profile}/>
+    </AppEnhancements>
+  </ErrorBoundary>;
 }
