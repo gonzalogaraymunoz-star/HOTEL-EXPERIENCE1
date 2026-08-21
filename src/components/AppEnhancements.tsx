@@ -1,15 +1,17 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {Plug} from 'lucide-react';
+import {Plug,ScrollText} from 'lucide-react';
 import type {Lead,LeadService,CRMTask,CRMActivity} from '../types';
 import {loadCRMData} from '../lib/api';
 import LeadDrawer from './LeadDrawer';
 import GlobalSearchPortal from './GlobalSearchPortal';
 import AddonsWorkspace from './AddonsWorkspace';
+import CancellationPoliciesWorkspace from './CancellationPoliciesWorkspace';
 import './AppEnhancements.css';
 
 export default function AppEnhancements({profile,children}:{profile:any;children:React.ReactNode}){
   const [addonsOpen,setAddonsOpen]=useState(false);
+  const [policiesOpen,setPoliciesOpen]=useState(false);
   const [searchHost,setSearchHost]=useState<Element|null>(null);
   const [navHost,setNavHost]=useState<Element|null>(null);
   const [drawerData,setDrawerData]=useState<{
@@ -68,14 +70,24 @@ export default function AppEnhancements({profile,children}:{profile:any;children
     {navHost&&createPortal(
       <>
         <div className="nav-section-label enhancement-system-label">SISTEMA</div>
-        <button className={addonsOpen?'nav-item active enhancement-addon-nav':'nav-item enhancement-addon-nav'} onClick={()=>setAddonsOpen(true)}>
+        <button
+          className={addonsOpen?'nav-item active enhancement-addon-nav':'nav-item enhancement-addon-nav'}
+          onClick={()=>{setAddonsOpen(true);setPoliciesOpen(false)}}
+        >
           <span><Plug/></span><b>Complementos</b>
+        </button>
+        <button
+          className={policiesOpen?'nav-item active enhancement-addon-nav':'nav-item enhancement-addon-nav'}
+          onClick={()=>{setPoliciesOpen(true);setAddonsOpen(false)}}
+        >
+          <span><ScrollText/></span><b>Políticas</b>
         </button>
       </>,
       navHost
     )}
 
     {addonsOpen&&<AddonsWorkspace role={profile?.role||'agent'} onClose={()=>setAddonsOpen(false)}/>}
+    {policiesOpen&&<CancellationPoliciesWorkspace role={profile?.role||'agent'} onClose={()=>setPoliciesOpen(false)}/>}
 
     {drawerData&&<LeadDrawer
       lead={drawerData.lead}
