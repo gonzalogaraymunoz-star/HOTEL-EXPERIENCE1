@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CalendarDays, Mail, Phone, Hotel, Plus, CheckCircle2, Clock3, Trash2, MoreHorizontal, Wrench, Calculator } from 'lucide-react';
+import { X, CalendarDays, Mail, Phone, Hotel, Plus, CheckCircle2, Clock3, Trash2, MoreHorizontal, Wrench, Calculator, Copy, Pencil, ArchiveRestore, RotateCcw, Save } from 'lucide-react';
 import type { Lead, LeadService, CRMTask, CRMActivity } from '../types';
 import ReservationOperations from './ReservationOperations';
 import ServiceOperationModal from './ServiceOperationModal';
@@ -20,6 +20,8 @@ export default function LeadDrawer({
   const [team,setTeam]=useState<any[]>([]);
   const [addingService,setAddingService]=useState(false);
   const [operationService,setOperationService]=useState<LeadService|null>(null);
+  const [editingServiceId,setEditingServiceId]=useState<string|null>(null);
+  const [serviceDraft,setServiceDraft]=useState<any>(null);
   const [opsSnapshot,setOpsSnapshot]=useState<any>({suppliers:[],vehicles:[],assignments:[],people:[]});
 
   const firstFamily=pricingFamilies[0]||null;
@@ -51,6 +53,92 @@ export default function LeadDrawer({
   };
   const patchService=async(id:string,key:string,value:any)=>{
     setBusy(true); try { await updateService(id,{[key]:value}); onChanged(); } finally { setBusy(false); }
+  };
+  const startServiceEdit=(service:LeadService)=>{
+    setEditingServiceId(service.id);
+    setServiceDraft({
+      fecha_servicio:service.fecha_servicio||'',
+      numero_pax:Number(service.numero_pax||lead.numero_pax||1),
+      observacion:service.observacion||'',
+      modality:(service.modality||'') as TourModality|string,
+      precio_venta:Number(service.precio_venta||0)
+    });
+  };
+  const familyForService=(service:LeadService)=>{
+    return pricingFamilies.find(f=>
+      f.name===service.producto ||
+      Object.values(f.modalitySources||{}).some(id=>id===service.tour_id)
+    )||null;
+  };
+  const saveServiceEdit=async(service:LeadService)=>{
+    if(!serviceDraft)return;
+    const family=familyForService(service);
+    const modality=(serviceDraft.modality||service.modality||null) as TourModality|null;
+    const quote=family&&modality?resolveFamilyPrice(family,modality,Number(serviceDraft.numero_pax||1)):null;
+    setBusy(true);
+    try{
+      await updateService(service.id,{
+        fecha_servicio:serviceDraft.fecha_servicio||null,
+        numero_pax:Math.max(1,Number(serviceDraft.numero_pax||1)),
+        observacion:serviceDraft.observacion||'',
+        modality:modality||null,
+        precio_venta:Math.max(0,Number(serviceDraft.precio_venta||0)),
+        tour_id:quote?.sourceTourId||service.tour_id||null,
+        pricing_status:quote?.status||service.pricing_status||null,
+        price_pp_clp:quote?.price_pp_clp??service.price_pp_clp??null
+      });
+      await createActivity({
+        lead_id:lead.id,
+        type:'service_updated',
+        title:'Experiencia actualizada',
+        body:`${service.producto} · ${serviceDraft.fecha_servicio||'sin fecha'} · ${Math.max(1,Number(serviceDraft.numero_pax||1))} pax${modality?` · ${modalityLabel(modality)}`:''}`,
+        created_by:'CRM'
+      });
+      setEditingServiceId(null);setServiceDraft(null);onChanged();
+    }catch(e:any){alert(e?.message||'No se pudo actualizar la experiencia.')}
+    finally{setBusy(false);}
+  };
+  const duplicateService=async(service:LeadService)=>{
+    if(!confirm(`¿Duplicar ${service.producto}? Se copiarán sus datos comerciales, pero no proveedor, vehículo, pagos ni operación.`))return;
+    setBusy(true);
+    try{
+      await createLeadService(lead.id,{
+        producto:service.producto,
+        tour_id:service.tour_id||null,
+        modality:service.modality||null,
+        pricing_status:service.pricing_status||null,
+        price_pp_clp:service.price_pp_clp??null,
+        pricing_source:service.pricing_source||null,
+        precio_venta:Number(service.precio_venta||0),
+        fecha_servicio:service.fecha_servicio||null,
+        numero_pax:Number(service.numero_pax||lead.numero_pax||1),
+        observacion:service.observacion||''
+      });
+      await createActivity({
+        lead_id:lead.id,type:'service_duplicated',title:'Experiencia duplicada',
+        body:`${service.producto}. Se creó una nueva experiencia sin copiar la asignación operacional.`,
+        created_by:'CRM'
+      });
+      onChanged();
+    }catch(e:any){alert(e?.message||'No se pudo duplicar la experiencia.')}
+    finally{setBusy(false);}
+  };
+  const toggleServiceArchive=async(service:LeadService)=>{
+    const restoring=service.estado_operacion==='Cancelado';
+    if(!restoring&&!confirm(`¿Archivar ${service.producto}? No se eliminará: quedará como Cancelado y conservará su historial.`))return;
+    setBusy(true);
+    try{
+      await updateService(service.id,{estado_operacion:restoring?'Pendiente':'Cancelado'});
+      await createActivity({
+        lead_id:lead.id,
+        type:restoring?'service_restored':'service_archived',
+        title:restoring?'Experiencia restaurada':'Experiencia archivada',
+        body:`${service.producto} · ${restoring?'vuelve a Pendiente':'marcada como Cancelado sin eliminar historial'}.`,
+        created_by:'CRM'
+      });
+      onChanged();
+    }catch(e:any){alert(e?.message||'No se pudo actualizar la experiencia.')}
+    finally{setBusy(false);}
   };
   const addTask=async()=>{
     if(!taskTitle.trim())return;
@@ -150,20 +238,49 @@ export default function LeadDrawer({
             }}>Guardar experiencia</button>
           </div>}
           <div className="service-stack">
-            {leadServices.map(s=><article className="service-card" key={s.id}>
+            {leadServices.map(s=>{
+              const editing=editingServiceId===s.id&&serviceDraft;
+              const family=familyForService(s);
+              const editModalities=family?availableModalities(family):[];
+              const editModality=(serviceDraft?.modality||s.modality||'') as TourModality|string;
+              const editQuote=editing&&family&&editModality
+                ?resolveFamilyPrice(family,editModality as TourModality,Number(serviceDraft.numero_pax||1))
+                :null;
+              return <article className="service-card" key={s.id} style={s.estado_operacion==='Cancelado'?{opacity:.72}:undefined}>
               <div className="service-card-top"><div><div className="service-title-row"><strong>{s.producto}</strong>{s.modality&&<span className="mode-chip">{modalityLabel(s.modality as TourModality)}</span>}</div><p>{s.fecha_servicio?new Date(s.fecha_servicio+'T12:00:00').toLocaleDateString('es-CL'):'Fecha por definir'} · {s.numero_pax} pax{s.pricing_source?` · ${s.pricing_source}`:''}</p></div><span className="status-dot">{s.estado_operacion}</span></div>
-              <div className="service-controls">
+
+              {editing&&<div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10,padding:'13px 0',borderTop:'1px solid #e4ded4',borderBottom:'1px solid #e4ded4',margin:'8px 0 12px'}}>
+                <label><span>Fecha</span><input type="date" value={serviceDraft.fecha_servicio} onChange={e=>setServiceDraft((x:any)=>({...x,fecha_servicio:e.target.value}))}/></label>
+                <label><span>Pax</span><input type="number" min={1} value={serviceDraft.numero_pax} onChange={e=>setServiceDraft((x:any)=>({...x,numero_pax:Math.max(1,Number(e.target.value||1))}))}/></label>
+                {family&&editModalities.length>0&&<label><span>Modalidad</span><select value={editModality} onChange={e=>setServiceDraft((x:any)=>({...x,modality:e.target.value}))}>{editModalities.map(m=><option key={m} value={m}>{modalityLabel(m)}</option>)}</select></label>}
+                <label><span>Precio venta</span><input inputMode="numeric" value={serviceDraft.precio_venta} onChange={e=>setServiceDraft((x:any)=>({...x,precio_venta:Number(String(e.target.value).replace(/\./g,''))||0}))}/></label>
+                <label style={{gridColumn:'1 / -1'}}><span>Observación</span><input value={serviceDraft.observacion} onChange={e=>setServiceDraft((x:any)=>({...x,observacion:e.target.value}))} placeholder="Horario, preferencias, restricciones..."/></label>
+                {editQuote&&<div className={`service-quote-preview ${editQuote.status}`} style={{gridColumn:'1 / -1'}}>
+                  <Calculator size={17}/><div><small>Tarifa según catálogo actual</small><strong>{editQuote.status==='quoted'?money(editQuote.group_total_clp):'Cotización manual'}</strong><span>{editQuote.status==='quoted'?`${money(editQuote.price_pp_clp)} p/p · ${serviceDraft.numero_pax} pax`:'El valor actual no se reemplaza automáticamente.'}</span></div>
+                  {editQuote.status==='quoted'&&<button className="secondary-button compact-btn" onClick={()=>setServiceDraft((x:any)=>({...x,precio_venta:Number(editQuote.group_total_clp||0)}))}>Usar tarifa</button>}
+                </div>}
+                <div style={{gridColumn:'1 / -1',display:'flex',justifyContent:'flex-end',gap:8}}>
+                  <button className="secondary-button compact-btn" onClick={()=>{setEditingServiceId(null);setServiceDraft(null)}}><X size={14}/> Cancelar</button>
+                  <button className="primary-button compact-btn" disabled={busy} onClick={()=>saveServiceEdit(s)}><Save size={14}/> Guardar cambios</button>
+                </div>
+              </div>}
+
+              {!editing&&<div className="service-controls">
                 <label><span>Precio venta</span><EditableNumber value={Number(s.precio_venta||0)} min={0} onSave={value=>patchService(s.id,'precio_venta',value)}/></label>
                 <label><span>Pago cliente</span><select value={s.estado_pago} onChange={e=>patchService(s.id,'estado_pago',e.target.value)}>{['Pendiente','Parcial','Pagado','Reembolsado'].map(x=><option key={x}>{x}</option>)}</select></label>
                 <label><span>Estado operación</span><select value={s.estado_operacion} onChange={e=>patchService(s.id,'estado_operacion',e.target.value)}>{['Pendiente','Coordinado','En curso','Completado','Cancelado'].map(x=><option key={x}>{x}</option>)}</select></label>
-              </div>
+              </div>}
+
               <ServiceOpsSummary service={s} snapshot={opsSnapshot}/>
-              <div className="service-card-actions">
+              <div className="service-card-actions" style={{flexWrap:'wrap'}}>
                 {s.pricing_status==='manual_quote'&&<span className="manual-quote-chip">Precio por validar</span>}
+                {userRole!=='viewer'&&<button className="secondary-button compact-btn" onClick={()=>startServiceEdit(s)}><Pencil size={14}/> Editar</button>}
+                {userRole!=='viewer'&&<button className="secondary-button compact-btn" disabled={busy} onClick={()=>duplicateService(s)}><Copy size={14}/> Duplicar</button>}
+                {userRole!=='viewer'&&<button className="secondary-button compact-btn" disabled={busy} onClick={()=>toggleServiceArchive(s)}>{s.estado_operacion==='Cancelado'?<><RotateCcw size={14}/> Restaurar</>:<><ArchiveRestore size={14}/> Archivar</>}</button>}
                 <button className="operation-button" onClick={()=>setOperationService(s)}><Wrench size={15}/> Operación</button>
               </div>
-              {s.observacion&&<p className="service-note">{s.observacion}</p>}
-            </article>)}
+              {!editing&&s.observacion&&<p className="service-note">{s.observacion}</p>}
+            </article>})}
             {!leadServices.length&&<div className="empty-card">Este lead todavía no tiene experiencias separadas.</div>}
           </div>
         </section>
