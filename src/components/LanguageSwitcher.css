@@ -1,0 +1,7 @@
+.he-language-switcher{position:fixed;right:18px;bottom:18px;z-index:240;display:flex;align-items:center;gap:3px;padding:4px;border:1px solid rgba(32,29,25,.2);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 8px 26px rgba(32,29,25,.12);backdrop-filter:blur(10px)}
+.he-language-icon{width:28px;height:28px;display:grid;place-items:center;color:#6f685f}
+.he-language-switcher button{border:0;background:transparent;border-radius:999px;min-width:34px;height:28px;padding:0 8px;font-size:9px;font-weight:850;letter-spacing:.04em;color:#5f5952;cursor:pointer;transition:background .18s ease,color .18s ease,transform .18s ease}
+.he-language-switcher button:hover{transform:translateY(-1px)}
+.he-language-switcher button.active{background:#171717;color:#fff}
+@media(max-width:720px){.he-language-switcher{right:10px;bottom:10px}.he-language-icon{display:none}.he-language-switcher button{min-width:31px;padding:0 6px}}
+@media print{.he-language-switcher{display:none!important}}
