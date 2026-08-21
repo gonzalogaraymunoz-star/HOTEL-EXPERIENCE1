@@ -56,7 +56,7 @@ export default function PartnerPortal(){
 
     void (async()=>{
       try{
-        const r=await fetch('/api/partner-auth');
+        const r=await fetch('/api/partner-data?area=auth');
         const body=await r.json();
         if(r.ok&&body.authenticated){setAccount(body.account);await loadData()}
       }finally{setChecking(false)}
@@ -71,7 +71,7 @@ export default function PartnerPortal(){
   const login=async(e:React.FormEvent)=>{
     e.preventDefault();setLoading(true);setError('');
     try{
-      const r=await fetch('/api/partner-auth',{
+      const r=await fetch('/api/partner-data?area=auth',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action:'login',accessCode,password})
       });
@@ -83,7 +83,7 @@ export default function PartnerPortal(){
   };
 
   const logout=async()=>{
-    await fetch('/api/partner-auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'logout'})});
+    await fetch('/api/partner-data?area=auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'logout'})});
     setAccount(null);setData(null);setPassword('');setTab('reservations');
   };
 
