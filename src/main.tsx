@@ -6,6 +6,7 @@ import {LanguageProvider} from './i18n/LanguageProvider';
 import LocalizationBridge from './i18n/LocalizationBridge';
 import './styles.css';
 import './motion.css';
+import './responsive.css';
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

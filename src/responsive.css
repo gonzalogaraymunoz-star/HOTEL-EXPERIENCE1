@@ -1,0 +1,406 @@
+/* HOTEL EXPERIENCE — Global responsive layer
+   Loaded after styles.css + motion.css so it only overrides layout/readability.
+   No business logic lives here. */
+
+:root{
+  --app-gutter:clamp(16px,2.4vw,36px);
+  --app-max:1480px;
+}
+
+html{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  scroll-behavior:smooth;
+}
+
+body{
+  min-width:320px;
+  overflow-x:hidden;
+}
+
+img,video,canvas{
+  max-width:100%;
+  height:auto;
+}
+
+button,input,select,textarea{
+  max-width:100%;
+}
+
+.crm-main,
+.crm-main > *,
+.view-stack,
+.surface-card,
+.content-grid,
+.table-wrap{
+  min-width:0;
+}
+
+.crm-main{
+  width:100%;
+  padding-left:var(--app-gutter);
+  padding-right:var(--app-gutter);
+}
+
+.crm-main p,
+.crm-main li,
+.crm-main td{
+  line-height:1.45;
+}
+
+.surface-card,
+.stat-card{
+  overflow-wrap:anywhere;
+}
+
+.table-wrap{
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+.crm-topbar{
+  min-width:0;
+}
+
+.crm-topbar h1{
+  font-size:clamp(28px,3vw,40px);
+  line-height:1;
+}
+
+.top-actions{
+  min-width:0;
+}
+
+.searchbox{
+  min-width:220px;
+}
+
+.user-pill{
+  min-width:0;
+}
+
+/* Large laptop / compact desktop */
+@media(max-width:1180px){
+  .crm-shell{
+    grid-template-columns:220px minmax(0,1fr);
+  }
+
+  .sidebar{
+    padding-left:12px;
+    padding-right:12px;
+  }
+
+  .nav-item{
+    padding-left:10px;
+    padding-right:10px;
+  }
+
+  .stat-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .content-grid.two{
+    grid-template-columns:minmax(0,1fr);
+  }
+
+  .quick-form{
+    grid-template-columns:minmax(0,1fr) 220px;
+  }
+
+  .quick-form > :last-child{
+    grid-column:1/-1;
+  }
+
+  .public-shell{
+    width:100%;
+  }
+}
+
+/* Tablet */
+@media(max-width:900px){
+  .crm-shell{
+    display:block;
+  }
+
+  .sidebar{
+    position:sticky;
+    top:0;
+    z-index:1000;
+    width:100%;
+    height:auto;
+    min-height:0;
+    padding:8px 10px;
+    border-right:0;
+    border-bottom:1px solid var(--line);
+    display:block;
+    overflow:hidden;
+  }
+
+  .sidebar-brand,
+  .sidebar-bottom,
+  .sidebar .nav-section-label{
+    display:none;
+  }
+
+  .sidebar nav{
+    display:flex!important;
+    flex-direction:row!important;
+    gap:5px!important;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+    padding:0 0 2px;
+  }
+
+  .sidebar nav::-webkit-scrollbar{
+    display:none;
+  }
+
+  .nav-item{
+    flex:0 0 auto;
+    min-height:42px;
+    grid-template-columns:18px auto auto;
+    gap:7px;
+    padding:9px 11px;
+    white-space:nowrap;
+  }
+
+  .nav-item svg{
+    width:17px;
+    height:17px;
+  }
+
+  .nav-item b{
+    font-size:12px;
+  }
+
+  .nav-item small{
+    font-size:9px;
+  }
+
+  .crm-main{
+    padding-top:20px;
+    padding-bottom:42px;
+  }
+
+  .crm-topbar{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:14px;
+    margin-bottom:20px;
+  }
+
+  .top-actions{
+    width:100%;
+    flex-wrap:wrap;
+  }
+
+  .searchbox{
+    width:100%;
+    flex:1 1 100%;
+    order:-1;
+  }
+
+  .public-layout,
+  .public-hero{
+    grid-template-columns:1fr;
+  }
+
+  .public-hero{
+    gap:22px;
+    align-items:start;
+  }
+
+  .public-hero p{
+    justify-self:start;
+  }
+
+  .public-summary{
+    position:static;
+  }
+
+  .process-strip{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .process-strip>div:nth-child(3){
+    border-left:0;
+    border-top:1px solid var(--line);
+  }
+
+  .process-strip>div:nth-child(4){
+    border-top:1px solid var(--line);
+  }
+
+  .form-grid{
+    gap:16px;
+  }
+}
+
+/* Phone / narrow tablet */
+@media(max-width:680px){
+  :root{
+    --app-gutter:14px;
+  }
+
+  .crm-main{
+    padding-top:16px;
+    padding-bottom:32px;
+  }
+
+  .crm-topbar h1{
+    font-size:28px;
+  }
+
+  .crm-topbar .eyebrow{
+    font-size:9px;
+  }
+
+  .top-actions{
+    gap:7px;
+  }
+
+  .icon-button{
+    width:40px;
+    height:40px;
+  }
+
+  .user-pill{
+    flex:1 1 auto;
+  }
+
+  .stat-grid{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  .stat-card,
+  .surface-card{
+    border-radius:15px;
+  }
+
+  .surface-card{
+    padding:16px;
+  }
+
+  .section-head-crm h2{
+    font-size:19px;
+  }
+
+  .compact-list>button{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+
+  .compact-list>button>svg{
+    display:none;
+  }
+
+  .table-wrap table{
+    min-width:680px;
+  }
+
+  .quick-form,
+  .form-grid{
+    grid-template-columns:1fr!important;
+  }
+
+  .field.wide{
+    grid-column:auto;
+  }
+
+  .public-shell{
+    padding:16px 14px 42px;
+  }
+
+  .public-hero{
+    padding:36px 0 28px;
+  }
+
+  .public-hero h1{
+    font-size:clamp(44px,15vw,68px);
+  }
+
+  .public-hero p{
+    font-size:16px;
+  }
+
+  .process-strip{
+    grid-template-columns:1fr;
+  }
+
+  .process-strip>div,
+  .process-strip>div+div,
+  .process-strip>div:nth-child(3){
+    border-left:0;
+    border-top:1px solid var(--line);
+    padding-left:0;
+  }
+
+  .process-strip>div:first-child{
+    border-top:0;
+  }
+
+  .public-card,
+  .public-summary{
+    padding:18px;
+    border-radius:16px;
+  }
+
+  .step-title{
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .step-title h2{
+    font-size:25px;
+  }
+
+  .step-actions{
+    flex-direction:column-reverse;
+  }
+
+  .step-actions button{
+    width:100%;
+  }
+
+  .modal-card,
+  [class*="modal-card"]{
+    width:min(94vw,720px)!important;
+    max-height:90vh;
+    overflow:auto;
+  }
+}
+
+/* Very narrow phones */
+@media(max-width:440px){
+  .nav-item{
+    grid-template-columns:18px auto;
+  }
+
+  .nav-item small{
+    display:none;
+  }
+
+  .crm-main{
+    padding-left:12px;
+    padding-right:12px;
+  }
+
+  .top-actions .user-pill{
+    max-width:calc(100% - 96px);
+  }
+
+  .stat-card{
+    padding:16px;
+  }
+
+  .public-success{
+    margin:50px auto;
+    padding:28px 18px;
+  }
+
+  .public-success h1{
+    font-size:38px;
+  }
+}
