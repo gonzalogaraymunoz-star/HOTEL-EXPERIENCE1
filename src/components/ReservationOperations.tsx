@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Clock3,Download,ExternalLink,FileCheck2,MapPin,Phone,Plus,ShieldAlert,Trash2,WalletCards} from 'lucide-react';
 import type {Lead,LeadService,Passenger,Supplier,Vehicle,ServiceAssignment,ReservationDocument,ServicePerson,OperationalResource} from '../types';
 import {createPassenger,deletePassenger,loadOperationsData,loadOperationsDirectory,assignResourceToService,removeResourceFromService,updateServiceAssignment,upsertReservationDocument} from '../lib/api';
+import ServiceFinanceCard from './ServiceFinanceCard';
 
 export default function ReservationOperations({lead,services,userRole,onChanged}:{lead:Lead;services:LeadService[];userRole:string;onChanged:()=>void}){
   const [data,setData]=useState<any>({passengers:[],suppliers:[],vehicles:[],assignments:[],documents:[]});
@@ -114,6 +115,15 @@ export default function ReservationOperations({lead,services,userRole,onChanged}
               {a.pickup_time&&<span><Clock3 size={13}/>{String(a.pickup_time).slice(0,5)}</span>}
               {a.meeting_point&&<span><MapPin size={13}/>{a.meeting_point}</span>}
             </div>
+
+
+            <ServiceFinanceCard
+              service={service}
+              assignment={a}
+              suppliers={data.suppliers}
+              userRole={userRole}
+              onChanged={()=>{load();onChanged()}}
+            />
 
             <div className="service-resource-box">
               <div><span className="eyebrow">INSUMOS ASIGNADOS</span><small>Equipamiento y materiales necesarios para esta salida.</small></div>
