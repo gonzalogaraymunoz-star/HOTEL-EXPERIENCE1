@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {
   LayoutDashboard,Users,KanbanSquare,CalendarDays,ListChecks,WalletCards,BarChart3,BedDouble,
   Search,RefreshCw,ChevronRight,Plus,UsersRound,LogOut,Sparkles,PackageSearch,Handshake,Truck,
-  UserRoundCog,CarFront,Box,AlertCircle
+  UserRoundCog,CarFront,Box,AlertCircle,Star
 } from 'lucide-react';
 import type {Lead,LeadService,CRMTask,CRMActivity} from '../types';
 import {loadCRMData,updateLead,updateService} from '../lib/api';
@@ -20,9 +20,10 @@ import OperationsAdminTools from './OperationsAdminTools';
 import OperationsControl from './OperationsControl';
 import FinancialWorkspace from './FinancialWorkspace';
 import DailyCommandCenter from './DailyCommandCenter';
+import ReviewWorkspace from './ReviewWorkspace';
 import {assertSupabase} from '../lib/supabase';
 
-type View='dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'ai'|'team';
+type View='dashboard'|'leads'|'pipeline'|'reservations'|'calendar'|'tasks'|'payments'|'reports'|'products'|'review'|'suppliers'|'service_people'|'vehicles'|'resources'|'operations'|'ai'|'team';
 
 export default function CRMApp({profile}:{profile:any}){
   const [view,setView]=useState<View>('dashboard');
@@ -42,6 +43,7 @@ export default function CRMApp({profile}:{profile:any}){
   const refresh=async()=>{
     setLoading(true);setError('');
     try{
+      try{await assertSupabase().rpc('sync_review_lifecycle')}catch{}
       const data=await loadCRMData();
       setLeads(data.leads);setServices(data.services);setTasks(data.tasks);setActivities(data.activities);
       try{const {loadTeamDirectory}=await import('../lib/api');setDirectory(await loadTeamDirectory())}catch{}
@@ -49,14 +51,19 @@ export default function CRMApp({profile}:{profile:any}){
     }catch(e:any){setError(e.message||'No se pudo cargar el CRM.')}
     finally{setLoading(false)}
   };
-  useEffect(()=>{refresh()},[]);
+  useEffect(()=>{void refresh()},[]);
+
+  const activeLeads=useMemo(()=>leads.filter(l=>String((l as any).lifecycle_stage||'active')==='active'),[leads]);
+  const activeLeadIds=useMemo(()=>new Set(activeLeads.map(l=>l.id)),[activeLeads]);
+  const activeServices=useMemo(()=>services.filter(s=>activeLeadIds.has(s.lead_id)),[services,activeLeadIds]);
+  const reviewCount=leads.filter(l=>String((l as any).lifecycle_stage)==='review').length;
 
   const currentUserId=profile?.id||null;
   const scopedLeads=useMemo(()=>{
-    if(leadScope==='unassigned')return leads.filter(l=>!l.assigned_to);
-    if(leadScope==='mine')return leads.filter(l=>l.assigned_to===currentUserId||l.created_by===currentUserId);
-    return leads;
-  },[leads,leadScope,currentUserId]);
+    if(leadScope==='unassigned')return activeLeads.filter(l=>!l.assigned_to);
+    if(leadScope==='mine')return activeLeads.filter(l=>l.assigned_to===currentUserId||l.created_by===currentUserId);
+    return activeLeads;
+  },[activeLeads,leadScope,currentUserId]);
   const filtered=useMemo(()=>{
     const q=search.toLowerCase().trim();
     if(!q)return scopedLeads;
@@ -64,7 +71,7 @@ export default function CRMApp({profile}:{profile:any}){
   },[scopedLeads,search]);
 
   const pendingTasks=tasks.filter(t=>t.status!=='Completada');
-  const upcoming=services.filter(s=>s.fecha_servicio&&new Date(s.fecha_servicio+'T23:59:00')>=new Date()).sort((a,b)=>String(a.fecha_servicio).localeCompare(String(b.fecha_servicio)));
+  const upcoming=activeServices.filter(s=>s.fecha_servicio&&new Date(s.fecha_servicio+'T23:59:00')>=new Date()).sort((a,b)=>String(a.fecha_servicio).localeCompare(String(b.fecha_servicio)));
 
   return <div className="crm-shell">
     <aside className="sidebar">
@@ -72,14 +79,16 @@ export default function CRMApp({profile}:{profile:any}){
       <nav>
         <Nav icon={<LayoutDashboard/>} label="Inicio" active={view==='dashboard'} onClick={()=>setView('dashboard')}/>
         <button className={view==='ai'?'nav-item ai-nav active':'nav-item ai-nav'} onClick={()=>setView('ai')}><span><Sparkles/></span><b>Asistente comercial</b><small>APOYO</small></button>
-        <Nav icon={<Users/>} label="Clientes" active={view==='leads'} onClick={()=>setView('leads')} badge={leads.length}/>
+        <Nav icon={<Users/>} label="Clientes" active={view==='leads'} onClick={()=>setView('leads')} badge={activeLeads.length}/>
         <Nav icon={<KanbanSquare/>} label="Pipeline" active={view==='pipeline'} onClick={()=>setView('pipeline')}/>
-        <Nav icon={<BedDouble/>} label="Reservas" active={view==='reservations'} onClick={()=>setView('reservations')} badge={services.length}/>
+        <Nav icon={<BedDouble/>} label="Reservas" active={view==='reservations'} onClick={()=>setView('reservations')} badge={activeServices.length}/>
         <Nav icon={<CalendarDays/>} label="Calendario" active={view==='calendar'} onClick={()=>setView('calendar')}/>
         <Nav icon={<ListChecks/>} label="Tareas" active={view==='tasks'} onClick={()=>setView('tasks')} badge={pendingTasks.length}/>
         <Nav icon={<WalletCards/>} label="Pagos" active={view==='payments'} onClick={()=>setView('payments')}/>
         <Nav icon={<BarChart3/>} label="Reportes" active={view==='reports'} onClick={()=>setView('reports')}/>
         <Nav icon={<PackageSearch/>} label="Productos" active={view==='products'} onClick={()=>setView('products')}/>
+        <div className="nav-section-label">POSTVENTA</div>
+        <Nav icon={<Star/>} label="Review" active={view==='review'} onClick={()=>setView('review')} badge={reviewCount}/>
         <div className="nav-section-label">OPERACIÓN</div>
         <Nav icon={<Truck/>} label="Operaciones" active={view==='operations'} onClick={()=>setView('operations')}/>
         <Nav icon={<Handshake/>} label="Proveedores" active={view==='suppliers'} onClick={()=>setView('suppliers')}/>
@@ -104,20 +113,21 @@ export default function CRMApp({profile}:{profile:any}){
 
       {error&&<div className="error-banner"><AlertCircle size={18}/>{error}</div>}
       {loading?<div className="loading-card">Cargando CRM...</div>:<>
-        {view==='dashboard'&&<Dashboard leads={leads} services={services} tasks={tasks} activities={activities} upcoming={upcoming} onLead={setSelectedLead} onOpenAI={()=>setView('ai')} onOpenOperations={()=>setView('operations')} onOpenPayments={()=>setView('payments')}/>} 
-        {view==='leads'&&<LeadsView leads={filtered} services={services} onLead={setSelectedLead} directory={directory} leadScope={leadScope} setLeadScope={setLeadScope} canCreate={profile?.role!=='viewer'} onNewLead={()=>setNewLeadOpen(true)}/>} 
-        {view==='pipeline'&&<PipelineView leads={filtered} services={services} onLead={setSelectedLead} refresh={refresh}/>} 
-        {view==='reservations'&&<ReservationsView leads={leads} services={services} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>} 
-        {view==='calendar'&&<CalendarWorkspace leads={leads} services={services} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>} 
+        {view==='dashboard'&&<Dashboard leads={activeLeads} services={activeServices} tasks={tasks} activities={activities} upcoming={upcoming} onLead={setSelectedLead} onOpenAI={()=>setView('ai')} onOpenOperations={()=>setView('operations')} onOpenPayments={()=>setView('payments')}/>} 
+        {view==='leads'&&<LeadsView leads={filtered} services={activeServices} onLead={setSelectedLead} directory={directory} leadScope={leadScope} setLeadScope={setLeadScope} canCreate={profile?.role!=='viewer'} onNewLead={()=>setNewLeadOpen(true)}/>} 
+        {view==='pipeline'&&<PipelineView leads={filtered} services={activeServices} onLead={setSelectedLead} refresh={refresh}/>} 
+        {view==='reservations'&&<ReservationsView leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>} 
+        {view==='calendar'&&<CalendarWorkspace leads={activeLeads} services={activeServices} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>} 
         {view==='tasks'&&<TasksWorkspace leads={leads} tasks={tasks} refresh={refresh}/>} 
         {view==='payments'&&<FinancialWorkspace mode="payments" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>} 
         {view==='reports'&&<FinancialWorkspace mode="reports" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>} 
         {view==='products'&&<ProductCatalogView role={profile?.role||'agent'}/>} 
+        {view==='review'&&<ReviewWorkspace leads={leads} services={services} userRole={profile?.role||'agent'} onLead={setSelectedLead} onChanged={refresh}/>} 
         {view==='suppliers'&&<OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/>}
         {view==='service_people'&&<OperationsHub role={profile?.role||'agent'} initialTab="people"/>}
         {view==='vehicles'&&<OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/>}
         {view==='resources'&&<OperationsHub role={profile?.role||'agent'} initialTab="resources"/>}
-        {view==='operations'&&<OperationsControl leads={leads} services={services} onLead={setSelectedLead} onOperation={setOperationService}/>} 
+        {view==='operations'&&<OperationsControl leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService}/>} 
         {['suppliers','service_people','vehicles','resources'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>} 
         {view==='ai'&&<AiAssistant leads={leads} role={profile?.role||'agent'} onChanged={refresh}/>} 
         {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>} 
@@ -135,7 +145,7 @@ function Dashboard({leads,services,tasks,activities,upcoming,onLead,onOpenAI,onO
     <DailyCommandCenter leads={leads} services={services} tasks={tasks} activities={activities} onLead={onLead} onOpenOperations={onOpenOperations} onOpenPayments={onOpenPayments} onOpenAI={onOpenAI}/>
     <section className="content-grid two">
       <div className="surface-card">
-        <SectionHead title="Leads recientes" subtitle="Últimas solicitudes ingresadas"/>
+        <SectionHead title="Leads recientes" subtitle="Últimas solicitudes activas"/>
         <div className="compact-list">{leads.slice(0,6).map((l:Lead)=><button key={l.id} onClick={()=>onLead(l)}><div><strong>{l.reserva}</strong><span>{l.codigo} · {l.empresa_ejecuta||'Sin hotel'}</span></div><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span><ChevronRight size={17}/></button>)}</div>
       </div>
       <div className="surface-card">
@@ -150,7 +160,7 @@ function LeadsView({leads,services,onLead,directory,leadScope,setLeadScope,canCr
   const owner=(id:any)=>directory.find((u:any)=>u.id===id);
   return <div className="view-stack">
     <section className="lead-toolbar"><div className="scope-tabs"><button className={leadScope==='all'?'active':''} onClick={()=>setLeadScope('all')}>Todos</button><button className={leadScope==='mine'?'active':''} onClick={()=>setLeadScope('mine')}>Mis leads</button><button className={leadScope==='unassigned'?'active':''} onClick={()=>setLeadScope('unassigned')}>Sin asignar</button></div>{canCreate&&<button className="primary-button" onClick={onNewLead}><Plus size={16}/> Nuevo lead</button>}</section>
-    <div className="surface-card"><SectionHead title="Clientes" subtitle="Vista 360° de solicitudes, responsables y oportunidades"/><div className="table-wrap"><table><thead><tr><th>Cliente</th><th>Responsable</th><th>Hotel</th><th>Experiencias</th><th>Venta</th><th>Pago</th><th>Etapa</th><th></th></tr></thead><tbody>{leads.map((l:Lead)=>{const ss=services.filter((s:LeadService)=>s.lead_id===l.id);const sale=ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0);const paid=ss.length&&ss.every((s:LeadService)=>s.estado_pago==='Pagado');const o=owner(l.assigned_to);return <tr key={l.id} onClick={()=>onLead(l)}><td><strong>{l.reserva}</strong><span>{l.codigo}</span></td><td>{o?<><strong>{o.full_name||o.email}</strong><span>{o.role}</span></>:<span className="unassigned-pill">Sin asignar</span>}</td><td>{l.empresa_ejecuta||'-'}</td><td><b>{ss.length}</b> servicios</td><td>{money(sale)}</td><td><span className={paid?'status-badge confirmado':'status-badge neutral'}>{paid?'Pagado':'Pendiente'}</span></td><td><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span></td><td><ChevronRight size={17}/></td></tr>})}</tbody></table></div></div>
+    <div className="surface-card"><SectionHead title="Clientes" subtitle="Clientes activos antes de postventa"/><div className="table-wrap"><table><thead><tr><th>Cliente</th><th>Responsable</th><th>Hotel</th><th>Experiencias</th><th>Venta</th><th>Pago</th><th>Etapa</th><th></th></tr></thead><tbody>{leads.map((l:Lead)=>{const ss=services.filter((s:LeadService)=>s.lead_id===l.id);const sale=ss.reduce((a:number,s:LeadService)=>a+Number(s.precio_venta||0),0);const paid=ss.length&&ss.every((s:LeadService)=>s.estado_pago==='Pagado');const o=owner(l.assigned_to);return <tr key={l.id} onClick={()=>onLead(l)}><td><strong>{l.reserva}</strong><span>{l.codigo}</span></td><td>{o?<><strong>{o.full_name||o.email}</strong><span>{o.role}</span></>:<span className="unassigned-pill">Sin asignar</span>}</td><td>{l.empresa_ejecuta||'-'}</td><td><b>{ss.length}</b> servicios</td><td>{money(sale)}</td><td><span className={paid?'status-badge confirmado':'status-badge neutral'}>{paid?'Pagado':'Pendiente'}</span></td><td><span className={`status-badge ${l.estado}`}>{cap(l.estado)}</span></td><td><ChevronRight size={17}/></td></tr>})}</tbody></table></div></div>
   </div>;
 }
 
@@ -161,12 +171,12 @@ function PipelineView({leads,services,onLead,refresh}:any){
 }
 
 function ReservationsView({leads,services,onLead,onOperation,refresh}:any){
-  return <div className="surface-card"><SectionHead title="Reservas y operación" subtitle="Cada experiencia se gestiona de forma independiente"/><div className="table-wrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Experiencia</th><th>Pax</th><th>Venta</th><th>Pago</th><th>Estado</th><th>Operación</th></tr></thead><tbody>{services.map((s:LeadService)=>{const l=leads.find((x:Lead)=>x.id===s.lead_id);return <tr key={s.id}><td>{dateFmt(s.fecha_servicio)}</td><td onClick={()=>l&&onLead(l)} className="clickable"><strong>{l?.reserva||'-'}</strong><span>{l?.codigo}</span></td><td><strong>{s.producto}</strong>{s.modality&&<span className="table-subline">{s.modality==='low'?'Compartido':s.modality==='semiprivado'?'Semiprivado':'Privado'}</span>}</td><td>{s.numero_pax}</td><td>{money(s.precio_venta)}</td><td><select value={s.estado_pago} onChange={async e=>{await updateService(s.id,{estado_pago:e.target.value});refresh()}}>{['Pendiente','Parcial','Pagado','Reembolsado'].map(x=><option key={x}>{x}</option>)}</select></td><td><select value={s.estado_operacion} onChange={async e=>{await updateService(s.id,{estado_operacion:e.target.value});refresh()}}>{['Pendiente','Coordinado','En curso','Completado','Cancelado'].map(x=><option key={x}>{x}</option>)}</select></td><td><button className="operation-button table-operation-button" onClick={()=>onOperation(s)}><Truck size={14}/> Operación</button></td></tr>})}</tbody></table></div></div>;
+  return <div className="surface-card"><SectionHead title="Reservas y operación" subtitle="Solo reservas activas; las finalizadas y pagadas pasan a Review"/><div className="table-wrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Experiencia</th><th>Pax</th><th>Venta</th><th>Pago</th><th>Estado</th><th>Operación</th></tr></thead><tbody>{services.map((s:LeadService)=>{const l=leads.find((x:Lead)=>x.id===s.lead_id);return <tr key={s.id}><td>{dateFmt(s.fecha_servicio)}</td><td onClick={()=>l&&onLead(l)} className="clickable"><strong>{l?.reserva||'-'}</strong><span>{l?.codigo}</span></td><td><strong>{s.producto}</strong>{s.modality&&<span className="table-subline">{s.modality==='low'?'Compartido':s.modality==='semiprivado'?'Semiprivado':'Privado'}</span>}</td><td>{s.numero_pax}</td><td>{money(s.precio_venta)}</td><td><select value={s.estado_pago} onChange={async e=>{await updateService(s.id,{estado_pago:e.target.value});refresh()}}>{['Pendiente','Parcial','Pagado','Reembolsado'].map(x=><option key={x}>{x}</option>)}</select></td><td><select value={s.estado_operacion} onChange={async e=>{await updateService(s.id,{estado_operacion:e.target.value});refresh()}}>{['Pendiente','Coordinado','En curso','Completado','Cancelado'].map(x=><option key={x}>{x}</option>)}</select></td><td><button className="operation-button table-operation-button" onClick={()=>onOperation(s)}><Truck size={14}/> Operación</button></td></tr>})}</tbody></table></div></div>;
 }
 
 function Nav({icon,label,active,onClick,badge}:{icon:React.ReactNode;label:string;active:boolean;onClick:()=>void;badge?:number}){return <button className={active?'nav-item active':'nav-item'} onClick={onClick}><span>{icon}</span><b>{label}</b>{badge!==undefined&&<small>{badge}</small>}</button>}
 function SectionHead({title,subtitle}:{title:string;subtitle:string}){return <div className="section-head-crm"><div><h2>{title}</h2><p>{subtitle}</p></div></div>}
-const titles:any={dashboard:'Inicio',leads:'Clientes',pipeline:'Pipeline comercial',reservations:'Reservas',calendar:'Calendario operacional',tasks:'Tareas y seguimiento',payments:'Pagos',reports:'Reportes',products:'Productos y valores',suppliers:'Proveedores',service_people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',operations:'Control de operación',ai:'Asistente comercial',team:'Equipo'};
+const titles:any={dashboard:'Inicio',leads:'Clientes',pipeline:'Pipeline comercial',reservations:'Reservas',calendar:'Calendario operacional',tasks:'Tareas y seguimiento',payments:'Pagos',reports:'Reportes',products:'Productos y valores',review:'Review',suppliers:'Proveedores',service_people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',operations:'Control de operación',ai:'Asistente comercial',team:'Equipo'};
 const money=(n:any)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0));
 const dateFmt=(d:any)=>d?new Date(String(d)+'T12:00:00').toLocaleDateString('es-CL'):'Sin fecha';
 const cap=(s:string)=>String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1);
