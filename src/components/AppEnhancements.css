@@ -1,7 +1,7 @@
 .enhancement-addon-nav{margin-top:0}
 .enhancement-system-label{padding-top:8px}
 
-.system-health{margin-top:14px;padding:11px 10px;border:1px solid var(--line);border-radius:13px;background:var(--soft2);display:grid;grid-template-columns:10px 1fr;gap:10px;align-items:center}
+.system-health{margin-top:14px;padding:11px 10px;border:1px solid var(--line);border-radius:13px;background:var(--soft2);display:grid;grid-template-columns:10px 1fr;gap:10px;align-items:center;transition:opacity .2s ease,transform .2s ease}
 .system-health-dot{width:8px;height:8px;border-radius:999px;background:#9a948b;box-shadow:0 0 0 4px rgba(154,148,139,.12)}
 .system-health b{display:block;font-size:11px;line-height:1.25;color:var(--ink)}
 .system-health small{display:block;margin-top:2px;font-size:9px;line-height:1.25;color:var(--muted);text-transform:none;letter-spacing:0}
@@ -13,3 +13,38 @@
 .configuration-required h1{margin:8px 0 14px;font-size:clamp(36px,6vw,64px);letter-spacing:-.055em}
 .configuration-required p{max-width:620px;color:var(--muted);line-height:1.6}
 .configuration-required small{display:block;margin-top:20px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted)}
+
+/* ChatGPT-style navigation shell */
+.crm-shell{transition:grid-template-columns .24s cubic-bezier(.2,.8,.2,1)}
+.sidebar{transition:width .24s cubic-bezier(.2,.8,.2,1),padding .24s cubic-bezier(.2,.8,.2,1),transform .24s cubic-bezier(.2,.8,.2,1),box-shadow .24s ease}
+.nav-item,.sidebar-brand,.sidebar-bottom,.nav-section-label{transition:padding .2s ease,opacity .18s ease,background .18s ease,color .18s ease}
+
+.desktop-sidebar-toggle,.mobile-sidebar-close,.mobile-menu-trigger{border:0;background:transparent;color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.desktop-sidebar-toggle{position:absolute;top:17px;right:12px;width:36px;height:36px;border-radius:10px;z-index:3}
+.desktop-sidebar-toggle:hover,.mobile-sidebar-close:hover,.mobile-menu-trigger:hover{background:var(--soft)}
+.mobile-sidebar-close,.mobile-app-bar,.mobile-menu-backdrop{display:none}
+
+.crm-shell.sidebar-collapsed{grid-template-columns:76px minmax(0,1fr)}
+.sidebar.sidebar-collapsed{padding-left:10px;padding-right:10px}
+.sidebar.sidebar-collapsed .sidebar-brand{padding-left:3px;padding-right:3px;padding-bottom:20px;overflow:hidden}
+.sidebar.sidebar-collapsed .sidebar-brand img{max-width:42px!important;width:42px!important;object-fit:contain}
+.sidebar.sidebar-collapsed .sidebar-brand b,
+.sidebar.sidebar-collapsed .sidebar-brand span,
+.sidebar.sidebar-collapsed .nav-item b,
+.sidebar.sidebar-collapsed .nav-item small,
+.sidebar.sidebar-collapsed .nav-section-label,
+.sidebar.sidebar-collapsed .sidebar-bottom>a,
+.sidebar.sidebar-collapsed .sidebar-bottom>small,
+.sidebar.sidebar-collapsed .system-health>div{display:none!important}
+.sidebar.sidebar-collapsed nav{align-items:center}
+.sidebar.sidebar-collapsed .nav-item{width:44px;height:44px;padding:0;display:grid;grid-template-columns:1fr;place-items:center;border-radius:12px}
+.sidebar.sidebar-collapsed .nav-item>span{display:grid;place-items:center;margin:0}
+.sidebar.sidebar-collapsed .nav-item svg{width:20px;height:20px}
+.sidebar.sidebar-collapsed .sidebar-bottom{padding-left:0;padding-right:0;display:flex;justify-content:center}
+.sidebar.sidebar-collapsed .system-health{width:38px;height:38px;margin-top:8px;padding:0;display:grid;place-items:center;grid-template-columns:1fr}
+.sidebar.sidebar-collapsed .system-health-dot{margin:0}
+.sidebar.sidebar-collapsed .desktop-sidebar-toggle{right:20px;top:70px}
+
+@media(prefers-reduced-motion:reduce){
+  .crm-shell,.sidebar,.nav-item,.sidebar-brand,.sidebar-bottom,.nav-section-label{transition:none!important}
+}
