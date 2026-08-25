@@ -7,6 +7,7 @@ import LeadDrawer from './LeadDrawer';
 import GlobalSearchPortal from './GlobalSearchPortal';
 import AddonsWorkspace from './AddonsWorkspace';
 import CancellationPoliciesWorkspace from './CancellationPoliciesWorkspace';
+import TourTaskBookingBridge from './TourTaskBookingBridge';
 import './AppEnhancements.css';
 
 export default function AppEnhancements({profile,children}:{profile:any;children:React.ReactNode}){
@@ -61,6 +62,7 @@ export default function AppEnhancements({profile,children}:{profile:any;children
 
   return <>
     {children}
+    <TourTaskBookingBridge role={profile?.role||'agent'}/>
 
     {searchHost&&createPortal(
       <GlobalSearchPortal onLead={openLead} onNavigate={navigate}/>,
