@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertTriangle,Clock3,Link2,Plus,RefreshCw,ShieldCheck,TicketCheck,Users} from 'lucide-react';
+import {AlertTriangle,Clock3,Link2,Plus,RefreshCw,ShieldCheck,TicketCheck} from 'lucide-react';
 import {assertSupabase} from '../lib/supabase';
 
 type Mode='dashboard'|'reservations';
@@ -97,18 +97,18 @@ function BookingInventoryPanel({mode,role}:{mode:Mode;role:string}){
   const leadMap=useMemo(()=>new Map(leads.map(l=>[l.id,l])),[leads]);
   const products=useMemo(()=>{
     const map=new Map<string,string>();
-    for(const s of services)if(s.tour_id)map.set(s.tour_id,s.producto);
+    for(const s of services)map.set(serviceInventoryKey(s),s.producto);
     return Array.from(map.entries()).map(([tour_id,name])=>({tour_id,name})).sort((a,b)=>a.name.localeCompare(b.name));
   },[services]);
   useEffect(()=>{if(!product&&products[0])setProduct(products[0].tour_id)},[products,product]);
 
   const activeServices=services.filter(s=>!['cancelled','completed'].includes(String(s.booking_status||''))&&s.estado_operacion!=='Cancelado');
   const activeHolds=activeServices.filter(s=>s.booking_status==='hold'&&(!s.hold_expires_at||new Date(s.hold_expires_at)>new Date()));
-  const withoutDeparture=activeServices.filter(s=>s.tour_id&&s.fecha_servicio&&!s.departure_id);
+  const withoutDeparture=activeServices.filter(s=>s.fecha_servicio&&!s.departure_id);
   const critical=departures.filter(d=>d.status==='open'&&d.capacity_total>0&&(d.available_pax<=2||d.available_pax/d.capacity_total<=.2));
   const confirmed=activeServices.filter(s=>s.booking_status==='confirmed').length;
 
-  const matchingDepartures=(s:ServiceRow)=>departures.filter(d=>d.status==='open'&&d.service_date===s.fecha_servicio&&(!s.tour_id||d.tour_id===s.tour_id));
+  const matchingDepartures=(s:ServiceRow)=>departures.filter(d=>d.status==='open'&&d.service_date===s.fecha_servicio&&d.tour_id===serviceInventoryKey(s));
 
   const patchService=async(id:string,patch:any)=>{
     setError('');setNotice('');
@@ -204,7 +204,7 @@ function BookingInventoryPanel({mode,role}:{mode:Mode;role:string}){
         {withoutDeparture.length>0&&<button className="operation-button" onClick={autoLink}><Link2 size={14}/> Vincular coincidencias únicas</button>}
       </div>
       {loading?<div className="loading-card">Cargando cupos…</div>:<div style={{overflowX:'auto'}}><table style={{width:'100%'}}><thead><tr><th>Fecha</th><th>Producto</th><th>Hora</th><th>Capacidad</th><th>Confirmados</th><th>HOLD</th><th>Disponibles</th><th>Estado</th></tr></thead><tbody>
-        {departures.map(d=><tr key={d.id}><td><strong>{dateFmt(d.service_date)}</strong></td><td><strong>{d.product_name}</strong><span>{d.tour_id}</span></td><td>{d.start_time?String(d.start_time).slice(0,5):'—'}</td><td>{d.capacity_total}</td><td>{d.confirmed_pax}</td><td>{d.hold_pax}</td><td><span style={{fontWeight:800,color:d.available_pax<=2?'#9f3124':'#247244'}}>{d.available_pax}</span></td><td><span className={`status-badge ${d.status==='open'?'confirmado':'neutral'}`}>{departureStatus(d.status)}</span></td></tr>)}
+        {departures.map(d=><tr key={d.id}><td><strong>{dateFmt(d.service_date)}</strong></td><td><strong>{d.product_name}</strong><span>{d.tour_id.startsWith('legacy:')?'Clave interna':d.tour_id}</span></td><td>{d.start_time?String(d.start_time).slice(0,5):'—'}</td><td>{d.capacity_total}</td><td>{d.confirmed_pax}</td><td>{d.hold_pax}</td><td><span style={{fontWeight:800,color:d.available_pax<=2?'#9f3124':'#247244'}}>{d.available_pax}</span></td><td><span className={`status-badge ${d.status==='open'?'confirmado':'neutral'}`}>{departureStatus(d.status)}</span></td></tr>)}
       </tbody></table>{!departures.length&&<div className="empty-state" style={{margin:18}}>Todavía no hay salidas con capacidad definida.</div>}</div>}
     </section>
 
@@ -225,6 +225,8 @@ function BookingInventoryPanel({mode,role}:{mode:Mode;role:string}){
   </div>;
 }
 
+function serviceInventoryKey(s:ServiceRow){return s.tour_id||`legacy:${slug(s.producto||'producto')}`}
+function slug(value:string){return String(value||'producto').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80)||'producto'}
 function MiniMetric({label,value,icon,warn=false}:{label:string;value:number;icon:React.ReactNode;warn?:boolean}){
   return <div style={{border:'1px solid #d9d2c8',borderRadius:14,padding:'11px 12px',display:'flex',gap:10,alignItems:'center',background:'#fff'}}><span style={{width:30,height:30,border:'1px solid #ddd6cc',borderRadius:'50%',display:'grid',placeItems:'center',color:warn?'#9a651d':'#1c1b19'}}>{icon}</span><span><small style={{display:'block',fontSize:8,textTransform:'uppercase',letterSpacing:'.08em',color:'#746d64'}}>{label}</small><b style={{fontSize:20,color:warn?'#9a651d':'#111'}}>{value}</b></span></div>;
 }
@@ -234,7 +236,7 @@ function dateFmt(d:any){return d?new Date(String(d)+'T12:00:00').toLocaleDateStr
 function holdLabel(value?:string|null){if(!value)return '15 min';const d=new Date(value);return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}
 
 const summaryCardStyle:React.CSSProperties={background:'#f8f6f2',border:'1px solid #d7d0c5',borderRadius:18,padding:18,marginBottom:12};
-const metricGridStyle:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:8,marginTop:14};
-const formStyle:React.CSSProperties={display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr auto',gap:8,alignItems:'end',marginTop:14,paddingTop:14,borderTop:'1px solid #ddd6cc'};
+const metricGridStyle:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8,marginTop:14};
+const formStyle:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8,alignItems:'end',marginTop:14,paddingTop:14,borderTop:'1px solid #ddd6cc'};
 const fieldStyle:React.CSSProperties={display:'grid',gap:5,fontSize:9,fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',color:'#746d64'};
 const noticeStyle:React.CSSProperties={marginTop:10,padding:'10px 12px',border:'1px solid #b9d4c3',background:'#f3faf5',borderRadius:10,display:'flex',gap:8,alignItems:'center',fontSize:10,color:'#247244'};
