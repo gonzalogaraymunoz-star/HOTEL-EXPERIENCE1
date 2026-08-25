@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "id": "hotel-experience",
+  "name": "HOTEL EXPERIENCE",
+  "version": "7.0.0-migration",
+  "role": "operational-data-plane",
+  "description": "Sistema operativo comercial para hoteles: CRM, productos, ventas, pagos, operadores, operación, comisiones, postventa y feedback.",
+  "healthPath": "/api/health",
+  "sourcesOfTruth": {
+    "code": "github",
+    "data": "supabase",
+    "deploy": "vercel",
+    "governance": "link-control-central"
+  },
+  "capabilities": [
+    "leads",
+    "crm",
+    "sales",
+    "reservations",
+    "products",
+    "payments",
+    "operators",
+    "operations",
+    "commissions",
+    "cancellation-policies",
+    "post-sale",
+    "feedback",
+    "automation",
+    "ai-assistance"
+  ],
+  "environment": {
+    "publicRequired": [
+      "VITE_SUPABASE_URL",
+      "VITE_SUPABASE_PUBLISHABLE_KEY"
+    ],
+    "serverRequired": [
+      "SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "serverFeatureFlags": [
+      "AI_CONFIG_SECRET",
+      "APP_PUBLIC_URL",
+      "RESEND_API_KEY",
+      "EMAIL_FROM"
+    ]
+  },
+  "principles": [
+    "no-fake-ui",
+    "preserve-working-flows",
+    "cost-before-margin",
+    "trace-every-sale",
+    "one-lead-many-products",
+    "operator-is-not-platform"
+  ]
+}

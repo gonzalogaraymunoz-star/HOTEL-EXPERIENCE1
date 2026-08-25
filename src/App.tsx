@@ -5,7 +5,7 @@ import AppEnhancements from './components/AppEnhancements';
 import PublicRegistration from './components/PublicRegistration';
 import LoginScreen from './components/LoginScreen';
 import ErrorBoundary from './components/ErrorBoundary';
-import {supabase} from './lib/supabase';
+import {supabase,supabaseConfigured} from './lib/supabase';
 
 export default function App(){
   const path=window.location.pathname.replace(/\/+$/,'')||'/';
@@ -14,6 +14,7 @@ export default function App(){
   const [profileLoading,setProfileLoading]=useState(false);
 
   useEffect(()=>{
+    if(!supabaseConfigured){setSession(null);return}
     let alive=true;
     supabase.auth.getSession().then(({data})=>{if(alive)setSession(data.session)}).catch(()=>{if(alive)setSession(null)});
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));
@@ -43,6 +44,12 @@ export default function App(){
     return ()=>{alive=false};
   },[session?.user.id]);
 
+  if(!supabaseConfigured) return <main className="blocked-screen configuration-required">
+    <span className="eyebrow">HOTEL EXPERIENCE · CONFIGURACIÓN</span>
+    <h1>Conexión requerida</h1>
+    <p>Esta instalación no está vinculada a una base de datos. Configura <b>VITE_SUPABASE_URL</b> y <b>VITE_SUPABASE_PUBLISHABLE_KEY</b> en el entorno antes de usar el CRM.</p>
+    <small>No se cargarán datos simulados ni una base de otra cuenta.</small>
+  </main>;
   if(path==='/registro') return <ErrorBoundary><PublicRegistration/></ErrorBoundary>;
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
   if(!session) return <LoginScreen/>;

@@ -1,76 +1,86 @@
-# HOTEL EXPERIENCE CRM — V6
+# HOTEL EXPERIENCE — V7 portable
 
-Base limpia y única del CRM Hotel Experience by LINK.
+Sistema operativo comercial y operacional para hoteles.
 
-## Ya está conectado al Supabase existente
-Proyecto: `lpirjwifzosdzgdncsbt`.
+HOTEL EXPERIENCE mantiene el flujo:
 
-El frontend usa la publishable key pública del proyecto (segura para navegador + RLS), por lo que el login Supabase Auth funciona al desplegar el repo aunque no copies variables `VITE_*`.
+`Hotel → Lead/Huésped → Venta → Producto → Pago → Operador → Operación → Comisión → Feedback`
 
-Para funciones privadas de servidor agrega en Vercel:
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `AI_CONFIG_SECRET`
+## Arquitectura
 
-Nunca pongas `SUPABASE_SERVICE_ROLE_KEY` en una variable `VITE_*`.
+- **GitHub:** fuente de verdad del código.
+- **Supabase:** fuente de verdad de datos, Auth, Storage y reglas operacionales.
+- **Vercel:** producción, previews y funciones de servidor.
+- **LINK CONTROL CENTRAL:** capa superior de gobierno/control; HOTEL EXPERIENCE permanece como Operational Data Plane de turismo.
 
-## Menú
-- Inicio
-- Asistente comercial
-- Clientes
-- Pipeline
-- Reservas
-- Calendario
-- Tareas
-- Pagos
-- Reportes
-- Productos
-- Operaciones
-- Proveedores
-- Prestadores
-- Vehículos
-- Insumos
-- Equipo (admin)
+La aplicación conserva el CRM, operación, productos, pagos, proveedores, comisiones, políticas, postventa, automatizaciones y fichas existentes. La V7 no reemplaza esas funciones: hace el proyecto transferible entre cuentas y mejora la visibilidad del estado real de sus conexiones.
 
-## Ficha 360°
-Cada cliente contiene sus tours, pasajeros, tareas e información operacional. Cada tour tiene botón **Operación** y puede guardar:
-- proveedor/agencia responsable;
-- guía;
-- conductor;
-- vehículo/patente;
-- cocinero/a;
-- coordinador/a;
-- pickup y punto de encuentro;
-- insumos;
-- costo y pago del proveedor.
+## Regla de interfaz
 
-## Pasajeros
-Cada pax recibe código único: `CODIGO-LEAD-P01`, `P02`, etc.
-Existe `app_user_ref` para cruzarlo posteriormente con un usuario de la app.
-La ficha permite descargar una lista CSV nominal.
+**No Fake UI.** Una conexión o estado solo se muestra como operativo cuando existe evidencia real. Si faltan variables de Supabase, la app bloquea el workspace y muestra “Conexión requerida” en vez de leer una base por defecto.
 
-## Hoja de riesgo
-Cada reserva puede guardar el link de su hoja de riesgo. Si el lead está confirmado y la hoja no está completada, la interfaz muestra una alerta.
+El sidebar incorpora un health check del backend para mostrar si Supabase está realmente configurado.
 
-## Tarifario TV1.2
-Fuente incluida en:
-`src/data/tv1_2_crm_cotizador_tours.json`
+## Variables de entorno
 
-Regla inalterable:
-`tour_id → modalidad → pax → tarifa`
+Copia `.env.example`.
 
-- Compartido (LOW): precio p/p × pax.
-- Semiprivado (TV1): precio p/p entre 2–10 pax; 1 pax = cotización manual.
-- Privado (TV1): tramo exacto 1–12; tramo nulo = cotización manual.
-- Nunca se corrigen precios del archivo fuente desde el código.
+Frontend:
 
-La vista Productos muestra las tres modalidades y una matriz completa 1–12 pax. Además conserva un segundo acceso para Transporte, Salud, Procedimientos y SPA/Terapias desde el catálogo Supabase existente.
+```text
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+```
 
-## Supabase
-La migración operacional V6 ya fue aplicada al proyecto actual. Se conserva en `supabase/migrations/` para reproducibilidad.
+Servidor:
 
-## Verificación
-- `npm run validate` valida estructura y dataset.
-- `npm run typecheck` valida TypeScript.
-- `npm run build` ejecuta typecheck y compila Vite.
+```text
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+AI_CONFIG_SECRET=
+APP_PUBLIC_URL=
+```
 
-Consulta `FUNCTIONAL_MAP.md` para el inventario funcional completo.
+Variables de integraciones adicionales ya usadas por módulos existentes deben conservarse en Vercel al transferir el proyecto.
+
+**Nunca** expongas `SUPABASE_SERVICE_ROLE_KEY` en una variable `VITE_*`.
+
+## Transferencia a otra cuenta
+
+No recrees la infraestructura a ciegas. El procedimiento recomendado está documentado en `MIGRATION_GUIDE.md`.
+
+Orden general:
+
+1. preparar la cuenta de destino;
+2. transferir GitHub;
+3. transferir el proyecto Supabase existente;
+4. transferir el proyecto Vercel;
+5. reautorizar integraciones que no se transfieren;
+6. verificar health, Auth, datos y flujos críticos.
+
+## Reproducibilidad
+
+La base de producción tiene una historia de migraciones posterior al archivo V6 inicial. Por eso, para el cambio de propietario se prioriza **transferir el mismo proyecto Supabase**. Antes de usar esta repo como instalación completamente nueva, se debe consolidar/exportar el historial vigente de migrations, Storage, Auth settings y funciones.
+
+## Verificación local / CI
+
+```bash
+npm install
+npm run validate
+npm run typecheck
+npm run build
+```
+
+Después de desplegar:
+
+- `/api/health` debe responder `ok: true`;
+- login debe usar el Supabase objetivo;
+- el CRM debe mostrar datos reales;
+- pagos, operación, políticas y automatizaciones deben conservar trazabilidad.
+
+Consulta también:
+
+- `FUNCTIONAL_MAP.md`
+- `docs/ARCHITECTURE_V7.md`
+- `MIGRATION_GUIDE.md`
+- `PROJECT_MANIFEST.json`

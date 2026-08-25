@@ -1,27 +1,31 @@
-import { createClient } from '@supabase/supabase-js';
+import {createClient} from '@supabase/supabase-js';
 
-const PROJECT_URL = 'https://lpirjwifzosdzgdncsbt.supabase.co';
-const PROJECT_PUBLISHABLE_KEY = 'sb_publishable_ORe3lY3LRSZo0LMpz4EM9Q_Bf9aUejD';
+const url=import.meta.env.VITE_SUPABASE_URL?.trim()||'';
+const key=
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()||
+  import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()||
+  '';
 
-const url =
-  import.meta.env.VITE_SUPABASE_URL?.trim() ||
-  PROJECT_URL;
+export const supabaseConfigured=Boolean(url&&key);
 
-const key =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
-  PROJECT_PUBLISHABLE_KEY;
-
-export const supabase = createClient(url, key, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
+// createClient requires syntactically valid values at module load time.
+// These placeholders never become an operational connection: App.tsx blocks
+// the workspace and assertSupabase() throws until the real environment exists.
+export const supabase=createClient(
+  url||'https://configuration-required.supabase.co',
+  key||'configuration-required',
+  {
+    auth:{
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true
+    }
   }
-});
+);
 
-export const supabaseConfigured = Boolean(url && key);
-
-export function assertSupabase() {
+export function assertSupabase(){
+  if(!supabaseConfigured){
+    throw new Error('Supabase no está configurado. Define VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY.');
+  }
   return supabase;
 }
