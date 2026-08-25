@@ -18,6 +18,11 @@ body{
   overflow-x:hidden;
 }
 
+body.hotel-menu-open{
+  overflow:hidden;
+  touch-action:none;
+}
+
 img,video,canvas{
   max-width:100%;
   height:auto;
@@ -81,8 +86,8 @@ button,input,select,textarea{
 }
 
 /* Large laptop / compact desktop */
-@media(max-width:1180px){
-  .crm-shell{
+@media(max-width:1180px) and (min-width:901px){
+  .crm-shell:not(.sidebar-collapsed){
     grid-template-columns:220px minmax(0,1fr);
   }
 
@@ -117,70 +122,173 @@ button,input,select,textarea{
   }
 }
 
-/* Tablet */
+/* Tablet + mobile: drawer navigation */
 @media(max-width:900px){
   .crm-shell{
+    display:block!important;
+  }
+
+  .mobile-app-bar{
+    position:fixed;
+    inset:0 0 auto 0;
+    z-index:1090;
+    height:58px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 14px;
+    background:color-mix(in srgb,var(--bg) 90%,transparent);
+    border-bottom:1px solid color-mix(in srgb,var(--line) 82%,transparent);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+  }
+
+  .mobile-app-bar>span{
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:-.01em;
+  }
+
+  .mobile-menu-trigger{
+    display:grid;
+    width:40px;
+    height:40px;
+    border-radius:11px;
+    flex:0 0 auto;
+  }
+
+  .mobile-menu-backdrop{
     display:block;
+    position:fixed;
+    inset:0;
+    z-index:1100;
+    border:0;
+    padding:0;
+    margin:0;
+    background:rgba(20,20,20,.28);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .22s ease;
+    backdrop-filter:blur(1px);
+    -webkit-backdrop-filter:blur(1px);
+  }
+
+  .mobile-menu-backdrop.visible{
+    opacity:1;
+    pointer-events:auto;
   }
 
   .sidebar{
-    position:sticky;
+    position:fixed!important;
     top:0;
-    z-index:1000;
-    width:100%;
-    height:auto;
-    min-height:0;
-    padding:8px 10px;
-    border-right:0;
-    border-bottom:1px solid var(--line);
-    display:block;
-    overflow:hidden;
+    left:0;
+    z-index:1110;
+    width:min(88vw,340px)!important;
+    height:100dvh!important;
+    min-height:100vh;
+    padding:16px 12px 14px!important;
+    border-right:1px solid var(--line)!important;
+    border-bottom:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+    background:var(--surface)!important;
+    transform:translate3d(-104%,0,0);
+    box-shadow:none;
+    will-change:transform;
   }
 
-  .sidebar-brand,
-  .sidebar-bottom,
-  .sidebar .nav-section-label{
-    display:none;
+  .sidebar.mobile-open{
+    transform:translate3d(0,0,0);
+    box-shadow:0 24px 70px rgba(0,0,0,.22);
+  }
+
+  .desktop-sidebar-toggle{
+    display:none!important;
+  }
+
+  .mobile-sidebar-close{
+    display:grid!important;
+    position:absolute;
+    top:14px;
+    right:12px;
+    width:38px;
+    height:38px;
+    border-radius:10px;
+    z-index:5;
+  }
+
+  .sidebar-brand{
+    display:flex!important;
+    min-height:52px;
+    padding:4px 46px 14px 8px!important;
+    border-bottom:1px solid var(--line);
+    flex:0 0 auto;
   }
 
   .sidebar nav{
     display:flex!important;
-    flex-direction:row!important;
-    gap:5px!important;
-    overflow-x:auto;
-    overscroll-behavior-x:contain;
-    scrollbar-width:none;
-    padding:0 0 2px;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    gap:3px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior-y:contain;
+    scrollbar-width:thin;
+    padding:12px 2px 16px!important;
+    flex:1 1 auto;
   }
 
-  .sidebar nav::-webkit-scrollbar{
-    display:none;
+  .sidebar .nav-section-label{
+    display:block!important;
+    padding:18px 11px 7px!important;
+    font-size:9px!important;
+    color:var(--muted)!important;
+    letter-spacing:.1em!important;
   }
 
   .nav-item{
+    width:100%!important;
+    min-height:44px;
     flex:0 0 auto;
-    min-height:42px;
-    grid-template-columns:18px auto auto;
-    gap:7px;
-    padding:9px 11px;
-    white-space:nowrap;
+    grid-template-columns:22px minmax(0,1fr) auto!important;
+    gap:10px!important;
+    padding:10px 11px!important;
+    white-space:normal!important;
+    border-radius:11px!important;
   }
 
   .nav-item svg{
-    width:17px;
-    height:17px;
+    width:18px;
+    height:18px;
   }
 
   .nav-item b{
-    font-size:12px;
+    display:block!important;
+    font-size:13px!important;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
   .nav-item small{
-    font-size:9px;
+    display:block!important;
+    font-size:9px!important;
+  }
+
+  .sidebar-bottom{
+    display:block!important;
+    margin-top:auto!important;
+    padding:12px 6px 4px!important;
+    border-top:1px solid var(--line)!important;
+    flex:0 0 auto;
+  }
+
+  .sidebar-bottom .system-health{
+    margin-top:10px;
   }
 
   .crm-main{
-    padding-top:20px;
+    padding-top:78px!important;
     padding-bottom:42px;
   }
 
@@ -200,6 +308,22 @@ button,input,select,textarea{
     width:100%;
     flex:1 1 100%;
     order:-1;
+  }
+
+  .stat-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .content-grid.two{
+    grid-template-columns:minmax(0,1fr);
+  }
+
+  .quick-form{
+    grid-template-columns:minmax(0,1fr) 220px;
+  }
+
+  .quick-form > :last-child{
+    grid-column:1/-1;
   }
 
   .public-layout,
@@ -244,8 +368,17 @@ button,input,select,textarea{
     --app-gutter:14px;
   }
 
+  .mobile-app-bar{
+    height:56px;
+    padding-left:10px;
+  }
+
+  .sidebar{
+    width:min(91vw,330px)!important;
+  }
+
   .crm-main{
-    padding-top:16px;
+    padding-top:72px!important;
     padding-bottom:32px;
   }
 
@@ -374,14 +507,6 @@ button,input,select,textarea{
 
 /* Very narrow phones */
 @media(max-width:440px){
-  .nav-item{
-    grid-template-columns:18px auto;
-  }
-
-  .nav-item small{
-    display:none;
-  }
-
   .crm-main{
     padding-left:12px;
     padding-right:12px;
@@ -403,4 +528,8 @@ button,input,select,textarea{
   .public-success h1{
     font-size:38px;
   }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .sidebar,.mobile-menu-backdrop{transition:none!important}
 }
