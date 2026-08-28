@@ -1,1 +1,2 @@
 .enhancement-addon-nav{margin-top:0}.enhancement-system-label{padding-top:8px}
+.he-payment-alert{display:inline-flex;align-items:center;gap:7px;margin-left:8px;padding:8px 11px;border:1px solid #ddd6cb;border-radius:999px;background:#f7f4ee;color:#5f5a52;font-size:11px;white-space:nowrap}.he-payment-alert.has-pending{border-color:#d8b98b;background:#fff7e9;color:#8a5b19}.he-payment-alert b{font-weight:700}.lead-drawer .drawer-actions{flex-wrap:wrap}.lead-drawer .drawer-section-head{gap:10px}.lead-drawer .drawer-section-head>.secondary-button{margin-left:auto}
