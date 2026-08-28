@@ -11,6 +11,7 @@ export interface Lead{
   contacto?:string|null;observaciones_cobros?:string|null;propuesta_enviada?:string|null;
   empresa_ejecuta?:string|null;prioridad?:string|null;estado:LeadStatus|string;canal?:string|null;
   created_at:string;updated_at:string;created_by?:string|null;assigned_to?:string|null;assigned_at?:string|null;
+  acquisition_prefix?:string|null;commercial_status?:string|null;next_best_action?:string|null;opportunity_score?:number|null;
 }
 export interface LeadService{
   id:string;lead_id:string;producto:string;tour_id?:string|null;modality?:TourModality|string|null;
@@ -18,6 +19,12 @@ export interface LeadService{
   pricing_source?:string|null;fecha_servicio?:string|null;numero_pax:number;observacion?:string|null;
   precio_venta?:number|null;moneda:string;estado_pago:PaymentStatus|string;
   estado_operacion:OperationStatus|string;created_at:string;updated_at:string;
+  idioma?:string|null;hora_inicio?:string|null;hora_fin?:string|null;duracion_texto?:string|null;
+  precio_unitario?:number|null;precio_total?:number|null;costo_operador_total?:number|null;
+  margen_comercial?:number|null;comision_hotel?:number|null;comision_vendedor?:number|null;
+  margen_hotel_experience?:number|null;afecto?:number|null;exento?:number|null;iva?:number|null;
+  total_facturable?:number|null;horario_confirmado?:boolean;requiere_confirmacion?:boolean;
+  modificable_por_clima?:boolean;responsable_dato_vuelo?:string|null;ultima_confirmacion_at?:string|null;
 }
 export interface CRMTask{
   id:string;lead_id?:string|null;title:string;due_date?:string|null;priority:string;status:string;
