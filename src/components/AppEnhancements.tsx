@@ -8,6 +8,7 @@ import GlobalSearchPortal from './GlobalSearchPortal';
 import AddonsWorkspace from './AddonsWorkspace';
 import CancellationPoliciesWorkspace from './CancellationPoliciesWorkspace';
 import TourTaskBookingBridge from './TourTaskBookingBridge';
+import HotelExperienceFixes from './HotelExperienceFixes';
 import './AppEnhancements.css';
 
 export default function AppEnhancements({profile,children}:{profile:any;children:React.ReactNode}){
@@ -63,6 +64,7 @@ export default function AppEnhancements({profile,children}:{profile:any;children
   return <>
     {children}
     <TourTaskBookingBridge role={profile?.role||'agent'}/>
+    <HotelExperienceFixes/>
 
     {searchHost&&createPortal(
       <GlobalSearchPortal onLead={openLead} onNavigate={navigate}/>,
