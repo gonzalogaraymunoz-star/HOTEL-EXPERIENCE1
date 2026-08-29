@@ -74,3 +74,6 @@ La migración operacional V6 ya fue aplicada al proyecto actual. Se conserva en 
 - `npm run build` ejecuta typecheck y compila Vite.
 
 Consulta `FUNCTIONAL_MAP.md` para el inventario funcional completo.
+
+## Deploy
+La rama `main` es la fuente de producción y debe desplegarse automáticamente en Vercel después de cada commit validado.
