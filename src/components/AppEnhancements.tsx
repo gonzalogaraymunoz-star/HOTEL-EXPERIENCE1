@@ -9,6 +9,7 @@ import AddonsWorkspace from './AddonsWorkspace';
 import CancellationPoliciesWorkspace from './CancellationPoliciesWorkspace';
 import TourTaskBookingBridge from './TourTaskBookingBridge';
 import HotelExperienceFixes from './HotelExperienceFixes';
+import MobileNavigationEnhancement from './MobileNavigationEnhancement';
 import './AppEnhancements.css';
 
 export default function AppEnhancements({profile,children}:{profile:any;children:React.ReactNode}){
@@ -46,12 +47,7 @@ export default function AppEnhancements({profile,children}:{profile:any;children
       const data=await loadCRMData();
       const lead=data.leads.find((x:Lead)=>x.id===leadId);
       if(!lead)return;
-      setDrawerData({
-        lead,
-        services:data.services,
-        tasks:data.tasks,
-        activities:data.activities
-      });
+      setDrawerData({lead,services:data.services,tasks:data.tasks,activities:data.activities});
     }catch(e){console.error('global search lead',e)}
   },[]);
 
@@ -65,29 +61,20 @@ export default function AppEnhancements({profile,children}:{profile:any;children
     {children}
     <TourTaskBookingBridge role={profile?.role||'agent'}/>
     <HotelExperienceFixes/>
+    <MobileNavigationEnhancement/>
 
-    {searchHost&&createPortal(
-      <GlobalSearchPortal onLead={openLead} onNavigate={navigate}/>,
-      searchHost
-    )}
+    {searchHost&&createPortal(<GlobalSearchPortal onLead={openLead} onNavigate={navigate}/>,searchHost)}
 
     {navHost&&createPortal(
       <>
         <div className="nav-section-label enhancement-system-label">SISTEMA</div>
-        <button
-          className={addonsOpen?'nav-item active enhancement-addon-nav':'nav-item enhancement-addon-nav'}
-          onClick={()=>{setAddonsOpen(true);setPoliciesOpen(false)}}
-        >
+        <button className={addonsOpen?'nav-item active enhancement-addon-nav':'nav-item enhancement-addon-nav'} onClick={()=>{setAddonsOpen(true);setPoliciesOpen(false)}}>
           <span><Plug/></span><b>Complementos</b>
         </button>
-        <button
-          className={policiesOpen?'nav-item active enhancement-addon-nav':'nav-item enhancement-addon-nav'}
-          onClick={()=>{setPoliciesOpen(true);setAddonsOpen(false)}}
-        >
+        <button className={policiesOpen?'nav-item active enhancement-addon-nav':'nav-item enhancement-addon-nav'} onClick={()=>{setPoliciesOpen(true);setAddonsOpen(false)}}>
           <span><ScrollText/></span><b>Políticas</b>
         </button>
-      </>,
-      navHost
+      </>,navHost
     )}
 
     {addonsOpen&&<AddonsWorkspace role={profile?.role||'agent'} onClose={()=>setAddonsOpen(false)}/>}
