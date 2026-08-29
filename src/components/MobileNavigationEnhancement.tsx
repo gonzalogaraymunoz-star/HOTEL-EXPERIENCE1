@@ -23,8 +23,7 @@ export default function MobileNavigationEnhancement(){
   const [canBack,setCanBack]=useState(false);
 
   useEffect(()=>{
-    let cancelled=false;
-    let tries=0;
+    let cancelled=false;let tries=0;
     const bind=()=>{
       if(cancelled)return;
       const host=document.querySelector('.crm-topbar');
@@ -39,32 +38,37 @@ export default function MobileNavigationEnhancement(){
     const sync=()=>{
       const active=document.querySelector('.sidebar .nav-item.active');
       setCurrent(String(active?.textContent||'Inicio').trim().split(/\s+/)[0]);
-      setCanBack(window.history.length>1);
+      setCanBack(Number(sessionStorage.getItem('he-nav-depth')||'0')>0);
     };
     const onNavClick=(event:MouseEvent)=>{
       const target=event.target as HTMLElement|null;
       const button=target?.closest('.sidebar .nav-item') as HTMLElement|null;
-      if(!button)return;
-      if((window as any).__heGoingBack)return;
+      if(!button||(window as any).__heGoingBack)return;
       const label=String(button.textContent||'').trim().split(/\s+/)[0]||'Inicio';
+      const depth=Number(sessionStorage.getItem('he-nav-depth')||'0')+1;
+      sessionStorage.setItem('he-nav-depth',String(depth));
       window.history.pushState({heView:label},'',`#${encodeURIComponent(label.toLowerCase())}`);
       setTimeout(sync,0);
     };
+    const onPop=()=>{
+      const depth=Math.max(0,Number(sessionStorage.getItem('he-nav-depth')||'0')-1);
+      sessionStorage.setItem('he-nav-depth',String(depth));
+      setTimeout(sync,0);
+    };
     document.addEventListener('click',onNavClick,true);
-    window.addEventListener('popstate',sync);
+    window.addEventListener('popstate',onPop);
     const observer=new MutationObserver(sync);
     const nav=document.querySelector('.sidebar nav');
     if(nav)observer.observe(nav,{subtree:true,attributes:true,attributeFilter:['class']});
     sync();
-    return()=>{document.removeEventListener('click',onNavClick,true);window.removeEventListener('popstate',sync);observer.disconnect()};
+    return()=>{document.removeEventListener('click',onNavClick,true);window.removeEventListener('popstate',onPop);observer.disconnect()};
   },[]);
 
   const back=()=>{
-    if(window.history.length>1){
-      (window as any).__heGoingBack=true;
-      window.history.back();
-      setTimeout(()=>{(window as any).__heGoingBack=false},150);
-    }
+    if(!canBack)return;
+    (window as any).__heGoingBack=true;
+    window.history.back();
+    setTimeout(()=>{(window as any).__heGoingBack=false},150);
   };
 
   const go=(key:string)=>{
@@ -72,22 +76,10 @@ export default function MobileNavigationEnhancement(){
     else if(key==='clientes')clickNav('Clientes');
     else if(key==='calendario')clickNav('Calendario');
     else if(key==='pagos')clickNav('Pagos');
-    else document.querySelector<HTMLButtonElement>('.sidebar .nav-item')?.focus();
+    else document.querySelector('.sidebar nav')?.scrollTo({left:9999,behavior:'smooth'});
   };
 
-  const backPortal=topbar&&createPortal(
-    <button className="he-back-button" onClick={back} disabled={!canBack} aria-label="Volver a la pantalla anterior">
-      <ArrowLeft size={18}/><span>Volver</span>
-    </button>,topbar
-  );
-
-  const mobilePortal=createPortal(
-    <nav className="he-mobile-nav" aria-label="Navegación principal móvil">
-      {routes.map(item=><button key={item.key} className={current.toLowerCase().startsWith(item.label.toLowerCase().split(' ')[0])?'active':''} onClick={()=>go(item.key)}>
-        {item.icon}<span>{item.label}</span>
-      </button>)}
-    </nav>,document.body
-  );
-
+  const backPortal=topbar&&createPortal(<button className="he-back-button" onClick={back} disabled={!canBack} aria-label="Volver a la pantalla anterior"><ArrowLeft size={18}/><span>Volver</span></button>,topbar);
+  const mobilePortal=createPortal(<nav className="he-mobile-nav" aria-label="Navegación principal móvil">{routes.map(item=><button key={item.key} className={current.toLowerCase().startsWith(item.label.toLowerCase().split(' ')[0])?'active':''} onClick={()=>go(item.key)}>{item.icon}<span>{item.label}</span></button>)}</nav>,document.body);
   return <>{backPortal}{mobilePortal}</>;
 }
