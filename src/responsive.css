@@ -370,6 +370,36 @@ button,input,select,textarea{
     max-height:90vh;
     overflow:auto;
   }
+
+  /* CONTROL CENTRAL — metric cards must become readable blocks on phones.
+     Some operational/financial views use inline grid styles, so !important
+     is intentional here. */
+  .crm-main section[style*="grid-template-columns:repeat(4,minmax(0,1fr))"]{
+    grid-template-columns:1fr!important;
+    width:100%;
+  }
+
+  .crm-main section[style*="grid-template-columns:repeat(4,minmax(0,1fr))"] > .surface-card{
+    width:100%;
+    min-width:0;
+  }
+
+  /* Finance / operations KPI cards: prevent letter-by-letter labels. */
+  .crm-main section[style*="grid-template-columns:repeat(4,minmax(0,1fr))"] .surface-card span,
+  .crm-main section[style*="grid-template-columns:repeat(4,minmax(0,1fr))"] .surface-card strong{
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+
+  /* Dashboard control strips should wrap instead of forcing horizontal overflow. */
+  .crm-main .surface-card > div[style*="justify-content:space-between"]{
+    min-width:0;
+  }
+
+  /* Keep financial tables usable: scroll the table itself, not the whole page. */
+  .crm-main .table-wrap{
+    max-width:100%;
+  }
 }
 
 /* Very narrow phones */
