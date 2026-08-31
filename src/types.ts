@@ -14,11 +14,14 @@ export interface Lead{
   acquisition_prefix?:string|null;commercial_status?:string|null;next_best_action?:string|null;opportunity_score?:number|null;
 }
 export interface LeadService{
-  id:string;lead_id:string;producto:string;tour_id?:string|null;modality?:TourModality|string|null;
+  id:string;lead_id:string;service_code?:string|null;producto:string;tour_id?:string|null;modality?:TourModality|string|null;
   pricing_status?:'quoted'|'manual_quote'|'not_available'|string|null;price_pp_clp?:number|null;
   pricing_source?:string|null;fecha_servicio?:string|null;numero_pax:number;observacion?:string|null;
   precio_venta?:number|null;moneda:string;estado_pago:PaymentStatus|string;
   estado_operacion:OperationStatus|string;created_at:string;updated_at:string;
+  booking_status?:'hold'|'confirmed'|'cancelled'|'completed'|'expired'|string|null;
+  operation_ready_at?:string|null;operation_handoff_source?:string|null;operation_handoff_by?:string|null;
+  service_type?:string|null;time_block?:string|null;sales_channel?:string|null;external_booking_ref?:string|null;
   idioma?:string|null;hora_inicio?:string|null;hora_fin?:string|null;duracion_texto?:string|null;
   precio_unitario?:number|null;precio_total?:number|null;costo_operador_total?:number|null;
   margen_comercial?:number|null;comision_hotel?:number|null;comision_vendedor?:number|null;
@@ -40,14 +43,14 @@ export interface Passenger{
   created_by?:string|null;created_at:string;updated_at:string;
 }
 export interface Supplier{
-  id:string;name:string;supplier_type:string;contact_name?:string|null;phone?:string|null;whatsapp?:string|null;
+  id:string;supplier_code?:string|null;name:string;supplier_type:string;contact_name?:string|null;phone?:string|null;whatsapp?:string|null;
   email?:string|null;website?:string|null;rut?:string|null;services_offered?:string|null;
   sernatur_registration?:string|null;permit_number?:string|null;insurance_policy?:string|null;insurance_expiry?:string|null;
   bank_name?:string|null;account_type?:string|null;account_number?:string|null;payment_notes?:string|null;notes?:string|null;
   active:boolean;created_at:string;updated_at:string;
 }
 export interface ServicePerson{
-  id:string;supplier_id?:string|null;full_name:string;person_type:string;phone?:string|null;whatsapp?:string|null;
+  id:string;person_code?:string|null;supplier_id?:string|null;full_name:string;person_type:string;phone?:string|null;whatsapp?:string|null;
   email?:string|null;rut?:string|null;nationality?:string|null;languages?:string[]|null;specialties?:string[]|null;
   certifications?:string[]|null;first_aid_expiry?:string|null;license_type?:string|null;license_expiry?:string|null;
   sernatur_registration?:string|null;bank_name?:string|null;account_type?:string|null;account_number?:string|null;
@@ -55,7 +58,7 @@ export interface ServicePerson{
   notes?:string|null;active:boolean;created_at:string;updated_at:string;
 }
 export interface Vehicle{
-  id:string;supplier_id?:string|null;driver_person_id?:string|null;label:string;plate:string;brand?:string|null;
+  id:string;vehicle_code?:string|null;supplier_id?:string|null;driver_person_id?:string|null;label:string;plate:string;brand?:string|null;
   model?:string|null;year?:number|null;capacity?:number|null;driver_name?:string|null;driver_phone?:string|null;
   technical_review_expiry?:string|null;circulation_permit_expiry?:string|null;insurance_expiry?:string|null;notes?:string|null;
   active:boolean;created_at:string;updated_at:string;
@@ -66,7 +69,7 @@ export interface OperationalResource{
   notes?:string|null;active:boolean;created_at:string;updated_at:string;
 }
 export interface ServiceAssignment{
-  id:string;lead_service_id:string;supplier_id?:string|null;vehicle_id?:string|null;guide_person_id?:string|null;
+  id:string;operation_code?:string|null;lead_service_id:string;supplier_id?:string|null;vehicle_id?:string|null;guide_person_id?:string|null;
   driver_person_id?:string|null;cook_person_id?:string|null;coordinator_person_id?:string|null;guide_name?:string|null;
   driver_name?:string|null;pickup_time?:string|null;meeting_point?:string|null;supplier_cost?:number|null;
   operation_mode?:OperationExecutionMode|string|null;supplier_coverage?:SupplierCoverageKey[]|string[]|null;
