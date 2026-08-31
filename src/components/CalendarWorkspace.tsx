@@ -43,11 +43,11 @@ export default function CalendarWorkspace({
 
   const scoped=useMemo(()=>services.filter(s=>{
     if(confirmedOnly){
-      const lead=leads.find(l=>l.id===s.lead_id);
-      if(lead?.estado!=='confirmado')return false;
+      const booking=String(s.booking_status||'confirmed').toLowerCase();
+      if(!['confirmed','completed'].includes(booking))return false;
     }
     return true;
-  }),[services,leads,confirmedOnly]);
+  }),[services,confirmedOnly]);
 
   const dated=useMemo(()=>scoped.filter(s=>s.fecha_servicio),[scoped]);
   const undated=useMemo(()=>scoped.filter(s=>!s.fecha_servicio),[scoped]);
@@ -127,7 +127,7 @@ export default function CalendarWorkspace({
           </div>
           <label className="calendar-check">
             <input type="checkbox" checked={confirmedOnly} onChange={e=>setConfirmedOnly(e.target.checked)}/>
-            <span>Solo reservas confirmadas</span>
+            <span>Solo ventas entregadas a operación</span>
           </label>
           {['Pendiente','Coordinado','En curso','Completado','Cancelado'].map(status=><label key={status} className="calendar-check">
             <input type="checkbox" checked={statuses.includes(status)} onChange={()=>setStatuses(s=>s.includes(status)?s.filter(x=>x!==status):[...s,status])}/>
