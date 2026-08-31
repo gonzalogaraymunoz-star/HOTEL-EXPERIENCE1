@@ -41,7 +41,7 @@ export default function OperationsApp({profile}:{profile:any}){
 
   const operationalServices=useMemo(()=>services.filter(service=>{
     const booking=String(service.booking_status||'confirmed').toLowerCase();
-    return !['hold','expired'].includes(booking);
+    return ['confirmed','completed'].includes(booking);
   }),[services]);
 
   const leadById=useMemo(()=>new Map(leads.map(l=>[l.id,l])),[leads]);
