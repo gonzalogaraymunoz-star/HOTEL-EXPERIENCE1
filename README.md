@@ -1,79 +1,85 @@
-# HOTEL EXPERIENCE CRM — V6
+# HOTEL EXPERIENCE — OPERACIÓN
 
-Base limpia y única del CRM Hotel Experience by LINK.
+HOTEL EXPERIENCE es la aplicación operacional del ecosistema hotelero de LINK.
 
-## Ya está conectado al Supabase existente
-Proyecto: `lpirjwifzosdzgdncsbt`.
+La capa comercial se separa en **LINK Ventas**. Ambas aplicaciones comparten el mismo backend Supabase, de modo que una venta confirmada alimenta directamente la operación sin duplicar clientes, pasajeros ni servicios.
 
-El frontend usa la publishable key pública del proyecto (segura para navegador + RLS), por lo que el login Supabase Auth funciona al desplegar el repo aunque no copies variables `VITE_*`.
+## Backend compartido
+Proyecto Supabase: `lpirjwifzosdzgdncsbt`.
 
-Para funciones privadas de servidor agrega en Vercel:
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `AI_CONFIG_SECRET`
+El frontend usa Supabase Auth + RLS. Nunca expongas `SUPABASE_SERVICE_ROLE_KEY` en variables `VITE_*`.
 
-Nunca pongas `SUPABASE_SERVICE_ROLE_KEY` en una variable `VITE_*`.
+## Flujo
 
-## Menú
-- Inicio
-- Asistente comercial
-- Clientes
-- Pipeline
-- Reservas
+`LINK Ventas → lead → pasajeros → servicio vendido → booking_status=confirmed → HOTEL EXPERIENCE → operación → cierre`
+
+Los servicios nuevos nacen en `hold`. HOTEL EXPERIENCE solo toma servicios con `booking_status=confirmed` o `completed`.
+
+## Menú operacional
+- Programa diario
 - Calendario
-- Tareas
-- Pagos
-- Reportes
-- Productos
-- Operaciones
-- Proveedores
+- Fichas 360
+- Operadores
 - Prestadores
 - Vehículos
-- Insumos
+- Recursos
 - Equipo (admin)
 
-## Ficha 360°
-Cada cliente contiene sus tours, pasajeros, tareas e información operacional. Cada tour tiene botón **Operación** y puede guardar:
-- proveedor/agencia responsable;
+La interfaz prioriza el uso de todo el viewport cuando existen tablas, formularios o información operacional de alta densidad.
+
+## Programa diario
+La vista inicial está organizada por fecha y permite revisar en una sola pantalla:
+- código del servicio;
+- cliente principal + acompañantes;
+- producto;
+- pax;
+- pickup;
+- operador;
 - guía;
 - conductor;
-- vehículo/patente;
-- cocinero/a;
-- coordinador/a;
+- vehículo;
+- estado;
+- notas.
+
+Incluye filtros rápidos `TODO / TRF / AM / PM / NOC / !`, búsqueda y navegación por día.
+
+## Códigos permanentes
+Toda entidad operacional conserva UUID interno de Supabase y un código humano visible.
+
+- Lead: `PREFIX-YYMM-###`
+- Pasajero: `PREFIX-YYMM-###-P01`
+- Servicio vendido: `PREFIX-YYMM-###-S01`
+- Operación: `PREFIX-YYMM-###-S01-OP01`
+- Operador: `SUP-0001`
+- Prestador: `PER-0001`
+- Vehículo: `VEH-0001`
+- Recurso: `RES-0001`
+
+El pasajero `P01` es el cliente/principal y los siguientes códigos corresponden a acompañantes.
+
+## Ficha 360
+La ficha operacional conserva la trazabilidad del servicio y puede relacionar:
+- cliente y pasajeros;
+- operador;
+- guía y conductor;
+- vehículo;
 - pickup y punto de encuentro;
-- insumos;
-- costo y pago del proveedor.
+- recursos;
+- documentos;
+- costo operacional;
+- pago del proveedor;
+- incidencias y cierre.
 
-## Pasajeros
-Cada pax recibe código único: `CODIGO-LEAD-P01`, `P02`, etc.
-Existe `app_user_ref` para cruzarlo posteriormente con un usuario de la app.
-La ficha permite descargar una lista CSV nominal.
-
-## Hoja de riesgo
-Cada reserva puede guardar el link de su hoja de riesgo. Si el lead está confirmado y la hoja no está completada, la interfaz muestra una alerta.
-
-## Tarifario TV1.2
-Fuente incluida en:
-`src/data/tv1_2_crm_cotizador_tours.json`
-
-Regla inalterable:
-`tour_id → modalidad → pax → tarifa`
-
-- Compartido (LOW): precio p/p × pax.
-- Semiprivado (TV1): precio p/p entre 2–10 pax; 1 pax = cotización manual.
-- Privado (TV1): tramo exacto 1–12; tramo nulo = cotización manual.
-- Nunca se corrigen precios del archivo fuente desde el código.
-
-La vista Productos muestra las tres modalidades y una matriz completa 1–12 pax. Además conserva un segundo acceso para Transporte, Salud, Procedimientos y SPA/Terapias desde el catálogo Supabase existente.
+## Ventas
+El código comercial previamente construido no se elimina. La extracción destinada al futuro repositorio `linkventas` se conserva bajo `extracted/linkventas/` hasta que el repositorio independiente sea creado.
 
 ## Supabase
-La migración operacional V6 ya fue aplicada al proyecto actual. Se conserva en `supabase/migrations/` para reproducibilidad.
+Las migraciones de separación Ventas → Operación y códigos persistentes están versionadas en `supabase/migrations/` y aplicadas al proyecto compartido.
 
 ## Verificación
-- `npm run validate` valida estructura y dataset.
-- `npm run typecheck` valida TypeScript.
-- `npm run build` ejecuta typecheck y compila Vite.
-
-Consulta `FUNCTIONAL_MAP.md` para el inventario funcional completo.
+- `npm run validate`
+- `npm run typecheck`
+- `npm run build`
 
 ## Deploy
-La rama `main` es la fuente de producción y debe desplegarse automáticamente en Vercel después de cada commit validado.
+La rama `main` es la fuente de producción en Vercel.
