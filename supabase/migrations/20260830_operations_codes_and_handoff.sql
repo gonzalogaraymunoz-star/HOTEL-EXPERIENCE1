@@ -98,7 +98,7 @@ alter table public.service_assignments alter column operation_code set not null;
 create sequence if not exists public.supplier_code_seq;
 alter table public.suppliers add column if not exists supplier_code text;
 update public.suppliers set supplier_code='SUP-'||lpad(nextval('public.supplier_code_seq')::text,4,'0') where supplier_code is null or btrim(supplier_code)='';
-select setval('public.supplier_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(supplier_code,'\\D','','g'),'')::bigint) from public.suppliers),1)),true);
+select setval('public.supplier_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(supplier_code,'[^0-9]','','g'),'')::bigint) from public.suppliers),1)),true);
 alter table public.suppliers alter column supplier_code set default ('SUP-'||lpad(nextval('public.supplier_code_seq')::text,4,'0'));
 alter table public.suppliers alter column supplier_code set not null;
 create unique index if not exists suppliers_supplier_code_unique on public.suppliers(supplier_code);
@@ -106,7 +106,7 @@ create unique index if not exists suppliers_supplier_code_unique on public.suppl
 create sequence if not exists public.person_code_seq;
 alter table public.service_people add column if not exists person_code text;
 update public.service_people set person_code='PER-'||lpad(nextval('public.person_code_seq')::text,4,'0') where person_code is null or btrim(person_code)='';
-select setval('public.person_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(person_code,'\\D','','g'),'')::bigint) from public.service_people),1)),true);
+select setval('public.person_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(person_code,'[^0-9]','','g'),'')::bigint) from public.service_people),1)),true);
 alter table public.service_people alter column person_code set default ('PER-'||lpad(nextval('public.person_code_seq')::text,4,'0'));
 alter table public.service_people alter column person_code set not null;
 create unique index if not exists service_people_person_code_unique on public.service_people(person_code);
@@ -114,14 +114,14 @@ create unique index if not exists service_people_person_code_unique on public.se
 create sequence if not exists public.vehicle_code_seq;
 alter table public.vehicles add column if not exists vehicle_code text;
 update public.vehicles set vehicle_code='VEH-'||lpad(nextval('public.vehicle_code_seq')::text,4,'0') where vehicle_code is null or btrim(vehicle_code)='';
-select setval('public.vehicle_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(vehicle_code,'\\D','','g'),'')::bigint) from public.vehicles),1)),true);
+select setval('public.vehicle_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(vehicle_code,'[^0-9]','','g'),'')::bigint) from public.vehicles),1)),true);
 alter table public.vehicles alter column vehicle_code set default ('VEH-'||lpad(nextval('public.vehicle_code_seq')::text,4,'0'));
 alter table public.vehicles alter column vehicle_code set not null;
 create unique index if not exists vehicles_vehicle_code_unique on public.vehicles(vehicle_code);
 
 create sequence if not exists public.resource_code_seq;
 update public.operational_resources set code='RES-'||lpad(nextval('public.resource_code_seq')::text,4,'0') where code is null or btrim(code)='';
-select setval('public.resource_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(code,'\\D','','g'),'')::bigint) from public.operational_resources),1)),true);
+select setval('public.resource_code_seq',greatest(1,coalesce((select max(nullif(regexp_replace(code,'[^0-9]','','g'),'')::bigint) from public.operational_resources),1)),true);
 alter table public.operational_resources alter column code set default ('RES-'||lpad(nextval('public.resource_code_seq')::text,4,'0'));
 alter table public.operational_resources alter column code set not null;
 
