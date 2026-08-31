@@ -1,14 +1,11 @@
 import React,{useEffect,useState} from 'react';
 import type {Session} from '@supabase/supabase-js';
-import CRMApp from './components/CRMApp';
-import AppEnhancements from './components/AppEnhancements';
-import PublicRegistration from './components/PublicRegistration';
+import OperationsApp from './components/OperationsApp';
 import LoginScreen from './components/LoginScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import {supabase} from './lib/supabase';
 
 export default function App(){
-  const path=window.location.pathname.replace(/\/+$/,'')||'/';
   const [session,setSession]=useState<Session|null|undefined>(undefined);
   const [profile,setProfile]=useState<any>(null);
   const [profileLoading,setProfileLoading]=useState(false);
@@ -43,14 +40,9 @@ export default function App(){
     return ()=>{alive=false};
   },[session?.user.id]);
 
-  if(path==='/registro') return <ErrorBoundary><PublicRegistration/></ErrorBoundary>;
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
   if(!session) return <LoginScreen/>;
-  if(profileLoading||!profile) return <div className="app-loading">Preparando tu CRM…</div>;
+  if(profileLoading||!profile) return <div className="app-loading">Preparando operación…</div>;
   if(profile.is_active===false) return <main className="blocked-screen"><h1>Cuenta desactivada</h1><p>Solicita acceso a un administrador.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
-  return <ErrorBoundary>
-    <AppEnhancements profile={profile}>
-      <CRMApp profile={profile}/>
-    </AppEnhancements>
-  </ErrorBoundary>;
+  return <ErrorBoundary><OperationsApp profile={profile}/></ErrorBoundary>;
 }
