@@ -2,36 +2,10 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/registro",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/viaje",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/viaje/:path*",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/b2b",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/b2b/admin",
-      "destination": "/index.html"
-    }
-  ],
   "crons": [
     {
       "path": "/api/control-checks",
       "schedule": "0 11 * * *"
-    },
-    {
-      "path": "/api/twenty-sync",
-      "schedule": "*/5 * * * *"
     }
   ]
 }
