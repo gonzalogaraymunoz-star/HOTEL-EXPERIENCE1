@@ -20,6 +20,7 @@ export interface LeadService{
   precio_venta?:number|null;moneda:string;estado_pago:PaymentStatus|string;
   estado_operacion:OperationStatus|string;created_at:string;updated_at:string;
   booking_status?:'hold'|'confirmed'|'cancelled'|'completed'|'expired'|string|null;
+  operation_ready_at?:string|null;operation_handoff_source?:string|null;operation_handoff_by?:string|null;
   service_type?:string|null;time_block?:string|null;sales_channel?:string|null;external_booking_ref?:string|null;
   idioma?:string|null;hora_inicio?:string|null;hora_fin?:string|null;duracion_texto?:string|null;
   precio_unitario?:number|null;precio_total?:number|null;costo_operador_total?:number|null;
