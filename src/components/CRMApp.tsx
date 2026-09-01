@@ -64,7 +64,10 @@ export default function CRMApp({profile}:{profile:any}){
   const historicalLeadIds=useMemo(()=>new Set(historicalLeads.map(l=>l.id)),[historicalLeads]);
   const activeServices=useMemo(()=>services.filter(s=>activeLeadIds.has(s.lead_id)),[services,activeLeadIds]);
   const historicalServices=useMemo(()=>services.filter(s=>historicalLeadIds.has(s.lead_id)),[services,historicalLeadIds]);
-  const reviewCount=leads.filter(l=>String((l as any).lifecycle_stage)==='review').length;
+  const operationalLeads=useMemo(()=>leads.filter(l=>String((l as any).lifecycle_stage||'active')!=='commercial'),[leads]);
+  const operationalLeadIds=useMemo(()=>new Set(operationalLeads.map(l=>l.id)),[operationalLeads]);
+  const operationalServices=useMemo(()=>services.filter(s=>operationalLeadIds.has(s.lead_id)&&String((s as any).booking_status||'confirmed')!=='quoted'),[services,operationalLeadIds]);
+  const reviewCount=operationalLeads.filter(l=>String((l as any).lifecycle_stage)==='review').length;
 
   const currentUserId=profile?.id||null;
   const scopedLeads=useMemo(()=>{
@@ -145,11 +148,11 @@ export default function CRMApp({profile}:{profile:any}){
         {view==='pipeline'&&<PipelineView leads={filtered} services={activeServices} onLead={setSelectedLead} refresh={refresh} salesFocusOnly={salesFocusOnly} setSalesFocusOnly={setSalesFocusOnly} hiddenByFocus={hiddenByFocus}/>}
         {view==='reservations'&&<ReservationsView leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService} refresh={refresh}/>}
         {view==='calendar'&&<CalendarWorkspace leads={activeLeads} services={activeServices} onLead={setSelectedLead} onChanged={refresh} userRole={profile?.role||'agent'}/>}
-        {view==='tasks'&&<TasksWorkspace leads={leads} tasks={tasks} refresh={refresh}/>}
-        {view==='payments'&&<FinancialWorkspace mode="payments" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>}
-        {view==='reports'&&<FinancialWorkspace mode="reports" leads={leads} services={services} refresh={refresh} userRole={profile?.role||'agent'}/>}
+        {view==='tasks'&&<TasksWorkspace leads={operationalLeads} tasks={tasks} refresh={refresh}/>}
+        {view==='payments'&&<FinancialWorkspace mode="payments" leads={operationalLeads} services={operationalServices} refresh={refresh} userRole={profile?.role||'agent'}/>}
+        {view==='reports'&&<FinancialWorkspace mode="reports" leads={operationalLeads} services={operationalServices} refresh={refresh} userRole={profile?.role||'agent'}/>}
         {view==='products'&&<ProductCatalogView role={profile?.role||'agent'}/>}
-        {view==='review'&&<ReviewWorkspace leads={leads} services={services} userRole={profile?.role||'agent'} onLead={setSelectedLead} onChanged={refresh}/>}
+        {view==='review'&&<ReviewWorkspace leads={operationalLeads} services={operationalServices} userRole={profile?.role||'agent'} onLead={setSelectedLead} onChanged={refresh}/>}
         {view==='suppliers'&&<OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/>}
         {view==='service_people'&&<OperationsHub role={profile?.role||'agent'} initialTab="people"/>}
         {view==='vehicles'&&<OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/>}
@@ -157,14 +160,14 @@ export default function CRMApp({profile}:{profile:any}){
         {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'}/>}
         {view==='operations'&&<OperationsControl leads={activeLeads} services={activeServices} onLead={setSelectedLead} onOperation={setOperationService}/>}
         {['suppliers','service_people','vehicles','resources'].includes(view)&&<OperationsAdminTools role={profile?.role||'agent'} section={view}/>}
-        {view==='ai'&&<AiAssistant leads={leads} role={profile?.role||'agent'} onChanged={refresh}/>}
+        {view==='ai'&&<AiAssistant leads={operationalLeads} role={profile?.role||'agent'} onChanged={refresh}/>}
         {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>}
       </>}
     </main>
 
     {newLeadOpen&&<NewLeadModal onClose={()=>setNewLeadOpen(false)} onCreated={refresh}/>}
-    {selectedLead&&<LeadDrawer lead={selectedLead} services={services} tasks={tasks} activities={activities} userRole={profile?.role||'agent'} onClose={()=>setSelectedLead(null)} onChanged={refresh}/>}
-    {operationService&&<ServiceOperationModal lead={leads.find(l=>l.id===operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} onClose={()=>setOperationService(null)} onChanged={refresh}/>}
+    {selectedLead&&<LeadDrawer lead={selectedLead} services={operationalServices} tasks={tasks} activities={activities} userRole={profile?.role||'agent'} onClose={()=>setSelectedLead(null)} onChanged={refresh}/>}
+    {operationService&&<ServiceOperationModal lead={operationalLeads.find(l=>l.id===operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} onClose={()=>setOperationService(null)} onChanged={refresh}/>}
   </div>;
 }
 
