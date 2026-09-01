@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {
-  Box,Building2,CalendarDays,CarFront,ChevronLeft,ChevronRight,ClipboardList,FolderOpen,
+  Box,Building2,CalendarDays,CarFront,CheckCircle2,ChevronLeft,ChevronRight,ClipboardList,FolderOpen,
   LogOut,Menu,RefreshCw,UsersRound,X,Users
 } from 'lucide-react';
 import type {Lead,LeadService} from '../types';
@@ -12,11 +12,12 @@ import DailyOperationsBoard from './DailyOperationsBoard';
 import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
 import OperationsHub from './OperationsHub';
 import OperationsAdminTools from './OperationsAdminTools';
+import PartnerApprovalWorkspace from './PartnerApprovalWorkspace';
 import ServiceOperationModal from './ServiceOperationModal';
 import TeamView from './TeamView';
 import './OperationsApp.css';
 
-type View='program'|'calendar'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'team';
+type View='program'|'calendar'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
 
 export default function OperationsApp({profile}:{profile:any}){
   const [view,setView]=useState<View>('program');
@@ -50,6 +51,7 @@ export default function OperationsApp({profile}:{profile:any}){
     return leads.filter(l=>ids.has(l.id));
   },[leads,operationalServices]);
 
+  const canApprovePartners=['admin','manager'].includes(String(profile?.role||''));
   const moveDay=(delta:number)=>setSelectedDate(isoDate(addDays(parseDate(selectedDate),delta)));
   const openView=(next:View)=>{setView(next);setMobileNav(false)};
 
@@ -65,7 +67,8 @@ export default function OperationsApp({profile}:{profile:any}){
         <RailButton icon={<UsersRound/>} label="Prestadores" active={view==='people'} onClick={()=>openView('people')}/>
         <RailButton icon={<CarFront/>} label="Vehículos" active={view==='vehicles'} onClick={()=>openView('vehicles')}/>
         <RailButton icon={<Box/>} label="Recursos" active={view==='resources'} onClick={()=>openView('resources')}/>
-        {profile?.role==='admin'&&<><span className="ops-rail-divider"/><RailButton icon={<Users/>} label="Equipo" active={view==='team'} onClick={()=>openView('team')}/></>}
+        {canApprovePartners&&<><span className="ops-rail-divider"/><RailButton icon={<CheckCircle2/>} label="Aprobaciones" active={view==='approvals'} onClick={()=>openView('approvals')}/></>}
+        {profile?.role==='admin'&&<RailButton icon={<Users/>} label="Equipo" active={view==='team'} onClick={()=>openView('team')}/>} 
       </nav>
       <button className="ops-signout" onClick={()=>assertSupabase().auth.signOut()} title="Cerrar sesión"><LogOut size={18}/><span>Cerrar sesión</span></button>
     </aside>
@@ -98,6 +101,7 @@ export default function OperationsApp({profile}:{profile:any}){
         {view==='people'&&<><OperationsHub role={profile?.role||'agent'} initialTab="people"/><OperationsAdminTools role={profile?.role||'agent'} section="service_people"/></>} 
         {view==='vehicles'&&<><OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/><OperationsAdminTools role={profile?.role||'agent'} section="vehicles"/></>} 
         {view==='resources'&&<><OperationsHub role={profile?.role||'agent'} initialTab="resources"/><OperationsAdminTools role={profile?.role||'agent'} section="resources"/></>} 
+        {view==='approvals'&&canApprovePartners&&<PartnerApprovalWorkspace/>}
         {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>} 
       </main>}
     </section>
@@ -117,7 +121,7 @@ function RailButton({icon,label,active,onClick}:{icon:React.ReactNode;label:stri
 }
 
 function viewTitle(view:View){
-  return ({program:'Programa diario',calendar:'Calendario operativo',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Recursos',team:'Equipo'} as Record<View,string>)[view];
+  return ({program:'Programa diario',calendar:'Calendario operativo',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Recursos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view];
 }
 function parseDate(value:string){const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12,0,0)}
 function addDays(date:Date,n:number){const d=new Date(date);d.setDate(d.getDate()+n);return d}
