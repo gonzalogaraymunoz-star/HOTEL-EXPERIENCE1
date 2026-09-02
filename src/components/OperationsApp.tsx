@@ -7,7 +7,7 @@ import type {Lead,LeadService} from '../types';
 import {loadCRMData} from '../lib/api';
 import {assertSupabase} from '../lib/supabase';
 import BrandLogo from './BrandLogo';
-import CalendarWorkspace from './CalendarWorkspace';
+import OperationsCalendarHub from './OperationsCalendarHub';
 import DailyOperationsBoard from './DailyOperationsBoard';
 import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
 import OperationsHub from './OperationsHub';
@@ -109,7 +109,7 @@ export default function OperationsApp({profile}:{profile:any}){
       {error&&<div className="ops-error">{error}</div>}
       {loading?<div className="ops-loading">Cargando operación…</div>:<main className="ops-workspace">
         {view==='program'&&<DailyOperationsBoard date={selectedDate} leads={activeLeads} services={operationalServices} onOperation={setOperationService}/>} 
-        {view==='calendar'&&<CalendarWorkspace leads={activeLeads} services={operationalServices} onLead={()=>{}} onChanged={refresh} userRole={profile?.role||'agent'}/>} 
+        {view==='calendar'&&<OperationsCalendarHub leads={activeLeads} services={operationalServices} onLead={()=>{}} onChanged={refresh} userRole={profile?.role||'agent'}/>} 
         {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'}/>} 
         {view==='suppliers'&&<><OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/><OperationsAdminTools role={profile?.role||'agent'} section="suppliers"/></>} 
         {view==='people'&&<><OperationsHub role={profile?.role||'agent'} initialTab="people"/><OperationsAdminTools role={profile?.role||'agent'} section="service_people"/></>} 
