@@ -19,6 +19,20 @@ import './OperationsApp.css';
 
 type View='program'|'calendar'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
 
+function operationalCopy(service:LeadService):LeadService{
+  return {
+    ...service,
+    precio_venta:null,
+    precio_unitario:null,
+    precio_total:null,
+    price_pp_clp:null,
+    margen_comercial:null,
+    comision_hotel:null,
+    comision_vendedor:null,
+    margen_hotel_experience:null
+  };
+}
+
 export default function OperationsApp({profile}:{profile:any}){
   const [view,setView]=useState<View>('program');
   const [leads,setLeads]=useState<Lead[]>([]);
@@ -43,7 +57,7 @@ export default function OperationsApp({profile}:{profile:any}){
   const operationalServices=useMemo(()=>services.filter(service=>{
     const booking=String(service.booking_status||'confirmed').toLowerCase();
     return ['confirmed','completed'].includes(booking);
-  }),[services]);
+  }).map(operationalCopy),[services]);
 
   const leadById=useMemo(()=>new Map(leads.map(l=>[l.id,l])),[leads]);
   const activeLeads=useMemo(()=>{
