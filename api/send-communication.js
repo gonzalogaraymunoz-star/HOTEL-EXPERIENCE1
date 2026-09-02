@@ -2,6 +2,17 @@ import {createClient} from '@supabase/supabase-js';
 
 const PROJECT_URL='https://lpirjwifzosdzgdncsbt.supabase.co';
 const PROJECT_PUBLISHABLE_KEY='sb_publishable_ORe3lY3LRSZo0LMpz4EM9Q_Bf9aUejD';
+const DEFAULT_SALES_ORIGIN='https://ventas-hotelexperience.vercel.app';
+
+function setCors(req,res){
+  const origin=String(req.headers.origin||'');
+  const configured=String(process.env.SALES_APP_ORIGIN||DEFAULT_SALES_ORIGIN).replace(/\/$/,'');
+  const allowed=new Set([DEFAULT_SALES_ORIGIN,configured]);
+  if(origin&&allowed.has(origin))res.setHeader('Access-Control-Allow-Origin',origin);
+  res.setHeader('Vary','Origin');
+  res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type');
+}
 
 async function authenticatedUser(req){
   const token=(req.headers.authorization||'').replace(/^Bearer\s+/,'');
@@ -36,13 +47,8 @@ function mailConfiguration(){
   const usingTestDomain=!from||/@resend\.dev(?:>|$)/i.test(from);
 
   if(!apiKey){
-    return {
-      configured:false,
-      sender:from||null,
-      reason:'Falta RESEND_API_KEY en Vercel.'
-    };
+    return {configured:false,sender:from||null,reason:'Falta RESEND_API_KEY en Vercel.'};
   }
-
   if(usingTestDomain){
     return {
       configured:false,
@@ -50,36 +56,23 @@ function mailConfiguration(){
       reason:'Configura EMAIL_FROM con un dominio verificado en Resend. resend.dev solo permite enviar correos de prueba a la dirección de tu propia cuenta.'
     };
   }
-
   return {configured:true,sender:from,reason:null};
 }
 
 export default async function handler(req,res){
+  setCors(req,res);
+  if(req.method==='OPTIONS')return res.status(204).end();
   try{
     await authenticatedUser(req);
-
     const config=mailConfiguration();
 
-    if(req.method==='GET'){
-      return res.status(200).json(config);
-    }
-
-    if(req.method!=='POST'){
-      return res.status(405).json({error:'Método no permitido'});
-    }
-
+    if(req.method==='GET')return res.status(200).json(config);
+    if(req.method!=='POST')return res.status(405).json({error:'Método no permitido'});
     if(!config.configured){
-      return res.status(503).json({
-        error:config.reason,
-        code:'MAIL_NOT_CONFIGURED'
-      });
+      return res.status(503).json({error:config.reason,code:'MAIL_NOT_CONFIGURED'});
     }
 
-    const {
-      to,subject,body,leadName='',leadCode='',
-      communicationType='Comunicación',replyTo=''
-    }=req.body||{};
-
+    const {to,subject,body,leadName='',leadCode='',communicationType='Comunicación',replyTo=''}=req.body||{};
     const recipients=parseRecipients(to);
     if(!recipients.length)return res.status(400).json({error:'Correo destinatario inválido.'});
     if(recipients.length>10)return res.status(400).json({error:'Máximo 10 destinatarios por envío.'});
@@ -88,11 +81,8 @@ export default async function handler(req,res){
     if(String(subject).length>180)return res.status(400).json({error:'El asunto es demasiado largo.'});
     if(String(body).length>12000)return res.status(400).json({error:'El mensaje es demasiado largo.'});
 
-    const safe=(value='')=>String(value).replace(/[&<>"']/g,char=>({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-    }[char]));
+    const safe=(value='')=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
     const safeBody=safe(body).replace(/\n/g,'<br/>');
-
     const html=`
       <div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#171717">
         <div style="font-size:11px;letter-spacing:.16em;margin-bottom:18px">HOTEL EXPERIENCE · BY LINK</div>
@@ -105,20 +95,12 @@ export default async function handler(req,res){
         <p style="font-size:11px;color:#6b655d">Enviado desde Hotel Experience CRM.</p>
       </div>`;
 
-    const payload={
-      from:config.sender,
-      to:recipients,
-      subject:String(subject).trim(),
-      html
-    };
+    const payload={from:config.sender,to:recipients,subject:String(subject).trim(),html};
     if(validEmail(replyTo))payload.reply_to=String(replyTo).trim();
 
     const response=await fetch('https://api.resend.com/emails',{
       method:'POST',
-      headers:{
-        Authorization:`Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type':'application/json'
-      },
+      headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json'},
       body:JSON.stringify(payload)
     });
 
@@ -126,24 +108,13 @@ export default async function handler(req,res){
     if(!response.ok){
       const providerMessage=result?.message||'No se pudo enviar el correo.';
       const testingHint=response.status===403&&/testing emails|verify a domain|resend\.dev/i.test(providerMessage)
-        ?' Verifica un dominio en Resend y usa ese dominio en EMAIL_FROM.'
-        :'';
-      return res.status(response.status).json({
-        error:`${providerMessage}${testingHint}`.trim(),
-        code:result?.name||result?.code||'RESEND_ERROR'
-      });
+        ?' Verifica un dominio en Resend y usa ese dominio en EMAIL_FROM.' :'';
+      return res.status(response.status).json({error:`${providerMessage}${testingHint}`.trim(),code:result?.name||result?.code||'RESEND_ERROR'});
     }
 
-    return res.status(200).json({
-      ok:true,
-      id:result.id||null,
-      recipients,
-      sender:config.sender
-    });
+    return res.status(200).json({ok:true,id:result.id||null,recipients,sender:config.sender});
   }catch(e){
-    return res.status(e?.status||500).json({
-      error:e?.message||'No se pudo enviar el correo.'
-    });
+    return res.status(e?.status||500).json({error:e?.message||'No se pudo enviar el correo.'});
   }
 }
 
@@ -158,7 +129,4 @@ function parseRecipients(value){
   }
   return result;
 }
-
-function validEmail(value){
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim());
-}
+function validEmail(value){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim());}
