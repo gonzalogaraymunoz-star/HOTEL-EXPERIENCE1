@@ -1,0 +1,189 @@
+import { createClient } from '@supabase/supabase-js';
+import ExcelJS from 'exceljs';
+
+const BUCKET='operation-documents';
+const TEMPLATE_PATH='templates/HE_OPERATION_MASTER.xlsx';
+const MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function normalize(value=''){
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+function excelDate(value){
+  if(!value) return null;
+  const [y,m,d]=String(value).slice(0,10).split('-').map(Number);
+  return y&&m&&d?new Date(y,m-1,d,12,0,0):null;
+}
+function ageAt(birth,at){
+  if(!birth) return null;
+  const b=excelDate(birth); const date=excelDate(at)||new Date();
+  if(!b||Number.isNaN(b.getTime())) return null;
+  let age=date.getFullYear()-b.getFullYear();
+  const before=date.getMonth()<b.getMonth()||(date.getMonth()===b.getMonth()&&date.getDate()<b.getDate());
+  if(before) age--;
+  return age>=0?age:null;
+}
+function splitName(p){
+  if(p.first_name||p.last_name) return {first:p.first_name||'',last:p.last_name||''};
+  return {first:p.full_name||'',last:''};
+}
+function gender(p){return String(p.gender||'').toUpperCase();}
+function mark(condition){return condition?'X':'';}
+function accommodation(lead){
+  return lead?.hotel_partners?.partner_type==='hotel'?lead.hotel_partners.name||'':'';
+}
+function cell(sheet,address,value,date=false){
+  if(!sheet||value==null||value==='') return;
+  const c=sheet.getCell(address); c.value=value;
+  if(date) c.numFmt='dd-mm-yyyy';
+}
+function clearRange(sheet,startRow,endRow,startCol,endCol){
+  if(!sheet) return;
+  for(let r=startRow;r<=endRow;r++) for(let c=startCol;c<=endCol;c++) sheet.getCell(r,c).value=null;
+}
+function serviceText(service,product){
+  return normalize([service.producto,service.service_type,service.tour_id,product?.name,product?.product_slug,product?.stops,product?.code].filter(Boolean).join(' '));
+}
+function isTransfer(text){return /transfer|traslado|aeropuerto/.test(text);}
+function matchSheet(sheetName,text){
+  if(sheetName==='LUNA') return /valle de la luna|valle luna/.test(text);
+  if(sheetName==='CHAXA') return /chaxa|salar de atacama/.test(text);
+  if(sheetName==='SOCAIRE') return /socaire|altiplan|piedras rojas|aguas calientes|miscanti|miniques/.test(text);
+  if(sheetName==='TALABRE') return /talabre|kezala/.test(text);
+  if(sheetName==='COYO') return /baltinache|tebenquiche|tulor|vallecito|coyo/.test(text);
+  if(sheetName==='TRF') return isTransfer(text);
+  return false;
+}
+function assignmentPeople(assignment,peopleById){
+  const guide=assignment?.guide_person_id?peopleById.get(assignment.guide_person_id):null;
+  const driver=assignment?.driver_person_id?peopleById.get(assignment.driver_person_id):null;
+  return {
+    guideName:guide?.full_name||assignment?.guide_name||'', guideRut:guide?.rut||'', guideSernatur:guide?.sernatur_registration||'', guidePhone:guide?.phone||guide?.whatsapp||'',
+    driverName:driver?.full_name||assignment?.driver_name||'', driverRut:driver?.rut||'', driverPhone:driver?.phone||driver?.whatsapp||'',
+  };
+}
+function participantsFor(service,linksByService,passengers){
+  const links=(linksByService.get(service.id)||[]).slice().sort((a,b)=>Number(a.position||0)-Number(b.position||0));
+  if(!links.length) return passengers.slice(0,Math.max(0,Number(service.numero_pax||0)));
+  const byId=new Map(passengers.map(p=>[p.id,p]));
+  return links.map(link=>byId.get(link.passenger_id)).filter(Boolean);
+}
+function fillDatosPax(sheet,passengers,lead){
+  clearRange(sheet,4,80,1,12);
+  passengers.forEach((p,index)=>{
+    const row=4+index; const name=splitName(p); const age=ageAt(p.birth_date,lead.checkin);
+    cell(sheet,`A${row}`,index+1); cell(sheet,`B${row}`,name.first); cell(sheet,`C${row}`,name.last);
+    cell(sheet,`D${row}`,p.document_number||''); cell(sheet,`E${row}`,excelDate(p.birth_date),true); cell(sheet,`F${row}`,p.nationality||'');
+    cell(sheet,`G${row}`,accommodation(lead)); cell(sheet,`H${row}`,p.dietary_restrictions||''); cell(sheet,`I${row}`,p.disability_type||'');
+    cell(sheet,`J${row}`,mark(gender(p)==='M')); cell(sheet,`K${row}`,mark(gender(p)==='F')); cell(sheet,`L${row}`,age);
+  });
+}
+function fillLuna(sheet,service,pax,ctx,lead){
+  clearRange(sheet,11,80,3,19);
+  cell(sheet,'F6',ctx.supplier?.name||''); cell(sheet,'F7',ctx.supplier?.sernatur_registration||'');
+  cell(sheet,'J6',ctx.people.guideName); cell(sheet,'J7',ctx.people.guideSernatur||ctx.people.guideRut);
+  cell(sheet,'R6',ctx.vehicle?.plate||''); cell(sheet,'R7',[ctx.vehicle?.brand,ctx.vehicle?.model].filter(Boolean).join(' ')||ctx.vehicle?.label||'');
+  pax.forEach((p,index)=>{
+    const r=11+index; const name=splitName(p); const age=ageAt(p.birth_date,service.fecha_servicio);
+    cell(sheet,`C${r}`,name.first);cell(sheet,`D${r}`,name.last);cell(sheet,`F${r}`,p.nationality||'');cell(sheet,`H${r}`,p.document_number||'');
+    cell(sheet,`J${r}`,mark(gender(p)==='F'));cell(sheet,`K${r}`,mark(gender(p)==='M'));cell(sheet,`L${r}`,mark(gender(p)&&!['M','F'].includes(gender(p))));
+    cell(sheet,`M${r}`,mark(age!=null&&age<18));cell(sheet,`N${r}`,mark(age!=null&&age>=18&&age<=35));cell(sheet,`O${r}`,mark(age!=null&&age>=36&&age<=59));cell(sheet,`P${r}`,mark(age!=null&&age>=60));
+    const disability=normalize(p.disability_type);cell(sheet,`R${r}`,mark(disability.includes('fis')));cell(sheet,`S${r}`,mark(disability.includes('sens')));
+  });
+}
+function fillD80(sheet,service,pax,ctx,lead){
+  clearRange(sheet,13,90,2,10);
+  ['D4','D5','E5','D6','E6','D7','E7','D8','D9','D10'].forEach(a=>sheet.getCell(a).value=null);
+  cell(sheet,'D4',excelDate(service.fecha_servicio),true);cell(sheet,'D5',ctx.people.driverName);cell(sheet,'E5',ctx.people.driverRut);
+  cell(sheet,'D6',ctx.vehicle?.plate||'');cell(sheet,'E6',[ctx.vehicle?.brand,ctx.vehicle?.model].filter(Boolean).join(' ')||ctx.vehicle?.label||'');
+  cell(sheet,'D7',ctx.people.guideName);cell(sheet,'E7',ctx.people.guideRut);cell(sheet,'D8',ctx.people.guideSernatur);
+  cell(sheet,'D9',ctx.supplier?.rut||'');cell(sheet,'D10',ctx.supplier?.sernatur_registration||'');
+  pax.forEach((p,index)=>{const r=13+index;const name=splitName(p);cell(sheet,`B${r}`,index+1);cell(sheet,`C${r}`,name.first);cell(sheet,`D${r}`,name.last);cell(sheet,`E${r}`,p.document_number||'');cell(sheet,`F${r}`,accommodation(lead));cell(sheet,`G${r}`,p.dietary_restrictions||'');cell(sheet,`H${r}`,gender(p));cell(sheet,`I${r}`,excelDate(p.birth_date),true);cell(sheet,`J${r}`,ageAt(p.birth_date,service.fecha_servicio));});
+}
+function fillChaxa(sheet,service,pax,ctx,lead){
+  clearRange(sheet,14,90,3,25);
+  cell(sheet,'H7',ctx.supplier?.name||'');cell(sheet,'S7',excelDate(service.fecha_servicio),true);cell(sheet,'H8',ctx.people.guideName);
+  if(ctx.people.driverName) cell(sheet,'S8',`Conductor: ${ctx.people.driverName}`);cell(sheet,'H9',ctx.supplier?.name||'');if(ctx.vehicle?.plate) cell(sheet,'S9',`Patente de Vehículo: ${ctx.vehicle.plate}`);
+  pax.forEach((p,index)=>{const r=14+index;const age=ageAt(p.birth_date,service.fecha_servicio);cell(sheet,`C${r}`,index+1);cell(sheet,`D${r}`,excelDate(service.fecha_servicio),true);cell(sheet,`E${r}`,p.full_name||`${p.first_name||''} ${p.last_name||''}`.trim());cell(sheet,`G${r}`,p.nationality||'');cell(sheet,`H${r}`,p.phone||'');cell(sheet,`I${r}`,age);cell(sheet,`J${r}`,mark(gender(p)==='M'));cell(sheet,`K${r}`,mark(gender(p)==='F'));cell(sheet,`Q${r}`,mark(age!=null&&age>=18&&age<60));cell(sheet,`R${r}`,mark(age!=null&&age<18));cell(sheet,`T${r}`,mark(age!=null&&age>=60));cell(sheet,`U${r}`,mark(Boolean(p.disability_type)));const nat=normalize(p.nationality);cell(sheet,`W${r}`,mark(nat.includes('chile')));cell(sheet,`X${r}`,mark(Boolean(nat)&&!nat.includes('chile')));cell(sheet,`Y${r}`,p.medical_notes||'');});
+}
+function fillSocaire(sheet,service,pax,ctx,lead){
+  clearRange(sheet,17,80,3,16);
+  ['E5','E6','J6','E8','H8','M8','E10','J10','E12','I12','M12','E13','I13','M13'].forEach(a=>sheet.getCell(a).value=null);
+  cell(sheet,'E5',ctx.supplier?.name||'');cell(sheet,'E6',ctx.supplier?.rut||'');cell(sheet,'J6',ctx.supplier?.sernatur_registration||'');cell(sheet,'E8',excelDate(service.fecha_servicio),true);cell(sheet,'H8',service.producto||'');cell(sheet,'M8',service.hora_inicio?String(service.hora_inicio).slice(0,5):ctx.assignment?.pickup_time?String(ctx.assignment.pickup_time).slice(0,5):'');cell(sheet,'E10',ctx.vehicle?.plate||'');cell(sheet,'J10',[ctx.vehicle?.brand,ctx.vehicle?.model].filter(Boolean).join(' ')||ctx.vehicle?.label||'');cell(sheet,'E12',ctx.people.driverName);cell(sheet,'I12',ctx.people.driverRut);cell(sheet,'M12',ctx.people.driverPhone);cell(sheet,'E13',ctx.people.guideName);cell(sheet,'I13',ctx.people.guideRut);cell(sheet,'M13',ctx.people.guidePhone);
+  pax.forEach((p,index)=>{const r=17+index;const age=ageAt(p.birth_date,service.fecha_servicio);const band=age==null?'':age<18?'<18':age<=35?'18-35':age<=59?'36-59':'60+';cell(sheet,`C${r}`,index+1);cell(sheet,`D${r}`,p.full_name||`${p.first_name||''} ${p.last_name||''}`.trim());cell(sheet,`F${r}`,lead.reservation_reference||lead.codigo);cell(sheet,`G${r}`,p.nationality||'');cell(sheet,`I${r}`,p.document_number||'');cell(sheet,`J${r}`,gender(p));cell(sheet,`K${r}`,band);cell(sheet,`L${r}`,p.disability_type||'');cell(sheet,`M${r}`,accommodation(lead));cell(sheet,`O${r}`,p.phone||'');});
+}
+function fillTalabre(sheet,service,pax,ctx,lead){
+  clearRange(sheet,21,90,2,15);
+  for(let r=8;r<=16;r++) for(let c=3;c<=15;c++) sheet.getCell(r,c).value=null;
+  cell(sheet,'C8',excelDate(service.fecha_servicio),true);cell(sheet,'C9',ctx.supplier?.name||'');cell(sheet,'C10',ctx.supplier?.rut||'');cell(sheet,'C11',ctx.people.driverName);cell(sheet,'C12',ctx.people.guideName);cell(sheet,'C13',ctx.vehicle?.plate||'');cell(sheet,'C14',ctx.supplier?.sernatur_registration||'');cell(sheet,'C15',ctx.supplier?.phone||ctx.supplier?.whatsapp||'');cell(sheet,'C16',ctx.supplier?.email||'');
+  pax.forEach((p,index)=>{const r=21+index;const age=ageAt(p.birth_date,service.fecha_servicio);cell(sheet,`B${r}`,p.full_name||`${p.first_name||''} ${p.last_name||''}`.trim());cell(sheet,`C${r}`,p.document_number||'');cell(sheet,`D${r}`,mark(gender(p)==='M'));cell(sheet,`E${r}`,mark(gender(p)==='F'));cell(sheet,`F${r}`,mark(gender(p)&&!['M','F'].includes(gender(p))));cell(sheet,`G${r}`,p.nationality||'');cell(sheet,`H${r}`,mark(age!=null&&age<=11));cell(sheet,`I${r}`,mark(age!=null&&age>=12&&age<=29));cell(sheet,`J${r}`,mark(age!=null&&age>=30&&age<=64));cell(sheet,`K${r}`,mark(age!=null&&age>=65));cell(sheet,`M${r}`,accommodation(lead));cell(sheet,`N${r}`,p.phone||'');cell(sheet,`O${r}`,p.medical_notes||'');});
+}
+function fillCoyo(sheet,service,pax,ctx,lead){
+  clearRange(sheet,22,90,2,13);
+  ['J9','D11','D12','D13','D14','D15','D16','J11','J12','J13','J14','J15','J16'].forEach(a=>sheet.getCell(a).value=null);
+  cell(sheet,'J9',excelDate(service.fecha_servicio),true);cell(sheet,'D11',ctx.supplier?.name||'');cell(sheet,'D12',ctx.supplier?.name||'');cell(sheet,'D13',ctx.supplier?.rut||'');cell(sheet,'D14',ctx.supplier?.notes||'');cell(sheet,'D15',ctx.supplier?.email||'');cell(sheet,'D16',ctx.supplier?.phone||ctx.supplier?.whatsapp||'');cell(sheet,'J11',ctx.people.guideName);cell(sheet,'J12',[ctx.people.guideSernatur,ctx.people.guideRut].filter(Boolean).join(' / '));cell(sheet,'J15',ctx.people.driverName);cell(sheet,'J16',ctx.vehicle?.plate||'');
+  pax.forEach((p,index)=>{const r=22+index;const age=ageAt(p.birth_date,service.fecha_servicio);const disability=normalize(p.disability_type);cell(sheet,`B${r}`,index+1);cell(sheet,`C${r}`,p.full_name||`${p.first_name||''} ${p.last_name||''}`.trim());cell(sheet,`D${r}`,p.document_number||'');cell(sheet,`E${r}`,p.nationality||'');cell(sheet,`F${r}`,[p.phone,p.email].filter(Boolean).join(' / '));cell(sheet,`G${r}`,mark(gender(p)==='F'));cell(sheet,`H${r}`,mark(gender(p)==='M'));cell(sheet,`I${r}`,mark(disability.includes('fis')));cell(sheet,`J${r}`,mark(disability.includes('sens')));cell(sheet,`K${r}`,mark(age!=null&&age<=17));cell(sheet,`L${r}`,mark(age!=null&&age>=18&&age<=59));cell(sheet,`M${r}`,mark(age!=null&&age>=60));});
+}
+function fillTransfer(sheet,service,pax,ctx,lead){
+  clearRange(sheet,13,90,2,11);for(let r=2;r<=10;r++) if(![9,10].includes(r)) sheet.getCell(`D${r}`).value=null;
+  cell(sheet,'D2',excelDate(service.fecha_servicio),true);cell(sheet,'D3',service.producto||'Transfer');cell(sheet,'D4',ctx.assignment?.meeting_point||lead.pickup_location||accommodation(lead));cell(sheet,'D5',ctx.people.driverName);cell(sheet,'D6',ctx.vehicle?.plate||'');cell(sheet,'D7',ctx.people.guideName);cell(sheet,'D8',ctx.people.guideSernatur);cell(sheet,'D9',ctx.supplier?.rut||'');cell(sheet,'D10',ctx.supplier?.sernatur_registration||'');
+  pax.forEach((p,index)=>{const r=13+index;const name=splitName(p);cell(sheet,`B${r}`,index+1);cell(sheet,`C${r}`,name.first);cell(sheet,`D${r}`,name.last);cell(sheet,`E${r}`,p.document_number||'');cell(sheet,`F${r}`,p.nationality||'');cell(sheet,`G${r}`,accommodation(lead));cell(sheet,`H${r}`,p.dietary_restrictions||'');cell(sheet,`I${r}`,gender(p));cell(sheet,`J${r}`,excelDate(p.birth_date),true);cell(sheet,`K${r}`,ageAt(p.birth_date,service.fecha_servicio));});
+}
+function duplicateSheet(workbook,source,name){
+  try{
+    const model=structuredClone(source.model);const target=workbook.addWorksheet(name);model.id=target.id;model.name=name;target.model=model;return target;
+  }catch{return null;}
+}
+function fillRiskBlock(sheet,base,p,service,ctx,lead){
+  const offset=base==='B'?0:base==='L'?10:20;const col=n=>String.fromCharCode(66+offset+n);
+  const name=splitName(p);cell(sheet,`${col(2)}8`,name.first);cell(sheet,`${col(3)}8`,name.last);cell(sheet,`${col(6)}8`,p.nationality||'');cell(sheet,`${col(2)}9`,p.document_number||'');cell(sheet,`${col(4)}9`,ageAt(p.birth_date,service.fecha_servicio));cell(sheet,`${col(2)}13`,service.producto||'Tours in San Pedro');cell(sheet,`${col(6)}13`,excelDate(service.fecha_servicio),true);cell(sheet,`${col(2)}14`,ctx.people.guideName);cell(sheet,`${col(6)}14`,ctx.people.guideRut||ctx.people.guideSernatur);cell(sheet,`${col(2)}15`,service.hora_inicio?String(service.hora_inicio).slice(0,5):ctx.assignment?.pickup_time?String(ctx.assignment.pickup_time).slice(0,5):'');cell(sheet,`${col(4)}15`,service.hora_fin?String(service.hora_fin).slice(0,5):'');cell(sheet,`${col(6)}15`,ctx.assignment?.meeting_point||lead.pickup_location||accommodation(lead));cell(sheet,`${col(8)}15`,service.producto||'');
+}
+function clearRiskBlock(sheet,base){const offset=base==='B'?0:base==='L'?10:20;const col=n=>String.fromCharCode(66+offset+n);[`${col(2)}8`,`${col(3)}8`,`${col(6)}8`,`${col(2)}9`,`${col(4)}9`,`${col(2)}13`,`${col(6)}13`,`${col(2)}14`,`${col(6)}14`,`${col(2)}15`,`${col(4)}15`,`${col(6)}15`,`${col(8)}15`].forEach(a=>sheet.getCell(a).value=null);}
+function fillRiskSheets(workbook,source,service,pax,ctx,lead){
+  if(!source||!pax.length) return;
+  const groups=[];for(let i=0;i<pax.length;i+=3) groups.push(pax.slice(i,i+3));
+  const templates=[source];for(let i=1;i<groups.length;i++){const copy=duplicateSheet(workbook,source,`RIESGO ${i+1}`);if(copy)templates.push(copy);}
+  templates.forEach((sheet,index)=>{['B','L','V'].forEach(b=>clearRiskBlock(sheet,b));(groups[index]||[]).forEach((p,pIndex)=>fillRiskBlock(sheet,['B','L','V'][pIndex],p,service,ctx,lead));});
+}
+async function authenticatedAdmin(req){
+  const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||'https://lpirjwifzosdzgdncsbt.supabase.co';const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!url||!key) throw Object.assign(new Error('Faltan variables privadas de Supabase.'),{status:500});
+  const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});const token=(req.headers.authorization||'').replace(/^Bearer\s+/,'');const {data,error}=await admin.auth.getUser(token);if(error||!data.user) throw Object.assign(new Error('Sesión inválida.'),{status:401});const {data:profile}=await admin.from('profiles').select('role,is_active').eq('id',data.user.id).single();if(!profile?.is_active) throw Object.assign(new Error('Cuenta desactivada.'),{status:403});if(!['admin','manager','agent'].includes(String(profile.role))) throw Object.assign(new Error('Sin permiso para generar documentación.'),{status:403});return {admin,user:data.user};
+}
+
+export default async function handler(req,res){
+  if(req.method!=='POST') return res.status(405).json({error:'Método no permitido'});
+  try{
+    const {admin,user}=await authenticatedAdmin(req);const leadId=req.body?.leadId;if(!leadId) return res.status(400).json({error:'Falta leadId.'});
+    const [{data:lead,error:leadError},{data:services,error:serviceError},{data:passengers,error:paxError},{data:links,error:linkError},{data:assignments,error:assignmentError}]=await Promise.all([
+      admin.from('leads').select('*,hotel_partners(name,partner_type)').eq('id',leadId).single(),
+      admin.from('lead_services').select('*').eq('lead_id',leadId).in('booking_status',['confirmed','completed']).order('fecha_servicio').order('created_at'),
+      admin.from('passengers').select('*').eq('lead_id',leadId).order('is_primary',{ascending:false}).order('passenger_code'),
+      admin.from('lead_service_passengers').select('*').in('lead_service_id',(await admin.from('lead_services').select('id').eq('lead_id',leadId)).data?.map(x=>x.id)||[]),
+      admin.from('service_assignments').select('*').in('lead_service_id',(await admin.from('lead_services').select('id').eq('lead_id',leadId)).data?.map(x=>x.id)||[]),
+    ]);
+    if(leadError) throw leadError;if(serviceError) throw serviceError;if(paxError) throw paxError;if(linkError) throw linkError;if(assignmentError) throw assignmentError;if(!services?.length) return res.status(409).json({error:'El Lead no tiene servicios confirmados en Operaciones.'});
+    const ids=list=>Array.from(new Set(list.filter(Boolean)));
+    const supplierIds=ids((assignments||[]).map(a=>a.supplier_id));const vehicleIds=ids((assignments||[]).map(a=>a.vehicle_id));const peopleIds=ids((assignments||[]).flatMap(a=>[a.guide_person_id,a.driver_person_id]));const productIds=ids((services||[]).map(s=>s.product_catalog_id));
+    const [supplierRes,vehicleRes,peopleRes,productRes]=await Promise.all([
+      supplierIds.length?admin.from('suppliers').select('*').in('id',supplierIds):Promise.resolve({data:[]}),
+      vehicleIds.length?admin.from('vehicles').select('*').in('id',vehicleIds):Promise.resolve({data:[]}),
+      peopleIds.length?admin.from('service_people').select('*').in('id',peopleIds):Promise.resolve({data:[]}),
+      productIds.length?admin.from('product_catalog').select('id,name,code,product_slug,stops,category').in('id',productIds):Promise.resolve({data:[]}),
+    ]);
+    const supplierById=new Map((supplierRes.data||[]).map(x=>[x.id,x]));const vehicleById=new Map((vehicleRes.data||[]).map(x=>[x.id,x]));const peopleById=new Map((peopleRes.data||[]).map(x=>[x.id,x]));const productById=new Map((productRes.data||[]).map(x=>[x.id,x]));const assignmentByService=new Map((assignments||[]).map(x=>[x.lead_service_id,x]));const linksByService=new Map();(links||[]).forEach(link=>linksByService.set(link.lead_service_id,[...(linksByService.get(link.lead_service_id)||[]),link]));
+    const {data:templateBlob,error:templateError}=await admin.storage.from(BUCKET).download(TEMPLATE_PATH);if(templateError||!templateBlob) return res.status(409).json({error:'Falta la plantilla maestra. Cárgala desde el panel de Pendientes en Operaciones.'});
+    const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(Buffer.from(await templateBlob.arrayBuffer()));
+    const datos=workbook.getWorksheet('DATOS PAX');if(datos)fillDatosPax(datos,passengers||[],lead);
+    const serviceContexts=(services||[]).map(service=>{const assignment=assignmentByService.get(service.id)||null;return {service,product:productById.get(service.product_catalog_id)||null,text:serviceText(service,productById.get(service.product_catalog_id)),assignment,supplier:assignment?.supplier_id?supplierById.get(assignment.supplier_id):null,vehicle:assignment?.vehicle_id?vehicleById.get(assignment.vehicle_id):null,people:assignmentPeople(assignment,peopleById),pax:participantsFor(service,linksByService,passengers||[])};});
+    const firstTour=serviceContexts.find(ctx=>!isTransfer(ctx.text))||serviceContexts[0];
+    const d80=workbook.getWorksheet('D80');if(d80&&firstTour)fillD80(d80,firstTour.service,firstTour.pax,firstTour,lead);
+    for(const sheetName of ['LUNA','CHAXA','SOCAIRE','TALABRE','COYO','TRF']){
+      const sheet=workbook.getWorksheet(sheetName);if(!sheet)continue;const ctx=serviceContexts.find(item=>matchSheet(sheetName,item.text));if(!ctx){workbook.removeWorksheet(sheet.id);continue;}if(sheetName==='LUNA')fillLuna(sheet,ctx.service,ctx.pax,ctx,lead);if(sheetName==='CHAXA')fillChaxa(sheet,ctx.service,ctx.pax,ctx,lead);if(sheetName==='SOCAIRE')fillSocaire(sheet,ctx.service,ctx.pax,ctx,lead);if(sheetName==='TALABRE')fillTalabre(sheet,ctx.service,ctx.pax,ctx,lead);if(sheetName==='COYO')fillCoyo(sheet,ctx.service,ctx.pax,ctx,lead);if(sheetName==='TRF')fillTransfer(sheet,ctx.service,ctx.pax,ctx,lead);
+    }
+    const risk=workbook.getWorksheet('HOJA DE RIESGO');if(risk&&firstTour)fillRiskSheets(workbook,risk,firstTour.service,firstTour.pax,firstTour,lead);
+    for(const name of ['RESERVA','ITINERARIO','LISTA MAQUETA','TEXTOS','INCIDENTES.','VOUCHER']){const sheet=workbook.getWorksheet(name);if(sheet)workbook.removeWorksheet(sheet.id);}
+    const output=Buffer.from(await workbook.xlsx.writeBuffer());const {data:versionRows}=await admin.from('reservation_document_versions').select('version').eq('lead_id',leadId).eq('document_type','operation_sheet').order('version',{ascending:false}).limit(1);const version=Number(versionRows?.[0]?.version||0)+1;const safeCode=String(lead.codigo||lead.id).replace(/[^A-Za-z0-9_-]/g,'_');const fileName=`${safeCode}_OPERACION_v${version}.xlsx`;const storagePath=`generated/${safeCode}/${fileName}`;
+    const {error:uploadError}=await admin.storage.from(BUCKET).upload(storagePath,output,{contentType:MIME,upsert:false,cacheControl:'0'});if(uploadError)throw uploadError;await admin.from('reservation_document_versions').update({status:'Archivado'}).eq('lead_id',leadId).eq('document_type','operation_sheet').eq('status','Activo');const {error:docError}=await admin.from('reservation_document_versions').insert({lead_id:leadId,document_type:'operation_sheet',title:`Paquete operacional ${lead.codigo} v${version}`,url:`storage://${BUCKET}/${storagePath}`,storage_bucket:BUCKET,storage_path:storagePath,version,status:'Activo',notes:'Generado automáticamente desde Supabase usando la plantilla maestra de HOTEL EXPERIENCE.',created_by:user.id});if(docError)throw docError;
+    res.setHeader('Content-Type',MIME);res.setHeader('Content-Disposition',`attachment; filename="${fileName}"`);res.setHeader('X-Document-Version',String(version));return res.status(200).send(output);
+  }catch(e){return res.status(e?.status||500).json({error:e?.message||'No se pudo generar la documentación operacional.'});}
+}
