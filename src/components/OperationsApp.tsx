@@ -54,16 +54,17 @@ export default function OperationsApp({profile}:{profile:any}){
   };
   useEffect(()=>{void refresh()},[]);
 
+  const nonHistoricalLeadIds=useMemo(()=>new Set(leads.filter(lead=>String((lead as any).lifecycle_stage||'active')!=='historical').map(lead=>lead.id)),[leads]);
   const operationalServices=useMemo(()=>services.filter(service=>{
     const booking=String(service.booking_status||'confirmed').toLowerCase();
-    return ['confirmed','completed'].includes(booking);
-  }).map(operationalCopy),[services]);
+    return nonHistoricalLeadIds.has(service.lead_id)&&['confirmed','completed'].includes(booking);
+  }).map(operationalCopy),[services,nonHistoricalLeadIds]);
 
   const leadById=useMemo(()=>new Map(leads.map(l=>[l.id,l])),[leads]);
   const activeLeads=useMemo(()=>{
     const ids=new Set(operationalServices.map(s=>s.lead_id));
-    return leads.filter(l=>ids.has(l.id));
-  },[leads,operationalServices]);
+    return leads.filter(l=>nonHistoricalLeadIds.has(l.id)&&ids.has(l.id));
+  },[leads,operationalServices,nonHistoricalLeadIds]);
 
   const canApprovePartners=['admin','manager'].includes(String(profile?.role||''));
   const moveDay=(delta:number)=>setSelectedDate(isoDate(addDays(parseDate(selectedDate),delta)));
