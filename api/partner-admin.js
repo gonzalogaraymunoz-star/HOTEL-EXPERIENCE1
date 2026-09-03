@@ -2,9 +2,15 @@ import {
   crmUserFrom,hashPassword,makeAccessCode,noStore,normalizePrefix,
   publicAccount,randomPassword,setupAdmin
 } from './_lib/partner-portal.js';
+import {
+  OPERATION_XLSX_MIME,getOperationTemplateStatus,saveOperationTemplate,generateOperationWorkbook
+} from './_lib/operation-documents.js';
 
 function allowed(profile){
   return ['admin','manager'].includes(String(profile?.role||''));
+}
+function operationsAllowed(profile){
+  return ['admin','manager','agent'].includes(String(profile?.role||''));
 }
 
 export default async function handler(req,res){
@@ -12,6 +18,40 @@ export default async function handler(req,res){
   try{
     const admin=setupAdmin();
     const {user,profile}=await crmUserFrom(req,admin);
+    const queryAction=String(req.query?.action||'');
+
+    if(queryAction.startsWith('operation_')||queryAction==='generate_operation_sheet'){
+      if(!operationsAllowed(profile))return res.status(403).json({error:'Permisos insuficientes para documentación operacional.'});
+
+      if(queryAction==='operation_template_status'){
+        if(req.method!=='GET')return res.status(405).json({error:'Método no permitido.'});
+        const result=await getOperationTemplateStatus(admin);
+        return res.status(200).json(result);
+      }
+
+      if(queryAction==='operation_template_upload'){
+        if(req.method!=='POST')return res.status(405).json({error:'Método no permitido.'});
+        let body=req.body;
+        if(typeof body==='string')body=Buffer.from(body,'binary');
+        if(!(body instanceof Buffer))body=Buffer.from(body||[]);
+        const result=await saveOperationTemplate(admin,body.toString('base64'));
+        return res.status(200).json(result);
+      }
+
+      if(queryAction==='generate_operation_sheet'){
+        if(req.method!=='POST')return res.status(405).json({error:'Método no permitido.'});
+        const leadId=String(req.body?.leadId||'');
+        if(!leadId)return res.status(400).json({error:'Falta leadId.'});
+        const result=await generateOperationWorkbook(admin,user,leadId);
+        res.setHeader('Content-Type',OPERATION_XLSX_MIME);
+        res.setHeader('Content-Disposition',`attachment; filename="${result.fileName}"`);
+        res.setHeader('X-Document-Version',String(result.version));
+        return res.status(200).send(result.buffer);
+      }
+
+      return res.status(400).json({error:'Acción operacional inválida.'});
+    }
+
     if(!allowed(profile))return res.status(403).json({error:'Permisos insuficientes.'});
 
     if(req.method==='GET'){
