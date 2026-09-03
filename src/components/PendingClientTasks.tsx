@@ -52,7 +52,7 @@ export default function PendingClientTasks({ scope }: { scope: 'sales' | 'operat
     if (scope !== 'operations') return;
     try {
       const accessToken = await token();
-      const response = await fetch('/api/operation-template', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const response = await fetch('/api/partner-admin?action=operation_template_status', { headers: { Authorization: `Bearer ${accessToken}` } });
       const result = await response.json();
       setTemplateReady(Boolean(response.ok && result.ready));
       if (!response.ok) setTemplateMessage(result.error || 'No se pudo revisar la plantilla.');
@@ -64,7 +64,7 @@ export default function PendingClientTasks({ scope }: { scope: 'sales' | 'operat
     setTemplateMessage('Cargando plantilla maestra…');
     try {
       const accessToken = await token();
-      const response = await fetch('/api/operation-template', {
+      const response = await fetch('/api/partner-admin?action=operation_template_upload', {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
         body: file,
@@ -80,7 +80,7 @@ export default function PendingClientTasks({ scope }: { scope: 'sales' | 'operat
     setWorkingLead(task.lead_id); setTemplateMessage('');
     try {
       const accessToken = await token();
-      const response = await fetch('/api/generate-operation-sheet', {
+      const response = await fetch('/api/partner-admin?action=generate_operation_sheet', {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ leadId: task.lead_id }),
