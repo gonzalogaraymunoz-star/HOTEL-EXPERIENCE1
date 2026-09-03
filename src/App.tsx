@@ -3,6 +3,7 @@ import type {Session} from '@supabase/supabase-js';
 import OperationsApp from './components/OperationsApp';
 import LoginScreen from './components/LoginScreen';
 import ErrorBoundary from './components/ErrorBoundary';
+import PendingClientTasks from './components/PendingClientTasks';
 import {supabase} from './lib/supabase';
 
 export default function App(){
@@ -44,5 +45,5 @@ export default function App(){
   if(!session) return <LoginScreen/>;
   if(profileLoading||!profile) return <div className="app-loading">Preparando operación…</div>;
   if(profile.is_active===false) return <main className="blocked-screen"><h1>Cuenta desactivada</h1><p>Solicita acceso a un administrador.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
-  return <ErrorBoundary><OperationsApp profile={profile}/></ErrorBoundary>;
+  return <ErrorBoundary><OperationsApp profile={profile}/><PendingClientTasks scope="operations"/></ErrorBoundary>;
 }
