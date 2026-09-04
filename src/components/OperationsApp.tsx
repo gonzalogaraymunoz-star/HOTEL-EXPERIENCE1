@@ -15,12 +15,14 @@ import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
 import OperationsHub from './OperationsHub';
 import OperationsAdminTools from './OperationsAdminTools';
 import PartnerApprovalWorkspace from './PartnerApprovalWorkspace';
-import ServiceWorkspace from './ServiceWorkspace';
+import ServiceWorkspace,{type ServiceWorkspaceTab} from './ServiceWorkspace';
 import TeamView from './TeamView';
 import './OperationsApp.css';
 
 type View='program'|'calendar'|'itinerary'|'food'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
 type CalendarMode='day'|'week'|'month'|'year';
+
+type PendingTaskDetail={leadId:string;serviceId?:string|null;taskKey:string};
 
 function operationalCopy(service:LeadService):LeadService{return {...service,precio_venta:null,precio_unitario:null,precio_total:null,price_pp_clp:null,margen_comercial:null,comision_hotel:null,comision_vendedor:null,margen_hotel_experience:null}}
 
@@ -33,6 +35,7 @@ export default function OperationsApp({profile}:{profile:any}){
   const [error,setError]=useState('');
   const [selectedDate,setSelectedDate]=useState(()=>isoDate(new Date()));
   const [operationService,setOperationService]=useState<LeadService|null>(null);
+  const [operationTab,setOperationTab]=useState<ServiceWorkspaceTab>('summary');
   const [mobileNav,setMobileNav]=useState(false);
   const [railExpanded,setRailExpanded]=useState(false);
 
@@ -48,6 +51,29 @@ export default function OperationsApp({profile}:{profile:any}){
   const openView=(next:View)=>{setView(next);setMobileNav(false)};
   const selectCalendarMode=(next:CalendarMode)=>{setCalendarMode(next);openView(next==='day'?'program':'calendar')};
   const movePeriod=(delta:number)=>{const base=parseDate(selectedDate);if(calendarMode==='day')base.setDate(base.getDate()+delta);if(calendarMode==='week')base.setDate(base.getDate()+delta*7);if(calendarMode==='month')base.setMonth(base.getMonth()+delta);if(calendarMode==='year')base.setFullYear(base.getFullYear()+delta);setSelectedDate(isoDate(base))};
+  const openService=(service:LeadService,tab:ServiceWorkspaceTab='summary')=>{setOperationTab(tab);setOperationService(service);if(service.fecha_servicio)setSelectedDate(service.fecha_servicio)};
+
+  useEffect(()=>{
+    const handler=(event:Event)=>{
+      const detail=(event as CustomEvent<PendingTaskDetail>).detail;
+      if(!detail?.leadId)return;
+      const taskKey=String(detail.taskKey||'');
+      const tab=tabForPending(taskKey);
+      if(taskKey.startsWith('ops_documents:')){openView('records');return}
+      if(taskKey.startsWith('ops_food:')){openView('food');return}
+      if(taskKey.startsWith('ops_itinerary:')){openView('itinerary');return}
+      const direct=detail.serviceId?operationalServices.find(service=>service.id===detail.serviceId):undefined;
+      const fallback=operationalServices.find(service=>service.lead_id===detail.leadId);
+      const target=direct||fallback;
+      if(!target){
+        setError('Este pendiente todavía no tiene un servicio operacional confirmado al cual navegar.');
+        return;
+      }
+      setCalendarMode('day');setView('program');openService(target,tab);
+    };
+    window.addEventListener('hotel:open-pending-task',handler as EventListener);
+    return()=>window.removeEventListener('hotel:open-pending-task',handler as EventListener);
+  },[operationalServices]);
 
   return <div className={`ops-app-shell ${railExpanded?'rail-expanded':''}`}>
     <aside className={`ops-rail ${mobileNav?'open':''} ${railExpanded?'expanded':''}`}>
@@ -83,8 +109,8 @@ export default function OperationsApp({profile}:{profile:any}){
 
       {error&&<div className="ops-error">{error}</div>}
       {loading?<div className="ops-loading">Cargando operación…</div>:<main className="ops-workspace">
-        {view==='program'&&<DailyOperationsBoard date={selectedDate} leads={activeLeads} services={operationalServices} onOperation={setOperationService}/>} 
-        {view==='calendar'&&<OperationsCalendarHub mode={calendarMode as OperationsCalendarMode} selectedDate={selectedDate} leads={activeLeads} services={operationalServices} onDateChange={setSelectedDate} onChanged={refresh} userRole={profile?.role||'agent'} onService={setOperationService}/>} 
+        {view==='program'&&<DailyOperationsBoard date={selectedDate} leads={activeLeads} services={operationalServices} onOperation={service=>openService(service,'summary')}/>} 
+        {view==='calendar'&&<OperationsCalendarHub mode={calendarMode as OperationsCalendarMode} selectedDate={selectedDate} leads={activeLeads} services={operationalServices} onDateChange={setSelectedDate} onChanged={refresh} userRole={profile?.role||'agent'} onService={service=>openService(service,'summary')}/>} 
         {view==='itinerary'&&<ItineraryWorkspace leads={activeLeads} services={operationalServices} onChanged={refresh}/>} 
         {view==='food'&&<FoodOperationsBoard date={selectedDate}/>} 
         {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'}/>} 
@@ -97,10 +123,17 @@ export default function OperationsApp({profile}:{profile:any}){
       </main>}
     </section>
 
-    {operationService&&leadById.get(operationService.lead_id)&&<ServiceWorkspace lead={leadById.get(operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} onClose={()=>setOperationService(null)} onChanged={refresh}/>} 
+    {operationService&&leadById.get(operationService.lead_id)&&<ServiceWorkspace lead={leadById.get(operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} initialTab={operationTab} onClose={()=>setOperationService(null)} onChanged={refresh}/>} 
   </div>;
 }
 
+function tabForPending(taskKey:string):ServiceWorkspaceTab{
+  if(['ops_assignment:','ops_supplier:','ops_vehicle:','ops_driver:','ops_guide:'].some(prefix=>taskKey.startsWith(prefix)))return'assignments';
+  if(['ops_participants:','ops_pax_docs:'].some(prefix=>taskKey.startsWith(prefix)))return'passengers';
+  if(taskKey.startsWith('ops_food:'))return'food';
+  if(taskKey.startsWith('ops_itinerary:'))return'itinerary';
+  return'summary';
+}
 function RailButton({icon,label,active,onClick}:{icon:React.ReactNode;label:string;active:boolean;onClick:()=>void}){return <button className={active?'ops-rail-button active':'ops-rail-button'} onClick={onClick} title={label}>{icon}<span>{label}</span></button>}
 function viewTitle(view:View){return ({program:'Programa diario',calendar:'Calendario operativo',itinerary:'Itinerarios',food:'Alimentación',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Recursos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view]}
 function parseDate(value:string){const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12,0,0)}
