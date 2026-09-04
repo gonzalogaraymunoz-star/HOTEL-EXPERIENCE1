@@ -1,40 +1,32 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {
   Box,Building2,CalendarDays,CarFront,CheckCircle2,ChevronLeft,ChevronRight,ClipboardList,FolderOpen,
-  LogOut,Menu,RefreshCw,UsersRound,X,Users
+  LogOut,Menu,RefreshCw,Route,UtensilsCrossed,UsersRound,X,Users
 } from 'lucide-react';
 import type {Lead,LeadService} from '../types';
 import {loadCRMData} from '../lib/api';
 import {assertSupabase} from '../lib/supabase';
 import BrandLogo from './BrandLogo';
-import OperationsCalendarHub from './OperationsCalendarHub';
+import OperationsCalendarHub,{type OperationsCalendarMode} from './OperationsCalendarHub';
 import DailyOperationsBoard from './DailyOperationsBoard';
+import FoodOperationsBoard from './FoodOperationsBoard';
+import ItineraryWorkspace from './ItineraryWorkspace';
 import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
 import OperationsHub from './OperationsHub';
 import OperationsAdminTools from './OperationsAdminTools';
 import PartnerApprovalWorkspace from './PartnerApprovalWorkspace';
-import ServiceOperationModal from './ServiceOperationModal';
+import ServiceWorkspace from './ServiceWorkspace';
 import TeamView from './TeamView';
 import './OperationsApp.css';
 
-type View='program'|'calendar'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
+type View='program'|'calendar'|'itinerary'|'food'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
+type CalendarMode='day'|'week'|'month'|'year';
 
-function operationalCopy(service:LeadService):LeadService{
-  return {
-    ...service,
-    precio_venta:null,
-    precio_unitario:null,
-    precio_total:null,
-    price_pp_clp:null,
-    margen_comercial:null,
-    comision_hotel:null,
-    comision_vendedor:null,
-    margen_hotel_experience:null
-  };
-}
+function operationalCopy(service:LeadService):LeadService{return {...service,precio_venta:null,precio_unitario:null,precio_total:null,price_pp_clp:null,margen_comercial:null,comision_hotel:null,comision_vendedor:null,margen_hotel_experience:null}}
 
 export default function OperationsApp({profile}:{profile:any}){
   const [view,setView]=useState<View>('program');
+  const [calendarMode,setCalendarMode]=useState<CalendarMode>('day');
   const [leads,setLeads]=useState<Lead[]>([]);
   const [services,setServices]=useState<LeadService[]>([]);
   const [loading,setLoading]=useState(true);
@@ -42,40 +34,30 @@ export default function OperationsApp({profile}:{profile:any}){
   const [selectedDate,setSelectedDate]=useState(()=>isoDate(new Date()));
   const [operationService,setOperationService]=useState<LeadService|null>(null);
   const [mobileNav,setMobileNav]=useState(false);
+  const [railExpanded,setRailExpanded]=useState(false);
 
-  const refresh=async()=>{
-    setLoading(true);setError('');
-    try{
-      const data=await loadCRMData();
-      setLeads(data.leads);
-      setServices(data.services);
-    }catch(e:any){setError(e?.message||'No se pudo cargar la operación.');}
-    finally{setLoading(false)}
-  };
+  const refresh=async()=>{setLoading(true);setError('');try{const data=await loadCRMData();setLeads(data.leads);setServices(data.services)}catch(e:any){setError(e?.message||'No se pudo cargar la operación.')}finally{setLoading(false)}};
   useEffect(()=>{void refresh()},[]);
 
   const nonHistoricalLeadIds=useMemo(()=>new Set(leads.filter(lead=>String((lead as any).lifecycle_stage||'active')!=='historical').map(lead=>lead.id)),[leads]);
-  const operationalServices=useMemo(()=>services.filter(service=>{
-    const booking=String(service.booking_status||'confirmed').toLowerCase();
-    return nonHistoricalLeadIds.has(service.lead_id)&&['confirmed','completed'].includes(booking);
-  }).map(operationalCopy),[services,nonHistoricalLeadIds]);
-
+  const operationalServices=useMemo(()=>services.filter(service=>{const booking=String(service.booking_status||'confirmed').toLowerCase();return nonHistoricalLeadIds.has(service.lead_id)&&['confirmed','completed'].includes(booking)}).map(operationalCopy),[services,nonHistoricalLeadIds]);
   const leadById=useMemo(()=>new Map(leads.map(l=>[l.id,l])),[leads]);
-  const activeLeads=useMemo(()=>{
-    const ids=new Set(operationalServices.map(s=>s.lead_id));
-    return leads.filter(l=>nonHistoricalLeadIds.has(l.id)&&ids.has(l.id));
-  },[leads,operationalServices,nonHistoricalLeadIds]);
+  const activeLeads=useMemo(()=>{const ids=new Set(operationalServices.map(s=>s.lead_id));return leads.filter(l=>nonHistoricalLeadIds.has(l.id)&&ids.has(l.id))},[leads,operationalServices,nonHistoricalLeadIds]);
 
   const canApprovePartners=['admin','manager'].includes(String(profile?.role||''));
-  const moveDay=(delta:number)=>setSelectedDate(isoDate(addDays(parseDate(selectedDate),delta)));
   const openView=(next:View)=>{setView(next);setMobileNav(false)};
+  const selectCalendarMode=(next:CalendarMode)=>{setCalendarMode(next);openView(next==='day'?'program':'calendar')};
+  const movePeriod=(delta:number)=>{const base=parseDate(selectedDate);if(calendarMode==='day')base.setDate(base.getDate()+delta);if(calendarMode==='week')base.setDate(base.getDate()+delta*7);if(calendarMode==='month')base.setMonth(base.getMonth()+delta);if(calendarMode==='year')base.setFullYear(base.getFullYear()+delta);setSelectedDate(isoDate(base))};
 
-  return <div className="ops-app-shell">
-    <aside className={`ops-rail ${mobileNav?'open':''}`}>
+  return <div className={`ops-app-shell ${railExpanded?'rail-expanded':''}`}>
+    <aside className={`ops-rail ${mobileNav?'open':''} ${railExpanded?'expanded':''}`}>
       <div className="ops-rail-brand"><BrandLogo/></div>
+      <button className="ops-rail-toggle" onClick={()=>setRailExpanded(value=>!value)} title={railExpanded?'Contraer menú':'Expandir menú'}><ChevronRight size={17}/><span>{railExpanded?'Contraer':'Expandir'}</span></button>
       <nav>
-        <RailButton icon={<ClipboardList/>} label="Programa" active={view==='program'} onClick={()=>openView('program')}/>
-        <RailButton icon={<CalendarDays/>} label="Calendario" active={view==='calendar'} onClick={()=>openView('calendar')}/>
+        <RailButton icon={<ClipboardList/>} label="Programa" active={view==='program'} onClick={()=>selectCalendarMode('day')}/>
+        <RailButton icon={<CalendarDays/>} label="Calendario" active={view==='calendar'} onClick={()=>selectCalendarMode(calendarMode==='day'?'month':calendarMode)}/>
+        <RailButton icon={<Route/>} label="Itinerarios" active={view==='itinerary'} onClick={()=>openView('itinerary')}/>
+        <RailButton icon={<UtensilsCrossed/>} label="Alimentación" active={view==='food'} onClick={()=>openView('food')}/>
         <RailButton icon={<FolderOpen/>} label="Fichas" active={view==='records'} onClick={()=>openView('records')}/>
         <span className="ops-rail-divider"/>
         <RailButton icon={<Building2/>} label="Operadores" active={view==='suppliers'} onClick={()=>openView('suppliers')}/>
@@ -91,26 +73,20 @@ export default function OperationsApp({profile}:{profile:any}){
 
     <section className="ops-app-main">
       <header className="ops-topbar">
-        <div className="ops-topbar-left">
-          <button className="ops-mobile-menu" onClick={()=>setMobileNav(v=>!v)}>{mobileNav?<X/>:<Menu/>}</button>
-          <div className="ops-brand-copy"><span>HOTEL EXPERIENCE</span><strong>{viewTitle(view)}</strong></div>
+        <div className="ops-topbar-left"><button className="ops-mobile-menu" onClick={()=>setMobileNav(value=>!value)}>{mobileNav?<X/>:<Menu/>}</button><div className="ops-brand-copy"><span>HOTEL EXPERIENCE</span><strong>{viewTitle(view)}</strong></div></div>
+        <div className="ops-calendar-control">
+          <div className="ops-date-control" aria-label="Fecha de operación"><button onClick={()=>movePeriod(-1)} title="Periodo anterior"><ChevronLeft size={18}/></button><label><small>OPERACIÓN</small><input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/><b>{friendlyDate(selectedDate)}</b></label><button onClick={()=>movePeriod(1)} title="Periodo siguiente"><ChevronRight size={18}/></button><button className="ops-today" onClick={()=>setSelectedDate(isoDate(new Date()))}>Hoy</button></div>
+          <div className="ops-calendar-modes"><button className={calendarMode==='day'?'active':''} onClick={()=>selectCalendarMode('day')}>Día</button><button className={calendarMode==='week'?'active':''} onClick={()=>selectCalendarMode('week')}>Semana</button><button className={calendarMode==='month'?'active':''} onClick={()=>selectCalendarMode('month')}>Mes</button><button className={calendarMode==='year'?'active':''} onClick={()=>selectCalendarMode('year')}>Año</button></div>
         </div>
-        <div className="ops-date-control" aria-label="Fecha de operación">
-          <button onClick={()=>moveDay(-1)} title="Día anterior"><ChevronLeft size={18}/></button>
-          <label><small>OPERACIÓN</small><input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/><b>{friendlyDate(selectedDate)}</b></label>
-          <button onClick={()=>moveDay(1)} title="Día siguiente"><ChevronRight size={18}/></button>
-          <button className="ops-today" onClick={()=>setSelectedDate(isoDate(new Date()))}>Hoy</button>
-        </div>
-        <div className="ops-topbar-right">
-          <button className="ops-refresh" onClick={refresh} title="Actualizar"><RefreshCw size={17}/></button>
-          <div className="ops-user"><span>{String(profile?.full_name||profile?.email||'U').slice(0,1).toUpperCase()}</span><div><b>{profile?.full_name||'Usuario'}</b><small>{profile?.role||'agent'}</small></div></div>
-        </div>
+        <div className="ops-topbar-right"><button className="ops-refresh" onClick={refresh} title="Actualizar"><RefreshCw size={17}/></button><div className="ops-user"><span>{String(profile?.full_name||profile?.email||'U').slice(0,1).toUpperCase()}</span><div><b>{profile?.full_name||'Usuario'}</b><small>{profile?.role||'agent'}</small></div></div></div>
       </header>
 
       {error&&<div className="ops-error">{error}</div>}
       {loading?<div className="ops-loading">Cargando operación…</div>:<main className="ops-workspace">
         {view==='program'&&<DailyOperationsBoard date={selectedDate} leads={activeLeads} services={operationalServices} onOperation={setOperationService}/>} 
-        {view==='calendar'&&<OperationsCalendarHub leads={activeLeads} services={operationalServices} onLead={()=>{}} onChanged={refresh} userRole={profile?.role||'agent'}/>} 
+        {view==='calendar'&&<OperationsCalendarHub mode={calendarMode as OperationsCalendarMode} selectedDate={selectedDate} leads={activeLeads} services={operationalServices} onDateChange={setSelectedDate} onChanged={refresh} userRole={profile?.role||'agent'} onService={setOperationService}/>} 
+        {view==='itinerary'&&<ItineraryWorkspace leads={activeLeads} services={operationalServices} onChanged={refresh}/>} 
+        {view==='food'&&<FoodOperationsBoard date={selectedDate}/>} 
         {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'}/>} 
         {view==='suppliers'&&<><OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/><OperationsAdminTools role={profile?.role||'agent'} section="suppliers"/></>} 
         {view==='people'&&<><OperationsHub role={profile?.role||'agent'} initialTab="people"/><OperationsAdminTools role={profile?.role||'agent'} section="service_people"/></>} 
@@ -121,24 +97,12 @@ export default function OperationsApp({profile}:{profile:any}){
       </main>}
     </section>
 
-    {operationService&&<ServiceOperationModal
-      lead={leadById.get(operationService.lead_id)!}
-      service={operationService}
-      userRole={profile?.role||'agent'}
-      onClose={()=>setOperationService(null)}
-      onChanged={refresh}
-    />}
+    {operationService&&leadById.get(operationService.lead_id)&&<ServiceWorkspace lead={leadById.get(operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} onClose={()=>setOperationService(null)} onChanged={refresh}/>} 
   </div>;
 }
 
-function RailButton({icon,label,active,onClick}:{icon:React.ReactNode;label:string;active:boolean;onClick:()=>void}){
-  return <button className={active?'ops-rail-button active':'ops-rail-button'} onClick={onClick} title={label}>{icon}<span>{label}</span></button>;
-}
-
-function viewTitle(view:View){
-  return ({program:'Programa diario',calendar:'Calendario operativo',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Recursos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view];
-}
+function RailButton({icon,label,active,onClick}:{icon:React.ReactNode;label:string;active:boolean;onClick:()=>void}){return <button className={active?'ops-rail-button active':'ops-rail-button'} onClick={onClick} title={label}>{icon}<span>{label}</span></button>}
+function viewTitle(view:View){return ({program:'Programa diario',calendar:'Calendario operativo',itinerary:'Itinerarios',food:'Alimentación',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Recursos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view]}
 function parseDate(value:string){const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12,0,0)}
-function addDays(date:Date,n:number){const d=new Date(date);d.setDate(d.getDate()+n);return d}
 function isoDate(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
 function friendlyDate(value:string){return new Intl.DateTimeFormat('es-CL',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).format(parseDate(value)).replace('.','').toUpperCase()}
