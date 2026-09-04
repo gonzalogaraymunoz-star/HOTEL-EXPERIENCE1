@@ -4,6 +4,7 @@ export type OperationStatus='Pendiente'|'Coordinado'|'En curso'|'Completado'|'Ca
 export type TourModality='low'|'semiprivado'|'privado';
 export type OperationExecutionMode='direct'|'delegated_full'|'delegated_partial';
 export type SupplierCoverageKey='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
+export type FulfillmentStatus='Pendiente'|'Preparado'|'Entregado';
 
 export interface Lead{
   id:string;codigo:string;reserva:string;numero_pax:number;servicio?:string|null;
@@ -12,11 +13,14 @@ export interface Lead{
   empresa_ejecuta?:string|null;prioridad?:string|null;estado:LeadStatus|string;canal?:string|null;
   created_at:string;updated_at:string;created_by?:string|null;assigned_to?:string|null;assigned_at?:string|null;
   acquisition_prefix?:string|null;commercial_status?:string|null;next_best_action?:string|null;opportunity_score?:number|null;
+  nationality?:string|null;stay_days?:number|null;reservation_reference?:string|null;sales_stage?:string|null;
+  arrival_flight_number?:string|null;departure_flight_number?:string|null;pickup_location?:string|null;hotel_room?:string|null;
+  itinerary_sent_at?:string|null;itinerary_sent_via?:string|null;reservation_completed_at?:string|null;
 }
 export interface LeadService{
   id:string;lead_id:string;service_code?:string|null;producto:string;tour_id?:string|null;modality?:TourModality|string|null;
-  pricing_status?:'quoted'|'manual_quote'|'not_available'|string|null;price_pp_clp?:number|null;
-  pricing_source?:string|null;fecha_servicio?:string|null;numero_pax:number;observacion?:string|null;
+  product_catalog_id?:string|null;pricing_status?:'quoted'|'manual_quote'|'not_available'|string|null;price_pp_clp?:number|null;
+  pricing_source?:string|null;fecha_servicio?:string|null;numero_pax:number;observacion?:string|null;other_notes?:string|null;
   precio_venta?:number|null;moneda:string;estado_pago:PaymentStatus|string;
   estado_operacion:OperationStatus|string;created_at:string;updated_at:string;
   booking_status?:'hold'|'confirmed'|'cancelled'|'completed'|'expired'|string|null;
@@ -40,6 +44,7 @@ export interface Passenger{
   id:string;lead_id:string;passenger_code:string;full_name:string;email?:string|null;phone?:string|null;
   nationality?:string|null;document_type?:string|null;document_number?:string|null;birth_date?:string|null;
   dietary_restrictions?:string|null;medical_notes?:string|null;app_user_ref?:string|null;is_primary?:boolean;
+  first_name?:string|null;last_name?:string|null;gender?:string|null;disability_type?:string|null;
   created_by?:string|null;created_at:string;updated_at:string;
 }
 export interface Supplier{
@@ -71,13 +76,16 @@ export interface OperationalResource{
 export interface ServiceAssignment{
   id:string;operation_code?:string|null;lead_service_id:string;supplier_id?:string|null;vehicle_id?:string|null;guide_person_id?:string|null;
   driver_person_id?:string|null;cook_person_id?:string|null;coordinator_person_id?:string|null;guide_name?:string|null;
-  driver_name?:string|null;pickup_time?:string|null;meeting_point?:string|null;supplier_cost?:number|null;
+  driver_name?:string|null;vehicle_name_manual?:string|null;cook_name?:string|null;coordinator_name?:string|null;
+  pickup_time?:string|null;meeting_point?:string|null;supplier_cost?:number|null;
   operation_mode?:OperationExecutionMode|string|null;supplier_coverage?:SupplierCoverageKey[]|string[]|null;
   supplier_payment_status:string;supplier_payment_date?:string|null;notes?:string|null;created_by?:string|null;
   updated_by?:string|null;created_at:string;updated_at:string;
 }
 export interface ServiceResourceAssignment{
-  id:string;lead_service_id:string;resource_id:string;quantity:number;notes?:string|null;created_at:string;updated_at:string;
+  id:string;lead_service_id:string;resource_id:string;quantity:number;notes?:string|null;
+  fulfillment_status?:FulfillmentStatus|string|null;prepared_at?:string|null;delivered_at?:string|null;
+  created_at:string;updated_at:string;
 }
 export interface ReservationDocument{
   id:string;lead_id:string;document_type:string;title:string;url?:string|null;status:string;completed_at?:string|null;
