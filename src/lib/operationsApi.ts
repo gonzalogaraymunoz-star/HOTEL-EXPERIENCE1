@@ -1,5 +1,5 @@
 import {assertSupabase} from './supabase';
-import type {FulfillmentStatus} from '../types';
+import type {FulfillmentStatus,Passenger} from '../types';
 
 export async function loadFoodBoard(date?:string){
   let query=assertSupabase().from('operation_food_board').select('*').order('pickup_time',{ascending:true});
@@ -15,6 +15,25 @@ export async function updateResourceFulfillment(id:string,status:FulfillmentStat
     updated_at:new Date().toISOString()
   }).eq('id',id);
   if(error)throw error;
+}
+
+type PassengerOperationalPatch=Partial<Pick<Passenger,
+  'full_name'|'email'|'phone'|'nationality'|'document_type'|'document_number'|'birth_date'|
+  'dietary_restrictions'|'medical_notes'|'disability_type'
+>>;
+
+export async function updatePassengerOperationalData(id:string,patch:PassengerOperationalPatch){
+  const payload:Record<string,string|null>={};
+  for(const [key,value] of Object.entries(patch)){
+    if(value===undefined)continue;
+    payload[key]=typeof value==='string'?(value.trim()||null):value as any;
+  }
+  const {data,error}=await assertSupabase().from('passengers').update({
+    ...payload,
+    updated_at:new Date().toISOString()
+  }).eq('id',id).select('*').single();
+  if(error)throw error;
+  return data as Passenger;
 }
 
 export async function loadServiceWorkspaceData(leadId:string,serviceId:string){
