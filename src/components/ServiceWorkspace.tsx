@@ -1,17 +1,19 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {ArrowLeft,CalendarDays,ClipboardList,Printer,RefreshCw,Users,UtensilsCrossed,Wrench} from 'lucide-react';
+import {ArrowLeft,CalendarDays,ClipboardList,RefreshCw,Users,UtensilsCrossed,Wrench} from 'lucide-react';
 import type {Lead,LeadService,OperationalResource,Passenger,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,Vehicle} from '../types';
 import {loadServiceWorkspaceData,updateResourceFulfillment} from '../lib/operationsApi';
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
+import CustomerItineraryPreview from './CustomerItineraryPreview';
 
-type Tab='summary'|'assignments'|'passengers'|'food'|'itinerary';
+export type ServiceWorkspaceTab='summary'|'assignments'|'passengers'|'food'|'itinerary';
 
-export default function ServiceWorkspace({lead,service,userRole,onClose,onChanged}:{lead:Lead;service:LeadService;userRole:string;onClose:()=>void;onChanged:()=>void}){
-  const [tab,setTab]=useState<Tab>('summary');
+export default function ServiceWorkspace({lead,service,userRole,onClose,onChanged,initialTab='summary'}:{lead:Lead;service:LeadService;userRole:string;onClose:()=>void;onChanged:()=>void;initialTab?:ServiceWorkspaceTab}){
+  const [tab,setTab]=useState<ServiceWorkspaceTab>(initialTab);
   const [data,setData]=useState<any>(null);
   const [loading,setLoading]=useState(true);
   const load=async()=>{setLoading(true);try{setData(await loadServiceWorkspaceData(lead.id,service.id));}finally{setLoading(false)}};
   useEffect(()=>{void load()},[lead.id,service.id]);
+  useEffect(()=>{setTab(initialTab)},[service.id,initialTab]);
   const refreshed=()=>{void load();onChanged()};
 
   const assignment=(data?.assignment||null) as ServiceAssignment|null;
@@ -47,7 +49,7 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
           {tab==='assignments'&&<ServiceAssignmentWorkspace lead={lead} service={service} userRole={userRole} onChanged={refreshed}/>} 
           {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={service.numero_pax}/>} 
           {tab==='food'&&<FoodPanel rows={food} service={service} onChanged={refreshed}/>} 
-          {tab==='itinerary'&&<ServiceItinerary lead={lead} services={itinerary}/>} 
+          {tab==='itinerary'&&<CustomerItineraryPreview lead={lead} services={itinerary} passengers={passengers} compact/>} 
         </>}
       </main>
     </section>
@@ -75,14 +77,12 @@ function Summary({lead,service,passengers,assignment,supplier,vehicle,guide,driv
   </div>;
 }
 
-function PassengerPanel({passengers,expected}:{passengers:Passenger[];expected:number}){return <section className="panel-page"><header className="panel-page-head"><div><span>LISTA NOMINAL</span><h2>Pasajeros · {passengers.length}/{expected}</h2></div></header><div className="workspace-table-scroll"><table className="workspace-table"><thead><tr><th>Código</th><th>Nombre</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th></tr></thead><tbody>{passengers.map(p=><tr key={p.id}><td><b>{p.passenger_code}</b></td><td><b>{p.full_name}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td></tr>)}</tbody></table></div></section>}
+function PassengerPanel({passengers,expected}:{passengers:Passenger[];expected:number}){return <section className="panel-page"><header className="panel-page-head"><div><span>LISTA NOMINAL</span><h2>Pasajeros · {passengers.length}/{expected}</h2><p>Datos operacionales heredados de la misma reserva. Completa solo lo que falte; no dupliques personas.</p></div></header><div className="workspace-table-scroll"><table className="workspace-table"><thead><tr><th>Código</th><th>Nombre</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th></tr></thead><tbody>{passengers.map(p=><tr key={p.id}><td><b>{p.passenger_code}</b></td><td><b>{p.full_name}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td></tr>)}</tbody></table></div></section>}
 
 function FoodPanel({rows,service,onChanged}:{rows:{assignment:ServiceResourceAssignment;resource?:OperationalResource}[];service:LeadService;onChanged:()=>void}){
   const [saving,setSaving]=useState<string|null>(null);
   const update=async(id:string,status:string)=>{setSaving(id);try{await updateResourceFulfillment(id,status);onChanged();}finally{setSaving(null)}};
   return <section className="panel-page"><header className="panel-page-head"><div><span>ALIMENTACIÓN DEL SERVICIO</span><h2>{service.producto}</h2><p>Se completa automáticamente desde los insumos clasificados como Alimentación.</p></div></header><div className="workspace-table-scroll"><table className="workspace-table"><thead><tr><th>Código</th><th>Ítem</th><th>Cantidad</th><th>Nota</th><th>Estado</th></tr></thead><tbody>{rows.map(({assignment,resource})=><tr key={assignment.id}><td><b>{resource?.code||'—'}</b></td><td><b>{resource?.name||'Recurso'}</b></td><td>{assignment.quantity}</td><td>{assignment.notes||'—'}</td><td><select disabled={saving===assignment.id} value={assignment.fulfillment_status||'Pendiente'} onChange={e=>void update(assignment.id,e.target.value)}><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select></td></tr>)}</tbody></table>{!rows.length&&<div className="workspace-empty">No hay alimentación asignada a este servicio.</div>}</div></section>}
-
-function ServiceItinerary({lead,services}:{lead:Lead;services:LeadService[]}){return <section className="panel-page itinerary-panel"><header className="panel-page-head"><div><span>ITINERARIO DE LA RESERVA</span><h2>{lead.reserva}</h2><p>{lead.codigo} · {services.length} servicios operativos</p></div><button className="panel-action" onClick={()=>window.print()}><Printer size={15}/> Imprimir / PDF</button></header><table className="workspace-table"><thead><tr><th>#</th><th>Fecha</th><th>Hora</th><th>Servicio</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>{services.map((item,index)=><tr key={item.id} className={item.id===undefined?'':' '}><td>{index+1}</td><td>{dateLabel(item.fecha_servicio)}</td><td>{time(item.hora_inicio)}</td><td><b>{item.producto}</b><small>{item.service_code||item.tour_id||'—'}</small></td><td>{item.modality||'—'}</td><td>{item.estado_operacion}</td></tr>)}</tbody></table></section>}
 
 function Fact({label,value}:{label:string;value:string}){return <div className="service-fact"><span>{label}</span><b>{value}</b></div>}
 function TabButton({active,icon,onClick,children}:{active:boolean;icon:React.ReactNode;onClick:()=>void;children:React.ReactNode}){return <button className={active?'active':''} onClick={onClick}>{icon}<span>{children}</span></button>}
