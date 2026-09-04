@@ -2,6 +2,7 @@ import React,{useMemo} from 'react';
 import type {Lead,LeadService} from '../types';
 import PlanningCalendar from './PlanningCalendar';
 import './OperationsCalendarHub.css';
+import './OperationsUxV2.css';
 
 export type OperationsCalendarMode='week'|'month'|'year';
 
