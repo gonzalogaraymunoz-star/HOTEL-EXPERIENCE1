@@ -1,9 +1,10 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {ArrowLeft,CalendarDays,ClipboardList,RefreshCw,Users,UtensilsCrossed,Wrench} from 'lucide-react';
+import {ArrowLeft,CalendarDays,ClipboardList,Pencil,RefreshCw,Save,Users,UtensilsCrossed,Wrench,X} from 'lucide-react';
 import type {Lead,LeadService,OperationalResource,Passenger,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,Vehicle} from '../types';
-import {loadServiceWorkspaceData,updateResourceFulfillment} from '../lib/operationsApi';
+import {loadServiceWorkspaceData,updatePassengerOperationalData,updateResourceFulfillment} from '../lib/operationsApi';
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
+import './PassengerEditor.css';
 
 export type ServiceWorkspaceTab='summary'|'assignments'|'passengers'|'food'|'itinerary';
 
@@ -47,7 +48,7 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
         {loading?<div className="workspace-empty">Cargando servicio…</div>:<>
           {tab==='summary'&&<Summary lead={lead} service={service} passengers={passengers} assignment={assignment} supplier={supplier} vehicle={vehicle} guide={guide} driver={driver}/>} 
           {tab==='assignments'&&<ServiceAssignmentWorkspace lead={lead} service={service} userRole={userRole} onChanged={refreshed}/>} 
-          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={service.numero_pax}/>} 
+          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={service.numero_pax} onChanged={refreshed}/>} 
           {tab==='food'&&<FoodPanel rows={food} service={service} onChanged={refreshed}/>} 
           {tab==='itinerary'&&<CustomerItineraryPreview lead={lead} services={itinerary} passengers={passengers} compact/>} 
         </>}
@@ -77,7 +78,69 @@ function Summary({lead,service,passengers,assignment,supplier,vehicle,guide,driv
   </div>;
 }
 
-function PassengerPanel({passengers,expected}:{passengers:Passenger[];expected:number}){return <section className="panel-page"><header className="panel-page-head"><div><span>LISTA NOMINAL</span><h2>Pasajeros · {passengers.length}/{expected}</h2><p>Datos operacionales heredados de la misma reserva. Completa solo lo que falte; no dupliques personas.</p></div></header><div className="workspace-table-scroll"><table className="workspace-table"><thead><tr><th>Código</th><th>Nombre</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th></tr></thead><tbody>{passengers.map(p=><tr key={p.id}><td><b>{p.passenger_code}</b></td><td><b>{p.full_name}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td></tr>)}</tbody></table></div></section>}
+type PassengerDraft={
+  full_name:string;email:string;phone:string;nationality:string;document_type:string;document_number:string;birth_date:string;
+  dietary_restrictions:string;medical_notes:string;disability_type:string;
+};
+
+function passengerDraft(passenger:Passenger):PassengerDraft{return{
+  full_name:passenger.full_name||'',
+  email:passenger.email||'',
+  phone:passenger.phone||'',
+  nationality:passenger.nationality||'',
+  document_type:passenger.document_type||'Pasaporte',
+  document_number:passenger.document_number||'',
+  birth_date:passenger.birth_date?String(passenger.birth_date).slice(0,10):'',
+  dietary_restrictions:passenger.dietary_restrictions||'',
+  medical_notes:passenger.medical_notes||'',
+  disability_type:passenger.disability_type||''
+}}
+
+function PassengerPanel({passengers,expected,onChanged}:{passengers:Passenger[];expected:number;onChanged:()=>void}){
+  const [editingId,setEditingId]=useState<string|null>(null);
+  const [draft,setDraft]=useState<PassengerDraft|null>(null);
+  const [saving,setSaving]=useState(false);
+  const [message,setMessage]=useState('');
+  const active=passengers.find(item=>item.id===editingId)||null;
+
+  const begin=(passenger:Passenger)=>{setEditingId(passenger.id);setDraft(passengerDraft(passenger));setMessage('')};
+  const cancel=()=>{setEditingId(null);setDraft(null);setMessage('')};
+  const patch=(key:keyof PassengerDraft,value:string)=>setDraft(current=>current?{...current,[key]:value}:current);
+  const save=async()=>{
+    if(!editingId||!draft)return;
+    setSaving(true);setMessage('');
+    try{
+      await updatePassengerOperationalData(editingId,draft);
+      setMessage('Datos del pasajero guardados.');
+      setEditingId(null);setDraft(null);
+      onChanged();
+    }catch(error:any){setMessage(error?.message||'No se pudieron guardar los datos del pasajero.')}finally{setSaving(false)}
+  };
+
+  return <section className="panel-page passenger-panel-page">
+    <header className="panel-page-head"><div><span>LISTA NOMINAL</span><h2>Pasajeros · {passengers.length}/{expected}</h2><p>Estos son los mismos pasajeros de la reserva. Puedes completar aquí los datos faltantes sin crear registros duplicados.</p></div></header>
+    <div className="workspace-table-scroll"><table className="workspace-table passenger-data-table"><thead><tr><th>Código</th><th>Nombre</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th><th></th></tr></thead><tbody>{passengers.map(p=><tr key={p.id} className={editingId===p.id?'is-editing':''}><td><b>{p.passenger_code}</b></td><td><b>{p.full_name}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td><td><button className="passenger-edit-button" type="button" onClick={()=>begin(p)}><Pencil size={13}/> Editar</button></td></tr>)}</tbody></table></div>
+    {!passengers.length&&<div className="workspace-empty compact">No hay pasajeros individuales cargados todavía.</div>}
+
+    {active&&draft&&<section className="passenger-editor-card" aria-label={`Editar ${active.full_name}`}>
+      <header><div><span>COMPLETAR PASAJERO</span><h3>{active.full_name||active.passenger_code}</h3><p>{active.passenger_code} · completa solo información real y disponible.</p></div><button className="passenger-close-button" type="button" onClick={cancel} aria-label="Cerrar editor"><X size={17}/></button></header>
+      <div className="passenger-editor-grid">
+        <label><span>Nombre completo</span><input value={draft.full_name} onChange={e=>patch('full_name',e.target.value)}/></label>
+        <label><span>Nacionalidad</span><input value={draft.nationality} onChange={e=>patch('nationality',e.target.value)} placeholder="Ej. Chilena"/></label>
+        <label><span>Fecha de nacimiento</span><input type="date" value={draft.birth_date} onChange={e=>patch('birth_date',e.target.value)}/></label>
+        <label><span>Tipo de documento</span><select value={draft.document_type} onChange={e=>patch('document_type',e.target.value)}><option>Pasaporte</option><option>Cédula</option><option>DNI</option><option>Otro</option></select></label>
+        <label><span>Número de documento</span><input value={draft.document_number} onChange={e=>patch('document_number',e.target.value)}/></label>
+        <label><span>Teléfono</span><input value={draft.phone} onChange={e=>patch('phone',e.target.value)} placeholder="+56…"/></label>
+        <label><span>Email</span><input type="email" value={draft.email} onChange={e=>patch('email',e.target.value)}/></label>
+        <label><span>Restricciones alimentarias</span><input value={draft.dietary_restrictions} onChange={e=>patch('dietary_restrictions',e.target.value)} placeholder="Alergias, vegetariano, etc."/></label>
+        <label className="wide"><span>Notas médicas / operacionales</span><textarea value={draft.medical_notes} onChange={e=>patch('medical_notes',e.target.value)} placeholder="Solo información necesaria para operar el servicio."/></label>
+        <label className="wide"><span>Accesibilidad / discapacidad</span><textarea value={draft.disability_type} onChange={e=>patch('disability_type',e.target.value)} placeholder="Silla de ruedas, movilidad reducida u otra necesidad relevante."/></label>
+      </div>
+      <footer><div>{message&&<span className="passenger-save-message">{message}</span>}</div><div><button className="passenger-secondary-button" type="button" onClick={cancel} disabled={saving}>Cancelar</button><button className="passenger-primary-button" type="button" onClick={()=>void save()} disabled={saving}><Save size={14}/>{saving?'Guardando…':'Guardar datos'}</button></div></footer>
+    </section>}
+    {!active&&message&&<div className="passenger-global-message">{message}</div>}
+  </section>
+}
 
 function FoodPanel({rows,service,onChanged}:{rows:{assignment:ServiceResourceAssignment;resource?:OperationalResource}[];service:LeadService;onChanged:()=>void}){
   const [saving,setSaving]=useState<string|null>(null);
