@@ -1,12 +1,13 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {ArrowLeft,CalendarDays,ClipboardList,Pencil,RefreshCw,Save,Users,UtensilsCrossed,Wrench,X} from 'lucide-react';
-import type {Lead,LeadService,OperationalResource,Passenger,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,Vehicle} from '../types';
-import {loadServiceWorkspaceData,updatePassengerOperationalData,updateResourceFulfillment} from '../lib/operationsApi';
+import {ArrowLeft,CalendarDays,ClipboardList,MessageSquare,Pencil,RefreshCw,Save,ShieldAlert,Users,UtensilsCrossed,Wrench,X} from 'lucide-react';
+import type {Lead,LeadService,OperationalResource,Passenger,ReservationDocument,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,TourDeparture,TourDepartureNote,Vehicle} from '../types';
+import {addTourDepartureNote,loadServiceWorkspaceData,updatePassengerOperationalData,updateResourceFulfillment,updateTourDeparture} from '../lib/operationsApi';
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
+import ReservationRiskModule from './ReservationRiskModule';
 import './PassengerEditor.css';
 
-export type ServiceWorkspaceTab='summary'|'assignments'|'passengers'|'food'|'itinerary';
+export type ServiceWorkspaceTab='summary'|'assignments'|'passengers'|'food'|'itinerary'|'risk';
 
 export default function ServiceWorkspace({lead,service,userRole,onClose,onChanged,initialTab='summary'}:{lead:Lead;service:LeadService;userRole:string;onClose:()=>void;onChanged:()=>void;initialTab?:ServiceWorkspaceTab}){
   const [tab,setTab]=useState<ServiceWorkspaceTab>(initialTab);
@@ -27,12 +28,16 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
   const resources=(data?.resources||[]) as OperationalResource[];
   const resourceAssignments=(data?.resourceAssignments||[]) as ServiceResourceAssignment[];
   const food=useMemo(()=>resourceAssignments.map(item=>({assignment:item,resource:resources.find(resource=>resource.id===item.resource_id)})).filter(item=>isFood(item.resource?.resource_type)),[resourceAssignments,resources]);
-  const itinerary=(data?.services||[]) as LeadService[];
+  const itinerary=(data?.itineraryServices||[]) as LeadService[];
+  const departureServices=(data?.departureServices||[service]) as LeadService[];
+  const reservationLeads=(data?.reservationLeads||[lead]) as Lead[];
+  const departure=data?.departure as TourDeparture|null;
+  const tourPax=departureServices.reduce((sum,item)=>sum+Number(item.numero_pax||0),0);
 
   return <div className="service-workspace-overlay">
     <section className="service-workspace">
       <header className="service-workspace-topbar">
-        <div className="service-workspace-identity"><button onClick={onClose} title="Volver al programa"><ArrowLeft size={19}/></button><div><span>{service.service_code||lead.codigo}</span><h1>{service.producto}</h1><p>{lead.reserva} · {service.numero_pax} pax{lead.empresa_ejecuta?` · ${lead.empresa_ejecuta}`:''}</p></div></div>
+        <div className="service-workspace-identity"><button onClick={onClose} title="Volver al programa"><ArrowLeft size={19}/></button><div><span>TOUR {departure?.departure_code||service.service_code||'SIN CÓDIGO'}</span><h1>{departure?.product_name||service.producto}</h1><p>{reservationLeads.length} reserva{reservationLeads.length===1?'':'s'} · {tourPax}/{departure?.capacity_total||'—'} pax · códigos de reserva: {reservationLeads.map(item=>item.codigo).join(', ')}</p></div></div>
         <div className="service-workspace-actions"><button onClick={()=>void load()}><RefreshCw size={16}/> Actualizar</button><span className={`daily-status ${slug(service.estado_operacion)}`}>{service.estado_operacion}</span></div>
       </header>
 
@@ -42,27 +47,30 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
         <TabButton active={tab==='passengers'} icon={<Users/>} onClick={()=>setTab('passengers')}>Pasajeros</TabButton>
         <TabButton active={tab==='food'} icon={<UtensilsCrossed/>} onClick={()=>setTab('food')}>Alimentación <em>{food.length}</em></TabButton>
         <TabButton active={tab==='itinerary'} icon={<CalendarDays/>} onClick={()=>setTab('itinerary')}>Itinerario</TabButton>
+        <TabButton active={tab==='risk'} icon={<ShieldAlert/>} onClick={()=>setTab('risk')}>Hoja de riesgo</TabButton>
       </nav>
 
       <main className="service-workspace-body">
         {loading?<div className="workspace-empty">Cargando servicio…</div>:<>
-          {tab==='summary'&&<Summary lead={lead} service={service} passengers={passengers} assignment={assignment} supplier={supplier} vehicle={vehicle} guide={guide} driver={driver}/>} 
+          {tab==='summary'&&<Summary lead={lead} service={service} passengers={passengers} assignment={assignment} supplier={supplier} vehicle={vehicle} guide={guide} driver={driver} data={data} canEdit={userRole!=='viewer'} onChanged={refreshed}/>} 
           {tab==='assignments'&&<ServiceAssignmentWorkspace lead={lead} service={service} userRole={userRole} onChanged={refreshed}/>} 
-          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={service.numero_pax} onChanged={refreshed}/>} 
+          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={tourPax} reservations={reservationLeads} onChanged={refreshed}/>} 
           {tab==='food'&&<FoodPanel rows={food} service={service} onChanged={refreshed}/>} 
-          {tab==='itinerary'&&<CustomerItineraryPreview lead={lead} services={itinerary} passengers={passengers} compact/>} 
+          {tab==='itinerary'&&<div className="tour-reservation-documents">{reservationLeads.map(item=><section key={item.id}><header><span>RESERVA {item.codigo}</span><b>{item.reserva}</b></header><CustomerItineraryPreview lead={item} services={itinerary} passengers={passengers.filter(passenger=>passenger.lead_id===item.id)} compact/></section>)}</div>}
+          {tab==='risk'&&<div className="tour-reservation-documents">{reservationLeads.map(item=><ReservationRiskModule key={item.id} lead={item} services={itinerary.filter(row=>row.lead_id===item.id)} passengers={passengers.filter(passenger=>passenger.lead_id===item.id)} document={(data.documents as ReservationDocument[]).find(document=>document.lead_id===item.id&&document.document_type==='risk_sheet')||null} onChanged={refreshed}/>)}</div>} 
         </>}
       </main>
     </section>
   </div>;
 }
 
-function Summary({lead,service,passengers,assignment,supplier,vehicle,guide,driver}:{lead:Lead;service:LeadService;passengers:Passenger[];assignment:ServiceAssignment|null;supplier?:Supplier;vehicle?:Vehicle;guide?:ServicePerson;driver?:ServicePerson}){
+function Summary({lead,service,passengers,assignment,supplier,vehicle,guide,driver,data,canEdit,onChanged}:{lead:Lead;service:LeadService;passengers:Passenger[];assignment:ServiceAssignment|null;supplier?:Supplier;vehicle?:Vehicle;guide?:ServicePerson;driver?:ServicePerson;data:any;canEdit:boolean;onChanged:()=>void}){
   const transfer=/transfer|trf|aeropuerto/i.test(`${service.service_type||''} ${service.producto}`);
   const flight=transfer?(lead.departure_flight_number||lead.arrival_flight_number||service.external_booking_ref):null;
   return <div className="service-summary-layout">
+    <TourEditor departure={data.departure} service={service} notes={data.notes||[]} canEdit={canEdit} onChanged={onChanged}/>
     <section className="service-hero-card">
-      <div className="service-hero-main"><span>{service.service_code||'SERVICIO'}</span><h2>{service.producto}</h2><div className="service-time-big">{time(assignment?.pickup_time||service.hora_inicio)} <small>hrs</small></div><p>{service.modality||'Modalidad no informada'} · {service.numero_pax} pax</p></div>
+      <div className="service-hero-main"><span>{data.departure?.departure_code||service.service_code||'TOUR'}</span><h2>{data.departure?.product_name||service.producto}</h2><div className="service-time-big">{time(assignment?.pickup_time||data.departure?.start_time||service.hora_inicio)} <small>hrs</small></div><p>{modalityLabel(data.departure?.modality||service.modality)} · {(data.departureServices||[service]).reduce((sum:number,item:LeadService)=>sum+Number(item.numero_pax||0),0)}/{data.departure?.capacity_total||'—'} pax</p></div>
       <div className="service-hero-facts"><Fact label="Fecha" value={dateLabel(service.fecha_servicio)}/><Fact label="Hotel / origen" value={lead.empresa_ejecuta||lead.pickup_location||'—'}/>{transfer&&<Fact label="Vuelo / referencia" value={flight||'—'}/>}<Fact label="Punto" value={assignment?.meeting_point||'—'}/></div>
     </section>
 
@@ -71,11 +79,21 @@ function Summary({lead,service,passengers,assignment,supplier,vehicle,guide,driv
     </section>
 
     <section className="service-passenger-summary">
-      <header><div><span>PASAJEROS</span><h3>{passengers.length} registrados · {service.numero_pax} esperados</h3></div></header>
-      <table className="workspace-table compact-table"><thead><tr><th>#</th><th>Código</th><th>Nombre</th><th>País</th><th>Documento</th><th>Notas operacionales</th></tr></thead><tbody>{passengers.map((p,index)=><tr key={p.id}><td>{index+1}</td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name}</b></td><td>{p.nationality||'—'}</td><td>{p.document_number||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td></tr>)}</tbody></table>
+      <header><div><span>RESERVAS Y PASAJEROS ASOCIADOS</span><h3>{passengers.length} pasajeros · {(data.reservationLeads||[]).length} reservas en el tour</h3></div></header>
+      <table className="workspace-table compact-table"><thead><tr><th>Reserva</th><th>Código pax</th><th>Nombre / edad</th><th>País</th><th>Documento</th><th>Notas operacionales</th></tr></thead><tbody>{passengers.map(p=>{const reservation=(data.reservationLeads as Lead[]).find(item=>item.id===p.lead_id);return <tr key={p.id}><td><b>{reservation?.codigo||'—'}</b><small>{reservation?.reserva}</small></td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name} · {age(p.birth_date)}</b></td><td>{p.nationality||'—'}</td><td>{p.document_number||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td></tr>})}</tbody></table>
       {!passengers.length&&<div className="workspace-empty compact">No hay pasajeros individuales cargados todavía.</div>}
     </section>
+    <section className="service-passenger-summary"><header><div><span>INSUMOS Y ALIMENTACIÓN</span><h3>Recursos asignados al tour</h3></div></header><div className="tour-resource-summary">{(data.resourceAssignments||[]).map((item:ServiceResourceAssignment)=>{const resource=(data.resources as OperationalResource[]).find(row=>row.id===item.resource_id);return <article key={item.id}><b>{resource?.name||'Recurso'} ×{item.quantity}</b><span>{resource?.resource_type||'Sin tipo'} · {item.fulfillment_status||'Pendiente'}</span>{item.notes&&<small>{item.notes}</small>}</article>})}{!data.resourceAssignments?.length&&<div className="workspace-empty compact">Sin insumos asignados.</div>}</div></section>
   </div>;
+}
+
+function TourEditor({departure,service,notes,canEdit,onChanged}:{departure:TourDeparture|null;service:LeadService;notes:TourDepartureNote[];canEdit:boolean;onChanged:()=>void}){
+  const [capacity,setCapacity]=useState(departure?.capacity_total||0);const [modality,setModality]=useState(departure?.modality||service.modality||'regular');const [tourNotes,setTourNotes]=useState(departure?.notes||'');const [newNote,setNewNote]=useState('');const [saving,setSaving]=useState(false);
+  useEffect(()=>{setCapacity(departure?.capacity_total||0);setModality(departure?.modality||service.modality||'regular');setTourNotes(departure?.notes||'')},[departure?.id,departure?.updated_at,service.modality]);
+  if(!departure)return <section className="tour-editor-card"><span>TOUR SIN AGRUPAR</span><p>Este servicio anterior se puede seguir operando. Al confirmarse nuevamente quedará enlazado a un código de tour.</p></section>;
+  const save=async()=>{setSaving(true);try{await updateTourDeparture(departure.id,{capacity_total:Math.max(0,Number(capacity||0)),modality,notes:tourNotes.trim()||null});onChanged()}finally{setSaving(false)}};
+  const addNote=async()=>{if(!newNote.trim())return;setSaving(true);try{await addTourDepartureNote(departure.id,newNote,'operations');setNewNote('');onChanged()}finally{setSaving(false)}};
+  return <section className="tour-editor-card"><header><div><span>FICHA EDITABLE DEL TOUR</span><h3>{departure.departure_code}</h3></div>{canEdit&&<button disabled={saving} onClick={()=>void save()}><Save size={14}/>{saving?'Guardando…':'Guardar ficha'}</button>}</header><div className="tour-editor-grid"><label><span>Tipo de tour</span><select disabled={!canEdit||saving} value={modality} onChange={event=>setModality(event.target.value)}><option value="regular">Regular</option><option value="semiprivado">Semiprivado</option><option value="privado">Privado</option></select></label><label><span>Cupo total (0 = sin definir)</span><input disabled={!canEdit||saving} type="number" min="0" value={capacity} onChange={event=>setCapacity(Number(event.target.value))}/></label><label className="wide"><span>Observaciones del tour</span><textarea disabled={!canEdit||saving} value={tourNotes} onChange={event=>setTourNotes(event.target.value)} placeholder="Notas generales de esta salida"/></label></div><div className="tour-note-composer"><MessageSquare size={16}/><input disabled={!canEdit||saving} value={newNote} onChange={event=>setNewNote(event.target.value)} placeholder="Agregar nota cronológica para Operaciones…"/><button disabled={!canEdit||saving||!newNote.trim()} onClick={()=>void addNote()}>Agregar</button></div><div className="tour-note-list">{notes.map(item=><article key={item.id}><b>{item.source==='sales'?'Ventas':'Operaciones'}</b><span>{item.note}</span><small>{new Date(item.created_at).toLocaleString('es-CL')}</small></article>)}{!notes.length&&<small>Sin notas cronológicas.</small>}</div></section>;
 }
 
 type PassengerDraft={
@@ -96,7 +114,7 @@ function passengerDraft(passenger:Passenger):PassengerDraft{return{
   disability_type:passenger.disability_type||''
 }}
 
-function PassengerPanel({passengers,expected,onChanged}:{passengers:Passenger[];expected:number;onChanged:()=>void}){
+function PassengerPanel({passengers,expected,reservations,onChanged}:{passengers:Passenger[];expected:number;reservations:Lead[];onChanged:()=>void}){
   const [editingId,setEditingId]=useState<string|null>(null);
   const [draft,setDraft]=useState<PassengerDraft|null>(null);
   const [saving,setSaving]=useState(false);
@@ -119,7 +137,7 @@ function PassengerPanel({passengers,expected,onChanged}:{passengers:Passenger[];
 
   return <section className="panel-page passenger-panel-page">
     <header className="panel-page-head"><div><span>LISTA NOMINAL</span><h2>Pasajeros · {passengers.length}/{expected}</h2><p>Estos son los mismos pasajeros de la reserva. Puedes completar aquí los datos faltantes sin crear registros duplicados.</p></div></header>
-    <div className="workspace-table-scroll"><table className="workspace-table passenger-data-table"><thead><tr><th>Código</th><th>Nombre</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th><th></th></tr></thead><tbody>{passengers.map(p=><tr key={p.id} className={editingId===p.id?'is-editing':''}><td><b>{p.passenger_code}</b></td><td><b>{p.full_name}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td><td><button className="passenger-edit-button" type="button" onClick={()=>begin(p)}><Pencil size={13}/> Editar</button></td></tr>)}</tbody></table></div>
+    <div className="workspace-table-scroll"><table className="workspace-table passenger-data-table"><thead><tr><th>Reserva</th><th>Código pax</th><th>Nombre / edad</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th><th></th></tr></thead><tbody>{passengers.map(p=>{const reservation=reservations.find(item=>item.id===p.lead_id);return <tr key={p.id} className={editingId===p.id?'is-editing':''}><td><b>{reservation?.codigo||'—'}</b></td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name} · {age(p.birth_date)}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td><td><button className="passenger-edit-button" type="button" onClick={()=>begin(p)}><Pencil size={13}/> Editar</button></td></tr>})}</tbody></table></div>
     {!passengers.length&&<div className="workspace-empty compact">No hay pasajeros individuales cargados todavía.</div>}
 
     {active&&draft&&<section className="passenger-editor-card" aria-label={`Editar ${active.full_name}`}>
@@ -149,6 +167,8 @@ function FoodPanel({rows,service,onChanged}:{rows:{assignment:ServiceResourceAss
 
 function Fact({label,value}:{label:string;value:string}){return <div className="service-fact"><span>{label}</span><b>{value}</b></div>}
 function TabButton({active,icon,onClick,children}:{active:boolean;icon:React.ReactNode;onClick:()=>void;children:React.ReactNode}){return <button className={active?'active':''} onClick={onClick}>{icon}<span>{children}</span></button>}
+function modalityLabel(value:any){const key=String(value||'').toLowerCase();return key.includes('semi')?'Semiprivado':key.includes('priv')?'Privado':'Regular'}
+function age(value?:string|null){if(!value)return'edad s/i';const birthday=new Date(`${String(value).slice(0,10)}T12:00:00`);if(Number.isNaN(birthday.getTime()))return'edad s/i';const today=new Date();let years=today.getFullYear()-birthday.getFullYear();if(today.getMonth()<birthday.getMonth()||(today.getMonth()===birthday.getMonth()&&today.getDate()<birthday.getDate()))years-=1;return `${years} años`}
 function isFood(value:any){return ['alimentación','alimentacion','food','alimentos'].includes(String(value||'').trim().toLowerCase())}
 function time(value:any){return value?String(value).slice(0,5):'—'}
 function dateLabel(value:any){if(!value)return'—';const [y,m,d]=String(value).slice(0,10).split('-').map(Number);return new Intl.DateTimeFormat('es-CL',{weekday:'short',day:'2-digit',month:'short'}).format(new Date(y,m-1,d,12))}
