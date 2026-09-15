@@ -1,12 +1,13 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Download,MapPin,Plane,Users} from 'lucide-react';
-import type {Lead,LeadService,Passenger} from '../types';
+import type {Lead,LeadService,LeadServicePassengerLink,Passenger} from '../types';
 import {assertSupabase} from '../lib/supabase';
-import {downloadCustomerItinerary,humanModality,itineraryRows,modalityExplanation,passengerNames,pickupPoint,type CatalogHint} from '../lib/customerItinerary';
+import {downloadCustomerItinerary,humanModality,itineraryRows,modalityExplanation,passengerNames,passengersForService,pickupPoint,type CatalogHint} from '../lib/customerItinerary';
 import './CustomerItineraryPreview.css';
 
 export default function CustomerItineraryPreview({lead,services,passengers,compact=false}:{lead:Lead;services:LeadService[];passengers:Passenger[];compact?:boolean}){
   const [catalog,setCatalog]=useState<CatalogHint[]>([]);
+  const [participantLinks,setParticipantLinks]=useState<LeadServicePassengerLink[]>([]);
   const [loading,setLoading]=useState(false);
   const relevant=useMemo(()=>services.filter(s=>s.lead_id===lead.id),[services,lead.id]);
   const ids=useMemo(()=>Array.from(new Set(relevant.map(s=>s.product_catalog_id).filter(Boolean) as string[])),[relevant]);
@@ -14,16 +15,19 @@ export default function CustomerItineraryPreview({lead,services,passengers,compa
   useEffect(()=>{
     let active=true;
     const load=async()=>{
-      if(!ids.length){setCatalog([]);return}
       setLoading(true);
-      const {data}=await assertSupabase().from('product_catalog').select('id,duration_hours,schedule').in('id',ids);
-      if(active)setCatalog((data||[]) as CatalogHint[]);
+      const serviceIds=relevant.map(item=>item.id);
+      const [catalogResult,linksResult]=await Promise.all([
+        ids.length?assertSupabase().from('product_catalog').select('id,duration_hours,schedule').in('id',ids):Promise.resolve({data:[]} as any),
+        serviceIds.length?assertSupabase().from('lead_service_passengers').select('*').in('lead_service_id',serviceIds):Promise.resolve({data:[]} as any)
+      ]);
+      if(active){setCatalog((catalogResult.data||[]) as CatalogHint[]);setParticipantLinks((linksResult.data||[]) as LeadServicePassengerLink[])}
       if(active)setLoading(false);
     };
     void load();return()=>{active=false};
-  },[ids.join('|')]);
+  },[ids.join('|'),relevant.map(item=>item.id).join('|')]);
 
-  const input={lead,passengers,services:relevant,catalog};
+  const input={lead,passengers,services:relevant,catalog,participantLinks};
   const rows=itineraryRows(input);
   const names=passengerNames(passengers,lead);
   const modalities=Array.from(new Set(rows.map(row=>row.modality)));
@@ -45,8 +49,8 @@ export default function CustomerItineraryPreview({lead,services,passengers,compa
     </section>
 
     <div className="customer-itinerary-table-wrap"><table className="customer-itinerary-table">
-      <thead><tr><th>Día</th><th>Fecha</th><th>Horario</th><th>Pickup est.</th><th>Experiencia</th><th>Modalidad</th></tr></thead>
-      <tbody>{rows.map(row=><tr key={row.id}><td>{row.day}</td><td>{row.date}</td><td><b>{row.schedule}</b></td><td>{row.pickup}</td><td><b>{row.experience}</b><small>{row.serviceCode}</small></td><td>{row.modality}</td></tr>)}</tbody>
+      <thead><tr><th>Día</th><th>Fecha</th><th>Horario</th><th>Pickup est.</th><th>Experiencia</th><th>Modalidad</th><th>Lista pax del tour</th></tr></thead>
+      <tbody>{rows.map(row=>{const tourPassengers=passengersForService(row.serviceId,passengers,participantLinks);return <tr key={row.id}><td>{row.day}</td><td>{row.date}</td><td><b>{row.schedule}</b></td><td>{row.pickup}</td><td><b>{row.experience}</b><small>{row.serviceCode}</small></td><td>{row.modality}</td><td><b>{tourPassengers.map(item=>`${item.full_name} (${age(item.birth_date)})`).join(' · ')||'Lista pendiente'}</b><small>{tourPassengers.map(item=>item.passenger_code).join(' · ')}</small></td></tr>})}</tbody>
     </table>{!rows.length&&<div className="customer-itinerary-empty">Todavía no hay servicios con fecha confirmada para este itinerario.</div>}</div>
 
     <section className="customer-itinerary-trip">
@@ -63,3 +67,5 @@ export default function CustomerItineraryPreview({lead,services,passengers,compa
     <footer><span>LINK · HOTEL EXPERIENCE</span><b>{lead.codigo}</b></footer>
   </article>;
 }
+
+function age(value?:string|null){if(!value)return'edad s/i';const born=new Date(`${String(value).slice(0,10)}T12:00:00`);if(Number.isNaN(born.getTime()))return'edad s/i';const now=new Date();let years=now.getFullYear()-born.getFullYear();if(now.getMonth()<born.getMonth()||(now.getMonth()===born.getMonth()&&now.getDate()<born.getDate()))years-=1;return `${Math.max(0,years)} a.`}
