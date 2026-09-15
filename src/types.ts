@@ -25,6 +25,7 @@ export interface LeadService{
   estado_operacion:OperationStatus|string;created_at:string;updated_at:string;
   booking_status?:'hold'|'confirmed'|'cancelled'|'completed'|'expired'|string|null;
   operation_ready_at?:string|null;operation_handoff_source?:string|null;operation_handoff_by?:string|null;
+  departure_id?:string|null;
   service_type?:string|null;time_block?:string|null;sales_channel?:string|null;external_booking_ref?:string|null;
   idioma?:string|null;hora_inicio?:string|null;hora_fin?:string|null;duracion_texto?:string|null;
   precio_unitario?:number|null;precio_total?:number|null;costo_operador_total?:number|null;
@@ -46,6 +47,15 @@ export interface Passenger{
   dietary_restrictions?:string|null;medical_notes?:string|null;app_user_ref?:string|null;is_primary?:boolean;
   first_name?:string|null;last_name?:string|null;gender?:string|null;disability_type?:string|null;
   created_by?:string|null;created_at:string;updated_at:string;
+}
+export interface LeadServicePassengerLink{
+  id?:string;lead_service_id:string;passenger_id:string;position?:number|null;confirmed?:boolean|null;
+}
+export interface TourDeparture{
+  id:string;departure_code:string;tour_id:string;product_catalog_id?:string|null;product_name:string;
+  service_date:string;start_time?:string|null;end_time?:string|null;capacity_total:number;
+  modality:'regular'|'semiprivado'|'privado'|string;status:'open'|'closed'|'completed'|'cancelled'|string;
+  notes?:string|null;created_by?:string|null;created_at:string;updated_at:string;
 }
 export interface Supplier{
   id:string;supplier_code?:string|null;name:string;supplier_type:string;contact_name?:string|null;phone?:string|null;whatsapp?:string|null;
@@ -87,7 +97,16 @@ export interface ServiceResourceAssignment{
   fulfillment_status?:FulfillmentStatus|string|null;prepared_at?:string|null;delivered_at?:string|null;
   created_at:string;updated_at:string;
 }
+export interface TourDepartureResource{
+  id:string;departure_id:string;resource_id:string;quantity:number;notes?:string|null;
+  fulfillment_status?:FulfillmentStatus|string|null;prepared_at?:string|null;delivered_at?:string|null;
+  created_by?:string|null;created_at:string;updated_at:string;
+}
+export interface TourDepartureNote{
+  id:string;departure_id:string;source:'sales'|'operations'|'system'|string;note:string;
+  created_by?:string|null;created_at:string;
+}
 export interface ReservationDocument{
   id:string;lead_id:string;document_type:string;title:string;url?:string|null;status:string;completed_at?:string|null;
-  created_by?:string|null;created_at:string;updated_at:string;
+  risk_data?:Record<string,unknown>|null;created_by?:string|null;created_at:string;updated_at:string;
 }
