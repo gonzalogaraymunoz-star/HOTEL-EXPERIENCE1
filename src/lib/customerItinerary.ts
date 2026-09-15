@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import type { Lead, LeadService, Passenger } from '../types';
+import type { Lead, LeadService, LeadServicePassengerLink, Passenger } from '../types';
 
 export type CatalogHint = {
   id: string;
@@ -9,6 +9,7 @@ export type CatalogHint = {
 
 export type ItineraryRow = {
   id: string;
+  serviceId:string;
   day: number;
   date: string;
   schedule: string;
@@ -24,6 +25,7 @@ export type CustomerItineraryInput = {
   passengers: Passenger[];
   services: LeadService[];
   catalog?: CatalogHint[];
+  participantLinks?:LeadServicePassengerLink[];
 };
 
 const BLACK=[18,18,18] as [number,number,number];
@@ -38,6 +40,7 @@ export function itineraryRows(input:CustomerItineraryInput):ItineraryRow[]{
     const hint=service.product_catalog_id?catalogMap.get(service.product_catalog_id):undefined;
     return {
       id:service.id,
+      serviceId:service.id,
       day:index+1,
       date:formatDate(service.fecha_servicio),
       schedule:serviceSchedule(service,hint),
@@ -73,6 +76,12 @@ export function passengerNames(passengers:Passenger[],lead:Lead){
   return names.length?names:[lead.reserva||lead.codigo];
 }
 
+export function passengersForService(serviceId:string,passengers:Passenger[],links:LeadServicePassengerLink[]=[]){
+  const linkedIds=new Set(links.filter(item=>item.lead_service_id===serviceId&&item.confirmed!==false).map(item=>item.passenger_id));
+  const selected=linkedIds.size?passengers.filter(item=>linkedIds.has(item.id)):passengers;
+  return [...selected].sort((a,b)=>String(a.passenger_code||'').localeCompare(String(b.passenger_code||'')));
+}
+
 export function pickupPoint(lead:Lead){return lead.pickup_location||lead.empresa_ejecuta||'Por confirmar'}
 
 export function downloadCustomerItinerary(input:CustomerItineraryInput){
@@ -99,8 +108,8 @@ export function downloadCustomerItinerary(input:CustomerItineraryInput){
   doc.text(doc.splitTextToSize(lead.empresa_ejecuta||'Por confirmar',78),margin+94,y+12);
   y+=31;
 
-  const cols=[10,28,34,33,53,22];
-  const heads=['DÍA','FECHA','HORARIO','PICKUP EST.','EXPERIENCIA','MODALIDAD'];
+  const cols=[8,24,27,27,42,21,31];
+  const heads=['DÍA','FECHA','HORARIO','PICKUP','EXPERIENCIA','MODALIDAD','PAX TOUR'];
   doc.setFillColor(24,24,24);doc.rect(margin,y,contentW,8,'F');
   let x=margin;
   doc.setFont('helvetica','bold');doc.setFontSize(5.8);doc.setTextColor(255,255,255);
@@ -114,7 +123,9 @@ export function downloadCustomerItinerary(input:CustomerItineraryInput){
     rows.forEach(row=>{
       const exp=doc.splitTextToSize(row.experience,cols[4]-4);
       const modality=doc.splitTextToSize(row.modality,cols[5]-4);
-      const height=Math.max(12,5+Math.max(exp.length,modality.length)*4);
+      const pax=passengersForService(row.serviceId,input.passengers,input.participantLinks).map(item=>`${item.full_name} (${passengerAge(item.birth_date)})`);
+      const paxLines=doc.splitTextToSize(pax.join(' · ')||'Sin lista',cols[6]-4);
+      const height=Math.max(12,5+Math.max(exp.length,modality.length,paxLines.length)*4);
       if(y+height>255){doc.addPage();y=18;}
       doc.setDrawColor(...LINE);doc.line(margin,y+height,pageW-margin,y+height);
       x=margin;doc.setFontSize(7);doc.setFont('helvetica','normal');
@@ -122,6 +133,7 @@ export function downloadCustomerItinerary(input:CustomerItineraryInput){
       cells.forEach((cell,i)=>{doc.text(doc.splitTextToSize(cell,cols[i]-4),x+2,y+5);x+=cols[i]});
       doc.setFont('helvetica','bold');doc.text(exp,x+2,y+5);x+=cols[4];
       doc.setFont('helvetica','normal');doc.text(modality,x+2,y+5);
+      x+=cols[5];doc.text(paxLines,x+2,y+5);
       y+=height;
     });
   }
@@ -182,3 +194,5 @@ export function formatDate(value?:string|null){
 }
 
 function sanitize(value:string){return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,70)||'RESERVA'}
+
+function passengerAge(value?:string|null){if(!value)return'edad s/i';const born=new Date(`${String(value).slice(0,10)}T12:00:00`);if(Number.isNaN(born.getTime()))return'edad s/i';const now=new Date();let years=now.getFullYear()-born.getFullYear();if(now.getMonth()<born.getMonth()||(now.getMonth()===born.getMonth()&&now.getDate()<born.getDate()))years-=1;return `${Math.max(0,years)} a.`}
