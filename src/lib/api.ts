@@ -281,26 +281,30 @@ export async function createLeadService(leadId:string, payload:{
 
 export async function loadOperationsData(){
   const sb=assertSupabase();
-  const [passengers,suppliers,vehicles,assignments,documents]=await Promise.all([
+  const [passengers,passengerLinks,suppliers,vehicles,assignments,documents,departures,departureNotes]=await Promise.all([
     sb.from('passengers').select('*').order('created_at'),
+    sb.from('lead_service_passengers').select('*'),
     sb.from('suppliers').select('*').eq('active',true).order('name'),
     sb.from('vehicles').select('*').eq('active',true).order('label'),
     sb.from('service_assignments').select('*'),
-    sb.from('reservation_documents').select('*')
+    sb.from('reservation_documents').select('*'),
+    sb.from('tour_departures').select('*'),
+    sb.from('tour_departure_notes').select('*').order('created_at',{ascending:false})
   ]);
-  for(const r of [passengers,suppliers,vehicles,assignments,documents]) if(r.error) throw r.error;
-  return {passengers:passengers.data||[],suppliers:suppliers.data||[],vehicles:vehicles.data||[],assignments:assignments.data||[],documents:documents.data||[]};
+  for(const r of [passengers,passengerLinks,suppliers,vehicles,assignments,documents,departures,departureNotes]) if(r.error) throw r.error;
+  return {passengers:passengers.data||[],passengerLinks:passengerLinks.data||[],suppliers:suppliers.data||[],vehicles:vehicles.data||[],assignments:assignments.data||[],documents:documents.data||[],departures:departures.data||[],departureNotes:departureNotes.data||[]};
 }
 
 export async function loadOperationsDirectory(){
   const sb=assertSupabase();
-  const [people,resources,resourceAssignments]=await Promise.all([
+  const [people,resources,resourceAssignments,departureResources]=await Promise.all([
     sb.from('service_people').select('*').eq('active',true).order('full_name'),
     sb.from('operational_resources').select('*').eq('active',true).order('resource_type').order('name'),
-    sb.from('service_resource_assignments').select('*')
+    sb.from('service_resource_assignments').select('*'),
+    sb.from('tour_departure_resources').select('*')
   ]);
-  for(const r of [people,resources,resourceAssignments]) if(r.error) throw r.error;
-  return {people:people.data||[],resources:resources.data||[],resourceAssignments:resourceAssignments.data||[]};
+  for(const r of [people,resources,resourceAssignments,departureResources]) if(r.error) throw r.error;
+  return {people:people.data||[],resources:resources.data||[],resourceAssignments:resourceAssignments.data||[],departureResources:departureResources.data||[]};
 }
 
 export async function createPassenger(leadId:string,payload:any){
@@ -404,12 +408,12 @@ export async function upsertReservationDocument(leadId:string,documentType:strin
   if(findError) throw findError;
   const completed=patch.status==='Completada'?new Date().toISOString():patch.completed_at;
   if(existing?.id){
-    const {error}=await sb.from('reservation_documents').update({...patch,completed_at:completed??null}).eq('id',existing.id);
+    const {error}=await sb.from('reservation_documents').update({...patch,completed_at:completed??null,updated_at:new Date().toISOString()}).eq('id',existing.id);
     if(error) throw error;
   }else{
     const {error}=await sb.from('reservation_documents').insert({
       lead_id:leadId,document_type:documentType,title:patch.title||'Documento',status:patch.status||'Pendiente',
-      url:patch.url||null,completed_at:completed??null,created_by:user?.id||null
+      url:patch.url||null,risk_data:patch.risk_data||{},completed_at:completed??null,created_by:user?.id||null
     });
     if(error) throw error;
   }
