@@ -1,64 +1,26 @@
 import {assertSupabase} from './supabase';
 import type {FulfillmentStatus,Passenger} from '../types';
 
-export async function loadFoodBoard(date?:string){
-  let query=assertSupabase().from('operation_food_board').select('*').order('pickup_time',{ascending:true});
-  if(date)query=query.eq('fecha_servicio',date);
-  const {data,error}=await query;
-  if(error)throw error;
-  return data||[];
-}
-
-export async function updateResourceFulfillment(id:string,status:FulfillmentStatus|string){
-  const {error}=await assertSupabase().from('service_resource_assignments').update({
-    fulfillment_status:status,
-    updated_at:new Date().toISOString()
-  }).eq('id',id);
-  if(error)throw error;
-}
-
-type PassengerOperationalPatch=Partial<Pick<Passenger,
-  'full_name'|'email'|'phone'|'nationality'|'document_type'|'document_number'|'birth_date'|
-  'dietary_restrictions'|'medical_notes'|'disability_type'
->>;
-
-export async function updatePassengerOperationalData(id:string,patch:PassengerOperationalPatch){
-  const payload:Record<string,string|null>={};
-  for(const [key,value] of Object.entries(patch)){
-    if(value===undefined)continue;
-    payload[key]=typeof value==='string'?(value.trim()||null):value as any;
-  }
-  const {data,error}=await assertSupabase().from('passengers').update({
-    ...payload,
-    updated_at:new Date().toISOString()
-  }).eq('id',id).select('*').single();
-  if(error)throw error;
-  return data as Passenger;
-}
-
+export async function loadFoodBoard(date?:string){let query=assertSupabase().from('operation_food_board').select('*').order('pickup_time',{ascending:true});if(date)query=query.eq('fecha_servicio',date);const {data,error}=await query;if(error)throw error;return data||[]}
+export async function updateResourceFulfillment(id:string,status:FulfillmentStatus|string){const sb=assertSupabase();const first=await sb.from('tour_departure_resources').update({fulfillment_status:status,updated_at:new Date().toISOString()}).eq('id',id).select('id').maybeSingle();if(first.error)throw first.error;if(first.data)return;const {error}=await sb.from('service_resource_assignments').update({fulfillment_status:status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error}
+type PassengerOperationalPatch=Partial<Pick<Passenger,'full_name'|'email'|'phone'|'nationality'|'document_type'|'document_number'|'birth_date'|'dietary_restrictions'|'medical_notes'|'disability_type'>>;
+export async function updatePassengerOperationalData(id:string,patch:PassengerOperationalPatch){const payload:Record<string,string|null>={};for(const [key,value] of Object.entries(patch)){if(value===undefined)continue;payload[key]=typeof value==='string'?(value.trim()||null):value as any}const {data,error}=await assertSupabase().from('passengers').update({...payload,updated_at:new Date().toISOString()}).eq('id',id).select('*').single();if(error)throw error;return data as Passenger}
 export async function loadServiceWorkspaceData(leadId:string,serviceId:string){
-  const sb=assertSupabase();
-  const [passengers,assignment,suppliers,vehicles,people,resources,resourceAssignments,services]=await Promise.all([
-    sb.from('passengers').select('*').eq('lead_id',leadId).order('passenger_code'),
-    sb.from('service_assignments').select('*').eq('lead_service_id',serviceId).maybeSingle(),
-    sb.from('suppliers').select('*').eq('active',true).order('name'),
-    sb.from('vehicles').select('*').eq('active',true).order('label'),
-    sb.from('service_people').select('*').eq('active',true).order('full_name'),
-    sb.from('operational_resources').select('*').eq('active',true).order('resource_type').order('name'),
-    sb.from('service_resource_assignments').select('*').eq('lead_service_id',serviceId),
-    sb.from('lead_services').select('*').eq('lead_id',leadId).in('booking_status',['confirmed','completed']).order('fecha_servicio').order('hora_inicio')
-  ]);
-  for(const response of [passengers,assignment,suppliers,vehicles,people,resources,resourceAssignments,services]){
-    if(response.error)throw response.error;
-  }
-  return {
-    passengers:passengers.data||[],
-    assignment:assignment.data||null,
-    suppliers:suppliers.data||[],
-    vehicles:vehicles.data||[],
-    people:people.data||[],
-    resources:resources.data||[],
-    resourceAssignments:resourceAssignments.data||[],
-    services:services.data||[]
-  };
+ const sb=assertSupabase();const requested=await sb.from('lead_services').select('*').eq('id',serviceId).single();if(requested.error)throw requested.error;const departureId=(requested.data as any).departure_id as string|null;
+ const [departure,departureServices,suppliers,vehicles,people,resources]=await Promise.all([
+  departureId?sb.from('tour_departures').select('*').eq('id',departureId).maybeSingle():Promise.resolve({data:null,error:null} as any),
+  departureId?sb.from('lead_services').select('*').eq('departure_id',departureId).in('booking_status',['confirmed','completed']).order('created_at'):sb.from('lead_services').select('*').eq('id',serviceId),
+  sb.from('suppliers').select('*').eq('active',true).order('name'),sb.from('vehicles').select('*').eq('active',true).order('label'),sb.from('service_people').select('*').eq('active',true).order('full_name'),sb.from('operational_resources').select('*').eq('active',true).order('resource_type').order('name')
+ ]);for(const response of [departure,departureServices,suppliers,vehicles,people,resources])if(response.error)throw response.error;
+ const groupedServices=(departureServices.data||[]) as any[],serviceIds=groupedServices.map(item=>item.id),leadIds=Array.from(new Set(groupedServices.map(item=>item.lead_id))) as string[];if(!leadIds.length)leadIds.push(leadId);
+ const [passengers,links,assignments,departureResources,legacyResources,reservationLeads,itineraryServices,documents,notes]=await Promise.all([
+  sb.from('passengers').select('*').in('lead_id',leadIds).order('passenger_code'),serviceIds.length?sb.from('lead_service_passengers').select('*').in('lead_service_id',serviceIds):Promise.resolve({data:[],error:null} as any),serviceIds.length?sb.from('service_assignments').select('*').in('lead_service_id',serviceIds).order('created_at'):Promise.resolve({data:[],error:null} as any),departureId?sb.from('tour_departure_resources').select('*').eq('departure_id',departureId):Promise.resolve({data:[],error:null} as any),!departureId?sb.from('service_resource_assignments').select('*').eq('lead_service_id',serviceId):Promise.resolve({data:[],error:null} as any),sb.from('leads').select('*').in('id',leadIds),sb.from('lead_services').select('*').in('lead_id',leadIds).in('booking_status',['confirmed','completed']).order('fecha_servicio').order('hora_inicio'),sb.from('reservation_documents').select('*').in('lead_id',leadIds),departureId?sb.from('tour_departure_notes').select('*').eq('departure_id',departureId).order('created_at',{ascending:false}):Promise.resolve({data:[],error:null} as any)
+ ]);for(const response of [passengers,links,assignments,departureResources,legacyResources,reservationLeads,itineraryServices,documents,notes])if(response.error)throw response.error;
+ const assignmentRows=(assignments.data||[]) as any[],assignment=assignmentRows[0]||null,assignmentServiceId=assignment?.lead_service_id||groupedServices[0]?.id||serviceId;
+ return{passengers:passengers.data||[],passengerLinks:links.data||[],assignment,assignmentServiceId,suppliers:suppliers.data||[],vehicles:vehicles.data||[],people:people.data||[],resources:resources.data||[],resourceAssignments:departureId?(departureResources.data||[]):(legacyResources.data||[]),departure:departure.data||null,departureServices:groupedServices,reservationLeads:reservationLeads.data||[],itineraryServices:itineraryServices.data||[],documents:documents.data||[],notes:notes.data||[]};
 }
+export async function updateTourDeparture(id:string,patch:Record<string,unknown>){const {data,error}=await assertSupabase().from('tour_departures').update({...patch,updated_at:new Date().toISOString()}).eq('id',id).select('*').single();if(error)throw error;return data}
+export async function updateDepartureOperationStatus(departureId:string,status:string){const sb=assertSupabase();const {error:servicesError}=await sb.from('lead_services').update({estado_operacion:status,updated_at:new Date().toISOString()}).eq('departure_id',departureId);if(servicesError)throw servicesError;const departureStatus=status==='Completado'?'completed':status==='Cancelado'?'cancelled':'open';const {error}=await sb.from('tour_departures').update({status:departureStatus,updated_at:new Date().toISOString()}).eq('id',departureId);if(error)throw error}
+export async function assignResourceToDeparture(departureId:string,resourceId:string,quantity=1,notes=''){const sb=assertSupabase(),{data:{user}}=await sb.auth.getUser();const {data,error}=await sb.from('tour_departure_resources').upsert({departure_id:departureId,resource_id:resourceId,quantity:Math.max(1,Number(quantity||1)),notes:notes.trim()||null,created_by:user?.id||null,updated_at:new Date().toISOString()},{onConflict:'departure_id,resource_id'}).select('*').single();if(error)throw error;return data}
+export async function removeResourceFromDeparture(id:string){const {error}=await assertSupabase().from('tour_departure_resources').delete().eq('id',id);if(error)throw error}
+export async function addTourDepartureNote(departureId:string,note:string,source:'sales'|'operations'='operations'){const value=note.trim();if(!value)throw new Error('Escribe una nota.');const {data,error}=await assertSupabase().from('tour_departure_notes').insert({departure_id:departureId,note:value,source}).select('*').single();if(error)throw error;return data}
