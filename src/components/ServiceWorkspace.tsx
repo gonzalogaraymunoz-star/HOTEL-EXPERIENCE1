@@ -5,6 +5,7 @@ import {addTourDepartureNote,loadServiceWorkspaceData,updatePassengerOperational
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
 import ReservationRiskModule from './ReservationRiskModule';
+import PrefilledOperationListButton from './PrefilledOperationListButton';
 import './PassengerEditor.css';
 
 export type ServiceWorkspaceTab='summary'|'assignments'|'passengers'|'food'|'itinerary'|'risk';
@@ -38,7 +39,7 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
     <section className="service-workspace">
       <header className="service-workspace-topbar">
         <div className="service-workspace-identity"><button onClick={onClose} title="Volver al programa"><ArrowLeft size={19}/></button><div><span>TOUR {departure?.departure_code||service.service_code||'SIN CÓDIGO'}</span><h1>{departure?.product_name||service.producto}</h1><p>{reservationLeads.length} reserva{reservationLeads.length===1?'':'s'} · {tourPax}/{departure?.capacity_total||'—'} pax · códigos de reserva: {reservationLeads.map(item=>item.codigo).join(', ')}</p></div></div>
-        <div className="service-workspace-actions"><button onClick={()=>void load()}><RefreshCw size={16}/> Actualizar</button><span className={`daily-status ${slug(service.estado_operacion)}`}>{service.estado_operacion}</span></div>
+        <div className="service-workspace-actions"><PrefilledOperationListButton service={service}/><button onClick={()=>void load()}><RefreshCw size={16}/> Actualizar</button><span className={`daily-status ${slug(service.estado_operacion)}`}>{service.estado_operacion}</span></div>
       </header>
 
       <nav className="service-tabs">
