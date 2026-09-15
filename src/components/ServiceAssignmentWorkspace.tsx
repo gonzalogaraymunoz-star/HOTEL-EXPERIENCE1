@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {Check,Plus,Trash2} from 'lucide-react';
 import type {Lead,LeadService,OperationalResource,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,Vehicle} from '../types';
 import {assignResourceToService,removeResourceFromService,updateService,updateServiceAssignment} from '../lib/api';
-import {loadServiceWorkspaceData} from '../lib/operationsApi';
+import {assignResourceToDeparture,loadServiceWorkspaceData,removeResourceFromDeparture,updateDepartureOperationStatus} from '../lib/operationsApi';
 
 type Coverage='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
 const coverage:[Coverage,string][]=[['vehicle','Vehículo'],['driver','Conductor'],['guide','Guía'],['food','Alimentación'],['coordination','Coordinación'],['resources','Insumos'],['entrances','Entradas']];
@@ -27,8 +27,12 @@ export default function ServiceAssignmentWorkspace({lead,service,userRole,onChan
   const resources=data.resources as OperationalResource[];
   const resourceAssignments=data.resourceAssignments as ServiceResourceAssignment[];
 
-  const save=async(patch:any)=>{if(!canEdit)return;setSaving(true);try{await updateServiceAssignment(service.id,patch);await load();onChanged();}finally{setSaving(false)}};
-  const saveStatus=async(next:string)=>{if(!canEdit)return;setSaving(true);try{await updateService(service.id,{estado_operacion:next});onChanged();}finally{setSaving(false)}};
+  const targetServiceId=data.assignmentServiceId||service.id;
+  const departure=data.departure;
+  const groupedServices=(data.departureServices||[]) as LeadService[];
+  const groupedPax=groupedServices.reduce((sum,item)=>sum+Number(item.numero_pax||0),0);
+  const save=async(patch:any)=>{if(!canEdit)return;setSaving(true);try{await updateServiceAssignment(targetServiceId,patch);await load();onChanged();}finally{setSaving(false)}};
+  const saveStatus=async(next:string)=>{if(!canEdit)return;setSaving(true);try{if(departure?.id)await updateDepartureOperationStatus(departure.id,next);else await updateService(service.id,{estado_operacion:next});await load();onChanged();}finally{setSaving(false)}};
   const assignedIds=new Set(resourceAssignments.map(item=>item.resource_id));
   const availableResources=resources.filter(item=>!assignedIds.has(item.id));
   const coverageSet=new Set<Coverage>(Array.isArray(a.supplier_coverage)?a.supplier_coverage as Coverage[]:[]);
@@ -42,14 +46,15 @@ export default function ServiceAssignmentWorkspace({lead,service,userRole,onChan
   const addResource=async()=>{
     if(!resourceId)return;
     setSaving(true);
-    try{await assignResourceToService(service.id,resourceId,Math.max(1,Number(resourceQty||1)),resourceNotes);setResourceId('');setResourceQty(1);setResourceNotes('');await load();onChanged();}finally{setSaving(false)}
+    try{if(departure?.id)await assignResourceToDeparture(departure.id,resourceId,resourceQty,resourceNotes);else await assignResourceToService(service.id,resourceId,Math.max(1,Number(resourceQty||1)),resourceNotes);setResourceId('');setResourceQty(1);setResourceNotes('');await load();onChanged();}finally{setSaving(false)}
   };
 
   return <div className="assignment-workspace">
     <header className="assignment-summary-strip">
-      <div><span>SERVICIO</span><b>{service.service_code||lead.codigo}</b></div>
+      <div><span>CÓDIGO TOUR</span><b>{departure?.departure_code||service.service_code||'Sin asignar'}</b></div>
+      <div><span>RESERVAS</span><b>{groupedServices.length||1}</b></div>
       <div><span>Fecha</span><b>{service.fecha_servicio||'—'}</b></div>
-      <div><span>Pax</span><b>{service.numero_pax}</b></div>
+      <div><span>Pax</span><b>{groupedPax||service.numero_pax}/{departure?.capacity_total||'—'}</b></div>
       <label><span>Estado</span><select disabled={!canEdit||saving} value={service.estado_operacion||'Pendiente'} onChange={e=>void saveStatus(e.target.value)}><option>Pendiente</option><option>Coordinado</option><option>En curso</option><option>Completado</option><option>Cancelado</option></select></label>
     </header>
 
@@ -81,7 +86,7 @@ export default function ServiceAssignmentWorkspace({lead,service,userRole,onChan
       {canEdit&&<div className="resource-add-row"><select value={resourceId} onChange={e=>setResourceId(e.target.value)}><option value="">Seleccionar insumo…</option>{availableResources.map(item=><option key={item.id} value={item.id}>{item.resource_type} · {item.code||''} · {item.name}</option>)}</select><input type="number" min="1" value={resourceQty} onChange={e=>setResourceQty(Number(e.target.value))}/><input value={resourceNotes} onChange={e=>setResourceNotes(e.target.value)} placeholder="Nota opcional"/><button disabled={!resourceId||saving} onClick={()=>void addResource()}><Plus size={15}/> Agregar</button></div>}
       <div className="assigned-resource-list">{resourceAssignments.map(item=>{
         const resource=resources.find(r=>r.id===item.resource_id);
-        return <article key={item.id}><div><b>{resource?.name||'Recurso'}</b><span>{resource?.code||'—'} · {resource?.resource_type||'Sin tipo'} · x{item.quantity}</span>{item.notes&&<small>{item.notes}</small>}</div><span className={`resource-fulfillment ${(item.fulfillment_status||'Pendiente').toLowerCase()}`}>{item.fulfillment_status||'Pendiente'}</span>{canEdit&&<button title="Quitar insumo" onClick={async()=>{if(!confirm('¿Quitar este insumo del servicio?'))return;await removeResourceFromService(item.id);await load();onChanged()}}><Trash2 size={14}/></button>}</article>
+        return <article key={item.id}><div><b>{resource?.name||'Recurso'}</b><span>{resource?.code||'—'} · {resource?.resource_type||'Sin tipo'} · x{item.quantity}</span>{item.notes&&<small>{item.notes}</small>}</div><span className={`resource-fulfillment ${(item.fulfillment_status||'Pendiente').toLowerCase()}`}>{item.fulfillment_status||'Pendiente'}</span>{canEdit&&<button title="Quitar insumo" onClick={async()=>{if(!confirm('¿Quitar este insumo del tour?'))return;if(departure?.id)await removeResourceFromDeparture(item.id);else await removeResourceFromService(item.id);await load();onChanged()}}><Trash2 size={14}/></button>}</article>
       })}{!resourceAssignments.length&&<div className="workspace-empty compact">Sin insumos asignados.</div>}</div>
     </section>
   </div>;
