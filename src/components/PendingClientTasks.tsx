@@ -31,6 +31,7 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
   const [templateReady,setTemplateReady]=useState<boolean|null>(scope==='operations'?null:true);
   const [templateMessage,setTemplateMessage]=useState('');
   const fileRef=useRef<HTMLInputElement|null>(null);
+  const taskBodyRef=useRef<HTMLDivElement|null>(null);
   const previousCount=useRef(0);
 
   async function refresh(){
@@ -107,7 +108,7 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
 
   return <>
     <button className={`pending-task-launcher ${tasks.length?'has-items':''}`} onClick={()=>setOpen(value=>!value)} title="Pendientes por cliente"><BellRing size={18}/><span>Pendientes</span>{tasks.length>0&&<b>{tasks.length}</b>}</button>
-    <aside className={`pending-task-drawer ${open?'open':''}`} aria-hidden={!open}>
+    <aside className={`pending-task-drawer ${open?'open':''}`} aria-hidden={!open} onWheel={event=>{const body=taskBodyRef.current;if(!body||body.contains(event.target as Node)||body.scrollHeight<=body.clientHeight)return;body.scrollTop+=event.deltaY;event.preventDefault()}}>
       <header><div><small>{scope==='sales'?'LINK VENTAS':'HOTEL EXPERIENCE'}</small><strong>Pendientes por cliente</strong><span>{tasks.length?`${visibleTasks.length} visibles · ${tasks.length} total`:'Sin tareas pendientes'}</span></div><button onClick={()=>setOpen(false)} aria-label="Cerrar pendientes"><X size={18}/></button></header>
 
       <div className="pending-task-filterbar">
@@ -116,7 +117,7 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
         <button className="pending-dashboard-button" type="button" onClick={()=>{setDashboardOpen(true);setOpen(false)}}><LayoutDashboard size={14}/><span>Ver dashboard de pendientes</span><ChevronRight size={14}/></button>
       </div>
 
-      <div className="pending-task-body">
+      <div className="pending-task-body" ref={taskBodyRef}>
         {loading&&tasks.length===0?<div className="pending-task-empty">Actualizando…</div>:groups.length===0?<div className="pending-task-empty"><CheckCircle2 size={24}/><strong>{tasks.length?'Sin coincidencias':'Todo al día'}</strong><span>{tasks.length?'Cambia el buscador o el filtro de prioridad.':'Los nuevos pendientes aparecerán aquí automáticamente.'}</span></div>:groups.map(group=>{
           const blockers=group.rows.filter(row=>!row.task_key.startsWith('ops_documents:'));
           return <article className="pending-client-card" key={group.code}>
