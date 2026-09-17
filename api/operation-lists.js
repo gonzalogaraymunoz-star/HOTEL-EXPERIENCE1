@@ -20,25 +20,10 @@ async function userFrom(req,admin){
   return{user:data.user,profile};
 }
 
-async function smokeAllowed(req,admin){
-  const {data,error}=await admin.from('server_integration_settings').select('config').eq('integration_key','goas_smoke_test').maybeSingle();
-  if(error)throw error;
-  return Boolean(data?.config?.token)&&String(req.query?.token||'')===String(data.config.token);
-}
-
 export default async function handler(req,res){
+  if(req.method!=='POST')return res.status(405).json({error:'Método no permitido.'});
   try{
     const admin=setup();
-
-    if(req.method==='GET'&&req.query?.smoke==='1'){
-      if(!(await smokeAllowed(req,admin)))return res.status(403).json({error:'Token inválido.'});
-      const departureId=String(req.query?.departureId||'');
-      if(!departureId)return res.status(400).json({error:'Falta departureId.'});
-      return res.status(200).json(await generateGoasOperationLists(admin,departureId));
-    }
-
-    if(req.method!=='POST')return res.status(405).json({error:'Método no permitido.'});
-
     await userFrom(req,admin);
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
 
