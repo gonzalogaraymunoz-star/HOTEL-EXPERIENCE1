@@ -27,6 +27,8 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
   const [loading,setLoading]=useState(false);
   const [query,setQuery]=useState('');
   const [priority,setPriority]=useState('Todos');
+  const [selectedLeadCode,setSelectedLeadCode]=useState<string|null>(null);
+  const [roomQuery,setRoomQuery]=useState('');
   const [workingLead,setWorkingLead]=useState('');
   const [templateReady,setTemplateReady]=useState<boolean|null>(scope==='operations'?null:true);
   const [templateMessage,setTemplateMessage]=useState('');
@@ -84,31 +86,46 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
   useEffect(()=>{document.body.classList.toggle('pending-dashboard-lock',dashboardOpen);return()=>document.body.classList.remove('pending-dashboard-lock')},[dashboardOpen]);
   useEffect(()=>{const onOpen=()=>setDashboardOpen(true);const onClose=()=>setDashboardOpen(false);window.addEventListener('hotel:open-pending-dashboard',onOpen);window.addEventListener('hotel:close-pending-dashboard',onClose);return()=>{window.removeEventListener('hotel:open-pending-dashboard',onOpen);window.removeEventListener('hotel:close-pending-dashboard',onClose)}},[]);
 
-  const visibleTasks=useMemo(()=>{
-    const q=query.trim().toLowerCase();
-    return tasks.filter(task=>{
-      if(priority!=='Todos'&&task.priority!==priority)return false;
-      if(!q)return true;
-      return [task.lead_code,task.pax_name,task.service_code,task.title,task.detail,task.service_date].some(value=>String(value||'').toLowerCase().includes(q));
-    });
-  },[tasks,query,priority]);
+  const allGroups=useMemo(()=>{
+    const map=new Map<string,PendingTask[]>();
+    tasks.forEach(task=>map.set(task.lead_code,[...(map.get(task.lead_code)||[]),task]));
+    return Array.from(map.entries()).map(([code,rows])=>{
+      const ordered=[...rows].sort((a,b)=>(priorityWeight[a.priority]??9)-(priorityWeight[b.priority]??9)||(a.sort_order??999)-(b.sort_order??999)||taskDateValue(a)-taskDateValue(b));
+      const serviceCodes=Array.from(new Set(ordered.map(row=>row.service_code).filter(Boolean))) as string[];
+      const high=ordered.filter(row=>row.priority==='Alta').length;
+      const medium=ordered.filter(row=>row.priority==='Media').length;
+      const low=ordered.filter(row=>row.priority==='Baja').length;
+      const nearest=[...ordered].sort((a,b)=>taskDateValue(a)-taskDateValue(b))[0];
+      return {code,paxName:ordered.find(row=>row.pax_name)?.pax_name||'Pasajero por confirmar',rows:ordered,serviceCodes,high,medium,low,nearest};
+    }).sort((a,b)=>(priorityWeight[a.rows[0]?.priority]??9)-(priorityWeight[b.rows[0]?.priority]??9)||taskDateValue(a.nearest)-taskDateValue(b.nearest)||a.code.localeCompare(b.code,'es'));
+  },[tasks]);
 
   const groups=useMemo(()=>{
-    const map=new Map<string,PendingTask[]>();visibleTasks.forEach(task=>map.set(task.lead_code,[...(map.get(task.lead_code)||[]),task]));
-    return Array.from(map.entries()).map(([code,rows])=>({code,paxName:rows.find(row=>row.pax_name)?.pax_name||'Pasajero por confirmar',rows:[...rows].sort((a,b)=>(priorityWeight[a.priority]??9)-(priorityWeight[b.priority]??9)||(a.sort_order??999)-(b.sort_order??999)||taskDateValue(a)-taskDateValue(b))})).sort((a,b)=>(priorityWeight[a.rows[0]?.priority]??9)-(priorityWeight[b.rows[0]?.priority]??9)||taskDateValue(a.rows[0])-taskDateValue(b.rows[0])||a.code.localeCompare(b.code,'es'));
-  },[visibleTasks]);
+    const q=query.trim().toLowerCase();
+    if(!q)return allGroups;
+    return allGroups.filter(group=>[
+      group.code,group.paxName,...group.serviceCodes,
+      ...group.rows.flatMap(row=>[row.title,row.detail])
+    ].some(value=>String(value||'').toLowerCase().includes(q)));
+  },[allGroups,query]);
+
+  const selectedGroup=useMemo(()=>selectedLeadCode?allGroups.find(group=>group.code===selectedLeadCode)||null:null,[allGroups,selectedLeadCode]);
+  const roomTasks=useMemo(()=>{
+    if(!selectedGroup)return[];
+    const q=roomQuery.trim().toLowerCase();
+    return selectedGroup.rows.filter(task=>{
+      if(priority!=='Todos'&&task.priority!==priority)return false;
+      if(!q)return true;
+      return [task.title,task.detail,task.service_code,task.service_date].some(value=>String(value||'').toLowerCase().includes(q));
+    });
+  },[selectedGroup,priority,roomQuery]);
+
   const priorities=useMemo(()=>['Todos',...Array.from(new Set(tasks.map(task=>task.priority))).sort((a,b)=>(priorityWeight[a]??9)-(priorityWeight[b]??9))],[tasks]);
-  const clearFilters=()=>{setQuery('');setPriority('Todos')};
-
-  const dashboardTasks=useMemo(()=>[...visibleTasks].sort((a,b)=>{
-    if(dashboardSort==='date')return taskDateValue(a)-taskDateValue(b)||(priorityWeight[a.priority]??9)-(priorityWeight[b.priority]??9)||a.title.localeCompare(b.title,'es');
-    if(dashboardSort==='request')return a.title.localeCompare(b.title,'es')||(priorityWeight[a.priority]??9)-(priorityWeight[b.priority]??9)||taskDateValue(a)-taskDateValue(b);
-    return (priorityWeight[a.priority]??9)-(priorityWeight[b.priority]??9)||taskDateValue(a)-taskDateValue(b)||a.title.localeCompare(b.title,'es');
-  }),[visibleTasks,dashboardSort]);
+  const clearFilters=()=>{setQuery('');setRoomQuery('');setPriority('Todos')};
   const highCount=tasks.filter(task=>task.priority==='Alta').length;
-
+  const visibleTasks=tasks;
   return <>
-    <button className={`pending-task-launcher ${tasks.length?'has-items':''}`} onClick={()=>{setDashboardOpen(true);setOpen(false);window.dispatchEvent(new CustomEvent('hotel:pending-opened'))}} title="Abrir pendientes"><BellRing size={18}/><span>Pendientes</span>{tasks.length>0&&<b>{tasks.length}</b>}</button>
+    <button className={`pending-task-launcher ${tasks.length?'has-items':''}`} onClick={()=>{setSelectedLeadCode(null);setQuery('');setRoomQuery('');setPriority('Todos');setDashboardOpen(true);setOpen(false);window.dispatchEvent(new CustomEvent('hotel:pending-opened'))}} title="Abrir pendientes"><BellRing size={18}/><span>Pendientes</span>{tasks.length>0&&<b>{tasks.length}</b>}</button>
     <aside className={`pending-task-drawer ${open?'open':''}`} aria-hidden={!open} onWheel={event=>{const body=taskBodyRef.current;if(!body||body.contains(event.target as Node)||body.scrollHeight<=body.clientHeight)return;body.scrollTop+=event.deltaY;event.preventDefault()}}>
       <header><div><small>{scope==='sales'?'LINK VENTAS':'HOTEL EXPERIENCE'}</small><strong>Pendientes por cliente</strong><span>{tasks.length?`${visibleTasks.length} visibles · ${tasks.length} total`:'Sin tareas pendientes'}</span></div><button onClick={()=>setOpen(false)} aria-label="Cerrar pendientes"><X size={18}/></button></header>
 
@@ -133,40 +150,56 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
       <footer>{scope==='operations'&&<div className="pending-template-control"><div><FileSpreadsheet size={16}/><span><strong>Plantilla Excel</strong><small>{templateReady===null?'Revisando…':templateReady?'Maestra cargada':'Falta cargar la maestra'}</small></span></div><input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event=>{const file=event.target.files?.[0];if(file)void uploadTemplate(file)}}/><button onClick={()=>fileRef.current?.click()}><Upload size={13}/>{templateReady?'Reemplazar':'Cargar'}</button></div>}<button className="pending-refresh-button" onClick={()=>void refresh()}>Actualizar ahora</button></footer>
     </aside>
 
-    {dashboardOpen&&<section className="pending-dashboard-shell pending-dashboard-full" role="dialog" aria-modal="true" aria-label="Pendientes por ingreso">
+    {dashboardOpen&&<section className="pending-dashboard-shell pending-dashboard-full" role="dialog" aria-modal="true" aria-label={selectedGroup?'Sala de pendientes':'Reservas con pendientes'}>
       <header className="pending-dashboard-header pending-dashboard-header-full">
         <div className="pending-dashboard-history">
-          <button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('hotel:history-back'))} title="Atrás"><ArrowLeft size={18}/></button>
+          {selectedGroup?<button type="button" onClick={()=>{setSelectedLeadCode(null);setRoomQuery('');setPriority('Todos')}} title="Volver a reservas"><ArrowLeft size={18}/></button>:<button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('hotel:history-back'))} title="Atrás"><ArrowLeft size={18}/></button>}
           <button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('hotel:history-forward'))} title="Adelante"><ArrowRight size={18}/></button>
         </div>
-        <div className="pending-dashboard-heading"><small>{scope==='sales'?'LINK VENTAS':'HOTEL EXPERIENCE'}</small><h2>Pendientes por ingreso</h2><p>Cada código es una ficha de trabajo. Ejecuta los pendientes en orden 1, 2, 3, 4…</p></div>
-        <div className="pending-dashboard-header-actions"><button className="pending-dashboard-refresh" type="button" onClick={()=>void refresh()}><RefreshCw size={14}/> Actualizar</button><button className="pending-dashboard-close" onClick={()=>{setDashboardOpen(false);window.dispatchEvent(new CustomEvent('hotel:pending-closed'))}} aria-label="Cerrar pendientes"><X size={20}/></button></div>
+        <div className="pending-dashboard-heading">
+          <small>{scope==='sales'?'LINK VENTAS':'HOTEL EXPERIENCE'}</small>
+          <h2>{selectedGroup?'Sala de pendientes':'Reservas con pendientes'}</h2>
+          <p>{selectedGroup?selectedGroup.code+' · '+selectedGroup.paxName:'Elige una reserva. Los pendientes aparecen recién dentro de su sala.'}</p>
+        </div>
+        <div className="pending-dashboard-header-actions"><button className="pending-dashboard-refresh" type="button" onClick={()=>void refresh()}><RefreshCw size={14}/> Actualizar</button><button className="pending-dashboard-close" onClick={()=>{setSelectedLeadCode(null);setDashboardOpen(false);window.dispatchEvent(new CustomEvent('hotel:pending-closed'))}} aria-label="Cerrar pendientes"><X size={20}/></button></div>
       </header>
-      <div className="pending-dashboard-kpis"><article><span>Ingresos</span><strong>{groups.length}</strong><small>códigos con pendientes</small></article><article><span>Pendientes</span><strong>{visibleTasks.length}</strong><small>{tasks.length===visibleTasks.length?'total abierto':tasks.length+' total · filtrados'}</small></article><article><span>Alta prioridad</span><strong>{highCount}</strong><small>resolver primero</small></article></div>
-      <div className="pending-dashboard-toolbar pending-dashboard-toolbar-full">
-        <label><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar código, pasajero, servicio o pendiente…"/></label>
-        <div className="pending-dashboard-priority">{priorities.map(item=><button key={item} className={priority===item?'active':''} onClick={()=>setPriority(item)}>{item}</button>)}{(query||priority!=='Todos')&&<button className="pending-clear" onClick={clearFilters}><RotateCcw size={12}/> Limpiar</button>}</div>
-        {scope==='operations'&&<div className="pending-template-inline"><FileSpreadsheet size={14}/><span><strong>Plantilla Excel</strong><small>{templateReady===null?'Revisando…':templateReady?'Lista':'Falta cargar'}</small></span><input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event=>{const file=event.target.files?.[0];if(file)void uploadTemplate(file)}}/><button onClick={()=>fileRef.current?.click()}><Upload size={12}/>{templateReady?'Reemplazar':'Cargar'}</button></div>}
-      </div>
-      <div className="pending-dashboard-list pending-dashboard-cards">
-        {loading&&tasks.length===0?<div className="pending-dashboard-empty"><span>Actualizando pendientes…</span></div>:groups.length===0?<div className="pending-dashboard-empty"><CheckCircle2 size={25}/><strong>{tasks.length?'Sin coincidencias':'Todo al día'}</strong><button onClick={clearFilters}>Mostrar todos</button></div>:groups.map((group,groupIndex)=>{
-          const blockers=group.rows.filter(row=>!row.task_key.startsWith('ops_documents:'));
-          const serviceCodes=Array.from(new Set(group.rows.map(row=>row.service_code).filter(Boolean)));
-          return <article className="pending-entry-card" key={group.code}>
-            <header className="pending-entry-head">
-              <span className="pending-entry-sequence">{String(groupIndex+1).padStart(2,'0')}</span>
-              <span className="pending-entry-identity"><small>INGRESO</small><strong>{group.code}</strong><b>{group.paxName}</b>{serviceCodes.length>0&&<em>{serviceCodes.slice(0,3).join(' · ')}</em>}</span>
-              <span className="pending-entry-total">{group.rows.length} pendiente{group.rows.length===1?'':'s'}</span>
-            </header>
-            <div className="pending-entry-tasks">{group.rows.map((task,index)=><section role="button" tabIndex={0} key={task.task_key} onClick={()=>openTask(task)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' ')openTask(task)}} className={'pending-entry-task priority-'+priorityClass(task.priority)}>
-              <span className="pending-entry-rank">{index+1}</span>
-              <span className="pending-entry-task-copy"><span className="pending-entry-meta"><b>{task.priority}</b><small><CalendarDays size={11}/>{formatTaskDate(task)}</small></span><strong>{task.title}</strong><small>{task.service_code?task.service_code+' · ':''}{task.detail}</small>{scope==='operations'&&task.task_key.startsWith('ops_documents:')&&<button className="pending-generate" disabled={workingLead===task.lead_id||blockers.length>0||templateReady!==true} onClick={event=>{event.stopPropagation();void generateOperationSheet(task)}}><Download size={13}/>{workingLead===task.lead_id?'Generando…':blockers.length?'Completa '+blockers.length+' pendiente(s) primero':templateReady?'Generar Excel':'Falta plantilla maestra'}</button>}</span>
-              <span className="pending-entry-resolve">Resolver <ArrowUpRight size={13}/></span>
-            </section>)}</div>
-          </article>
-        })}
-        {scope==='operations'&&templateMessage&&<div className="pending-template-message">{templateMessage}</div>}
-      </div>
+
+      {!selectedGroup?<>
+        <div className="pending-dashboard-kpis"><article><span>Reservas</span><strong>{groups.length}</strong><small>con trabajo abierto</small></article><article><span>Pendientes</span><strong>{tasks.length}</strong><small>en todas las reservas</small></article><article><span>Alta prioridad</span><strong>{highCount}</strong><small>se ordenan dentro de cada sala</small></article></div>
+        <div className="pending-dashboard-toolbar pending-dashboard-toolbar-full pending-reservation-toolbar">
+          <label><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar código, pasajero o servicio…"/></label>
+          {scope==='operations'&&<div className="pending-template-inline"><FileSpreadsheet size={14}/><span><strong>Plantilla Excel</strong><small>{templateReady===null?'Revisando…':templateReady?'Lista':'Falta cargar'}</small></span><input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event=>{const file=event.target.files?.[0];if(file)void uploadTemplate(file)}}/><button onClick={()=>fileRef.current?.click()}><Upload size={12}/>{templateReady?'Reemplazar':'Cargar'}</button></div>}
+        </div>
+        <div className="pending-dashboard-list pending-reservation-body">
+          {loading&&tasks.length===0?<div className="pending-dashboard-empty">Actualizando reservas…</div>:groups.length===0?<div className="pending-dashboard-empty"><CheckCircle2 size={25}/><strong>{tasks.length?'Sin coincidencias':'Todo al día'}</strong><button onClick={clearFilters}>Mostrar todas</button></div>:<div className="pending-reservation-grid">{groups.map((group,index)=><button type="button" className="pending-reservation-card" key={group.code} onClick={()=>{setSelectedLeadCode(group.code);setRoomQuery('');setPriority('Todos')}}>
+            <span className="pending-reservation-top"><span className="pending-reservation-number">{String(index+1).padStart(2,'0')}</span><span className="pending-reservation-summary"><b>{group.rows.length}</b><small>pendientes</small></span></span>
+            <span className="pending-reservation-copy"><small>RESERVA</small><strong>{group.code}</strong><b>{group.paxName}</b>{group.serviceCodes.length>0&&<em>{group.serviceCodes.slice(0,3).join(' · ')}</em>}</span>
+            <span className="pending-reservation-bottom"><span className="pending-reservation-date"><CalendarDays size={13}/>{group.nearest?formatTaskDate(group.nearest):'Sin fecha'}</span><span className="pending-reservation-open">Abrir sala <ChevronRight size={15}/></span></span>
+          </button>)}</div>}
+        </div>
+      </>:<>
+        <div className="pending-room-summary">
+          <button type="button" className="pending-room-back" onClick={()=>{setSelectedLeadCode(null);setRoomQuery('');setPriority('Todos')}}><ArrowLeft size={15}/> Reservas</button>
+          <div className="pending-room-identity"><small>RESERVA</small><strong>{selectedGroup.code}</strong><span>{selectedGroup.paxName}</span>{selectedGroup.serviceCodes.length>0&&<em>{selectedGroup.serviceCodes.join(' · ')}</em>}</div>
+          <div className="pending-room-stats"><span><b>{selectedGroup.rows.length}</b><small>Total</small></span><span><b>{selectedGroup.high}</b><small>Alta</small></span><span><b>{selectedGroup.medium}</b><small>Media</small></span><span><b>{selectedGroup.low}</b><small>Baja</small></span></div>
+        </div>
+        <div className="pending-dashboard-toolbar pending-room-toolbar">
+          <label><Search size={15}/><input value={roomQuery} onChange={event=>setRoomQuery(event.target.value)} placeholder="Buscar dentro de esta reserva…"/></label>
+          <div className="pending-dashboard-priority">{priorities.map(item=><button key={item} className={priority===item?'active':''} onClick={()=>setPriority(item)}>{item}</button>)}</div>
+        </div>
+        <div className="pending-dashboard-list pending-room-body">
+          {roomTasks.length===0?<div className="pending-dashboard-empty"><CheckCircle2 size={25}/><strong>Sin pendientes para este filtro</strong><button onClick={()=>{setRoomQuery('');setPriority('Todos')}}>Mostrar todos</button></div>:<div className="pending-room-list">{roomTasks.map((task,index)=>{
+            const blockers=selectedGroup.rows.filter(row=>!row.task_key.startsWith('ops_documents:'));
+            return <section role="button" tabIndex={0} key={task.task_key} onClick={()=>openTask(task)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' ')openTask(task)}} className={'pending-room-task priority-'+priorityClass(task.priority)}>
+              <span className="pending-room-rank">{index+1}</span>
+              <span className="pending-room-task-copy"><span className="pending-room-meta"><b>{task.priority}</b><small><CalendarDays size={11}/>{formatTaskDate(task)}</small>{task.service_code&&<em>{task.service_code}</em>}</span><strong>{task.title}</strong><p>{task.detail}</p>{scope==='operations'&&task.task_key.startsWith('ops_documents:')&&<button className="pending-generate" disabled={workingLead===task.lead_id||blockers.length>0||templateReady!==true} onClick={event=>{event.stopPropagation();void generateOperationSheet(task)}}><Download size={13}/>{workingLead===task.lead_id?'Generando…':blockers.length?'Completa '+blockers.length+' pendiente(s) primero':templateReady?'Generar Excel':'Falta plantilla maestra'}</button>}</span>
+              <span className="pending-room-resolve">Resolver <ArrowUpRight size={14}/></span>
+            </section>
+          })}</div>}
+          {scope==='operations'&&templateMessage&&<div className="pending-template-message">{templateMessage}</div>}
+        </div>
+      </>}
     </section>}
+
   </>;
 }
