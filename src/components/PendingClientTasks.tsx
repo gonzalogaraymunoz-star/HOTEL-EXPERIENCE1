@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownUp,ArrowUpRight,BellRing,CalendarDays,CheckCircle2,ChevronRight,Download,FileSpreadsheet,LayoutDashboard,RotateCcw,Search,Upload,X } from 'lucide-react';
+import { ArrowDownUp,ArrowLeft,ArrowRight,ArrowUpRight,BellRing,CalendarDays,CheckCircle2,ChevronRight,Download,FileSpreadsheet,LayoutDashboard,RefreshCw,RotateCcw,Search,Upload,X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import './PendingClientTasks.css';
 import './PendingClientTasksV2.css';
@@ -61,8 +61,8 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
 
   function openTask(task:PendingTask){
     if(scope!=='operations')return;
-    window.dispatchEvent(new CustomEvent('hotel:open-pending-task',{detail:{leadId:task.lead_id,serviceId:task.lead_service_id||null,taskKey:task.task_key}}));
-    setOpen(false);setDashboardOpen(false);
+    window.dispatchEvent(new CustomEvent('hotel:open-pending-task',{detail:{leadId:task.lead_id,serviceId:task.lead_service_id||null,taskKey:task.task_key,fromPending:true}}));
+    setOpen(false);setDashboardOpen(false);window.dispatchEvent(new CustomEvent('hotel:pending-closed'));
   }
 
   async function checkTemplate(){
@@ -82,6 +82,7 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
 
   useEffect(()=>{void refresh();void checkTemplate();const timer=window.setInterval(()=>void refresh(),45000);const onFocus=()=>{void refresh();if(scope==='operations')void checkTemplate()};window.addEventListener('focus',onFocus);return()=>{window.clearInterval(timer);window.removeEventListener('focus',onFocus)}},[scope]);
   useEffect(()=>{document.body.classList.toggle('pending-dashboard-lock',dashboardOpen);return()=>document.body.classList.remove('pending-dashboard-lock')},[dashboardOpen]);
+  useEffect(()=>{const onOpen=()=>setDashboardOpen(true);const onClose=()=>setDashboardOpen(false);window.addEventListener('hotel:open-pending-dashboard',onOpen);window.addEventListener('hotel:close-pending-dashboard',onClose);return()=>{window.removeEventListener('hotel:open-pending-dashboard',onOpen);window.removeEventListener('hotel:close-pending-dashboard',onClose)}},[]);
 
   const visibleTasks=useMemo(()=>{
     const q=query.trim().toLowerCase();
@@ -94,7 +95,7 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
 
   const groups=useMemo(()=>{
     const map=new Map<string,PendingTask[]>();visibleTasks.forEach(task=>map.set(task.lead_code,[...(map.get(task.lead_code)||[]),task]));
-    return Array.from(map.entries()).map(([code,rows])=>({code,paxName:rows.find(row=>row.pax_name)?.pax_name||'Pasajero por confirmar',rows}));
+    return Array.from(map.entries()).map(([code,rows])=>({code,paxName:rows.find(row=>row.pax_name)?.pax_name||'Pasajero por confirmar',rows:[...rows].sort((a,b)=>(priorityWeight[a.priority]??9)-(priorityWeight[b.priority]??9)||(a.sort_order??999)-(b.sort_order??999)||taskDateValue(a)-taskDateValue(b))})).sort((a,b)=>(priorityWeight[a.rows[0]?.priority]??9)-(priorityWeight[b.rows[0]?.priority]??9)||taskDateValue(a.rows[0])-taskDateValue(b.rows[0])||a.code.localeCompare(b.code,'es'));
   },[visibleTasks]);
   const priorities=useMemo(()=>['Todos',...Array.from(new Set(tasks.map(task=>task.priority))).sort((a,b)=>(priorityWeight[a]??9)-(priorityWeight[b]??9))],[tasks]);
   const clearFilters=()=>{setQuery('');setPriority('Todos')};
@@ -107,7 +108,7 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
   const highCount=tasks.filter(task=>task.priority==='Alta').length;
 
   return <>
-    <button className={`pending-task-launcher ${tasks.length?'has-items':''}`} onClick={()=>setOpen(value=>!value)} title="Pendientes por cliente"><BellRing size={18}/><span>Pendientes</span>{tasks.length>0&&<b>{tasks.length}</b>}</button>
+    <button className={`pending-task-launcher ${tasks.length?'has-items':''}`} onClick={()=>{setDashboardOpen(true);setOpen(false);window.dispatchEvent(new CustomEvent('hotel:pending-opened'))}} title="Abrir pendientes"><BellRing size={18}/><span>Pendientes</span>{tasks.length>0&&<b>{tasks.length}</b>}</button>
     <aside className={`pending-task-drawer ${open?'open':''}`} aria-hidden={!open} onWheel={event=>{const body=taskBodyRef.current;if(!body||body.contains(event.target as Node)||body.scrollHeight<=body.clientHeight)return;body.scrollTop+=event.deltaY;event.preventDefault()}}>
       <header><div><small>{scope==='sales'?'LINK VENTAS':'HOTEL EXPERIENCE'}</small><strong>Pendientes por cliente</strong><span>{tasks.length?`${visibleTasks.length} visibles · ${tasks.length} total`:'Sin tareas pendientes'}</span></div><button onClick={()=>setOpen(false)} aria-label="Cerrar pendientes"><X size={18}/></button></header>
 
@@ -132,26 +133,39 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
       <footer>{scope==='operations'&&<div className="pending-template-control"><div><FileSpreadsheet size={16}/><span><strong>Plantilla Excel</strong><small>{templateReady===null?'Revisando…':templateReady?'Maestra cargada':'Falta cargar la maestra'}</small></span></div><input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event=>{const file=event.target.files?.[0];if(file)void uploadTemplate(file)}}/><button onClick={()=>fileRef.current?.click()}><Upload size={13}/>{templateReady?'Reemplazar':'Cargar'}</button></div>}<button className="pending-refresh-button" onClick={()=>void refresh()}>Actualizar ahora</button></footer>
     </aside>
 
-    {dashboardOpen&&<section className="pending-dashboard-shell" role="dialog" aria-modal="true" aria-label="Dashboard de pendientes">
-      <header className="pending-dashboard-header">
-        <div><small>{scope==='sales'?'LINK VENTAS':'HOTEL EXPERIENCE'}</small><h2>Dashboard de pendientes</h2><p>Ordena el trabajo por prioridad, fecha de servicio o tipo de solicitud.</p></div>
-        <button className="pending-dashboard-close" onClick={()=>setDashboardOpen(false)} aria-label="Cerrar dashboard"><X size={20}/></button>
+    {dashboardOpen&&<section className="pending-dashboard-shell pending-dashboard-full" role="dialog" aria-modal="true" aria-label="Pendientes por ingreso">
+      <header className="pending-dashboard-header pending-dashboard-header-full">
+        <div className="pending-dashboard-history">
+          <button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('hotel:history-back'))} title="Atrás"><ArrowLeft size={18}/></button>
+          <button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('hotel:history-forward'))} title="Adelante"><ArrowRight size={18}/></button>
+        </div>
+        <div className="pending-dashboard-heading"><small>{scope==='sales'?'LINK VENTAS':'HOTEL EXPERIENCE'}</small><h2>Pendientes por ingreso</h2><p>Cada código es una ficha de trabajo. Ejecuta los pendientes en orden 1, 2, 3, 4…</p></div>
+        <div className="pending-dashboard-header-actions"><button className="pending-dashboard-refresh" type="button" onClick={()=>void refresh()}><RefreshCw size={14}/> Actualizar</button><button className="pending-dashboard-close" onClick={()=>{setDashboardOpen(false);window.dispatchEvent(new CustomEvent('hotel:pending-closed'))}} aria-label="Cerrar pendientes"><X size={20}/></button></div>
       </header>
-      <div className="pending-dashboard-kpis"><article><span>Total</span><strong>{tasks.length}</strong><small>solicitudes abiertas</small></article><article><span>Alta prioridad</span><strong>{highCount}</strong><small>requieren atención primero</small></article><article><span>Clientes</span><strong>{new Set(tasks.map(task=>task.lead_id)).size}</strong><small>ingresos con pendientes</small></article></div>
-      <div className="pending-dashboard-toolbar">
-        <label><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar pendiente, cliente o servicio…"/></label>
-        <div className="pending-dashboard-priority">{priorities.map(item=><button key={item} className={priority===item?'active':''} onClick={()=>setPriority(item)}>{item}</button>)}</div>
-        <div className="pending-dashboard-sort"><span><ArrowDownUp size={13}/> Ordenar</span><button className={dashboardSort==='priority'?'active':''} onClick={()=>setDashboardSort('priority')}>Prioridad</button><button className={dashboardSort==='date'?'active':''} onClick={()=>setDashboardSort('date')}>Fecha</button><button className={dashboardSort==='request'?'active':''} onClick={()=>setDashboardSort('request')}>Solicitud</button></div>
+      <div className="pending-dashboard-kpis"><article><span>Ingresos</span><strong>{groups.length}</strong><small>códigos con pendientes</small></article><article><span>Pendientes</span><strong>{visibleTasks.length}</strong><small>{tasks.length===visibleTasks.length?'total abierto':tasks.length+' total · filtrados'}</small></article><article><span>Alta prioridad</span><strong>{highCount}</strong><small>resolver primero</small></article></div>
+      <div className="pending-dashboard-toolbar pending-dashboard-toolbar-full">
+        <label><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar código, pasajero, servicio o pendiente…"/></label>
+        <div className="pending-dashboard-priority">{priorities.map(item=><button key={item} className={priority===item?'active':''} onClick={()=>setPriority(item)}>{item}</button>)}{(query||priority!=='Todos')&&<button className="pending-clear" onClick={clearFilters}><RotateCcw size={12}/> Limpiar</button>}</div>
+        {scope==='operations'&&<div className="pending-template-inline"><FileSpreadsheet size={14}/><span><strong>Plantilla Excel</strong><small>{templateReady===null?'Revisando…':templateReady?'Lista':'Falta cargar'}</small></span><input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event=>{const file=event.target.files?.[0];if(file)void uploadTemplate(file)}}/><button onClick={()=>fileRef.current?.click()}><Upload size={12}/>{templateReady?'Reemplazar':'Cargar'}</button></div>}
       </div>
-      <div className="pending-dashboard-list">
-        <div className="pending-dashboard-list-head"><span>Prioridad</span><span>Fecha</span><span>Cliente / servicio</span><span>Solicitud</span><span></span></div>
-        {dashboardTasks.length===0?<div className="pending-dashboard-empty"><CheckCircle2 size={25}/><strong>Sin pendientes para este filtro</strong><button onClick={clearFilters}>Mostrar todos</button></div>:dashboardTasks.map(task=><article className={`pending-dashboard-row priority-${priorityClass(task.priority)}`} key={task.task_key}>
-          <span className="pending-dashboard-priority-pill">{task.priority}</span>
-          <span className="pending-dashboard-date"><CalendarDays size={13}/>{formatTaskDate(task)}{task.service_date&&<small>fecha de servicio</small>}</span>
-          <span className="pending-dashboard-client"><strong>{task.lead_code}</strong><small>{task.service_code||task.pax_name||'Sin servicio asociado'}</small></span>
-          <span className="pending-dashboard-request"><strong>{task.title}</strong><small>{task.detail}</small></span>
-          {scope==='operations'?<button className="pending-dashboard-go" onClick={()=>openTask(task)}>Abrir <ArrowUpRight size={13}/></button>:<span/>}
-        </article>)}
+      <div className="pending-dashboard-list pending-dashboard-cards">
+        {loading&&tasks.length===0?<div className="pending-dashboard-empty"><span>Actualizando pendientes…</span></div>:groups.length===0?<div className="pending-dashboard-empty"><CheckCircle2 size={25}/><strong>{tasks.length?'Sin coincidencias':'Todo al día'}</strong><button onClick={clearFilters}>Mostrar todos</button></div>:groups.map((group,groupIndex)=>{
+          const blockers=group.rows.filter(row=>!row.task_key.startsWith('ops_documents:'));
+          const serviceCodes=Array.from(new Set(group.rows.map(row=>row.service_code).filter(Boolean)));
+          return <article className="pending-entry-card" key={group.code}>
+            <header className="pending-entry-head">
+              <span className="pending-entry-sequence">{String(groupIndex+1).padStart(2,'0')}</span>
+              <span className="pending-entry-identity"><small>INGRESO</small><strong>{group.code}</strong><b>{group.paxName}</b>{serviceCodes.length>0&&<em>{serviceCodes.slice(0,3).join(' · ')}</em>}</span>
+              <span className="pending-entry-total">{group.rows.length} pendiente{group.rows.length===1?'':'s'}</span>
+            </header>
+            <div className="pending-entry-tasks">{group.rows.map((task,index)=><button type="button" key={task.task_key} onClick={()=>openTask(task)} className={'pending-entry-task priority-'+priorityClass(task.priority)}>
+              <span className="pending-entry-rank">{index+1}</span>
+              <span className="pending-entry-task-copy"><span className="pending-entry-meta"><b>{task.priority}</b><small><CalendarDays size={11}/>{formatTaskDate(task)}</small></span><strong>{task.title}</strong><small>{task.service_code?task.service_code+' · ':''}{task.detail}</small>{scope==='operations'&&task.task_key.startsWith('ops_documents:')&&<button className="pending-generate" disabled={workingLead===task.lead_id||blockers.length>0||templateReady!==true} onClick={event=>{event.stopPropagation();void generateOperationSheet(task)}}><Download size={13}/>{workingLead===task.lead_id?'Generando…':blockers.length?'Completa '+blockers.length+' pendiente(s) primero':templateReady?'Generar Excel':'Falta plantilla maestra'}</button>}</span>
+              <span className="pending-entry-resolve">Resolver <ArrowUpRight size={13}/></span>
+            </button>)}</div>
+          </article>
+        })}
+        {scope==='operations'&&templateMessage&&<div className="pending-template-message">{templateMessage}</div>}
       </div>
     </section>}
   </>;
