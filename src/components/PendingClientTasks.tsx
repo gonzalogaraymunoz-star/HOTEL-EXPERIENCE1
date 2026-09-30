@@ -158,11 +158,11 @@ export default function PendingClientTasks({scope}:{scope:'sales'|'operations'})
               <span className="pending-entry-identity"><small>INGRESO</small><strong>{group.code}</strong><b>{group.paxName}</b>{serviceCodes.length>0&&<em>{serviceCodes.slice(0,3).join(' · ')}</em>}</span>
               <span className="pending-entry-total">{group.rows.length} pendiente{group.rows.length===1?'':'s'}</span>
             </header>
-            <div className="pending-entry-tasks">{group.rows.map((task,index)=><button type="button" key={task.task_key} onClick={()=>openTask(task)} className={'pending-entry-task priority-'+priorityClass(task.priority)}>
+            <div className="pending-entry-tasks">{group.rows.map((task,index)=><section role="button" tabIndex={0} key={task.task_key} onClick={()=>openTask(task)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' ')openTask(task)}} className={'pending-entry-task priority-'+priorityClass(task.priority)}>
               <span className="pending-entry-rank">{index+1}</span>
               <span className="pending-entry-task-copy"><span className="pending-entry-meta"><b>{task.priority}</b><small><CalendarDays size={11}/>{formatTaskDate(task)}</small></span><strong>{task.title}</strong><small>{task.service_code?task.service_code+' · ':''}{task.detail}</small>{scope==='operations'&&task.task_key.startsWith('ops_documents:')&&<button className="pending-generate" disabled={workingLead===task.lead_id||blockers.length>0||templateReady!==true} onClick={event=>{event.stopPropagation();void generateOperationSheet(task)}}><Download size={13}/>{workingLead===task.lead_id?'Generando…':blockers.length?'Completa '+blockers.length+' pendiente(s) primero':templateReady?'Generar Excel':'Falta plantilla maestra'}</button>}</span>
               <span className="pending-entry-resolve">Resolver <ArrowUpRight size={13}/></span>
-            </button>)}</div>
+            </section>)}</div>
           </article>
         })}
         {scope==='operations'&&templateMessage&&<div className="pending-template-message">{templateMessage}</div>}
