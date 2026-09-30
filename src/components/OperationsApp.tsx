@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {
   Box,Building2,CalendarDays,CarFront,CheckCircle2,ChevronLeft,ChevronRight,ClipboardList,FolderOpen,
   LogOut,Menu,RefreshCw,Route,UtensilsCrossed,UsersRound,X,Users
@@ -22,7 +22,9 @@ import './OperationsApp.css';
 type View='program'|'calendar'|'itinerary'|'food'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
 type CalendarMode='day'|'week'|'month'|'year';
 
-type PendingTaskDetail={leadId:string;serviceId?:string|null;taskKey:string};
+type PendingTaskDetail={leadId:string;serviceId?:string|null;taskKey:string;fromPending?:boolean};
+type NavigationSnapshot={view:View;calendarMode:CalendarMode;selectedDate:string;operationServiceId:string|null;operationTab:ServiceWorkspaceTab};
+type NavigationEntry={kind:'app';snapshot:NavigationSnapshot}|{kind:'pending'};
 
 function operationalCopy(service:LeadService):LeadService{return {...service,precio_venta:null,precio_unitario:null,precio_total:null,price_pp_clp:null,margen_comercial:null,comision_hotel:null,comision_vendedor:null,margen_hotel_experience:null}}
 
@@ -38,6 +40,10 @@ export default function OperationsApp({profile}:{profile:any}){
   const [operationTab,setOperationTab]=useState<ServiceWorkspaceTab>('summary');
   const [mobileNav,setMobileNav]=useState(false);
   const [railExpanded,setRailExpanded]=useState(false);
+  const [pendingVisible,setPendingVisible]=useState(false);
+  const backStackRef=useRef<NavigationEntry[]>([]);
+  const forwardStackRef=useRef<NavigationEntry[]>([]);
+  const [navigationVersion,setNavigationVersion]=useState(0);
 
   const refresh=async()=>{setLoading(true);setError('');try{const data=await loadCRMData();setLeads(data.leads);setServices(data.services)}catch(e:any){setError(e?.message||'No se pudo cargar la operación.')}finally{setLoading(false)}};
   useEffect(()=>{void refresh()},[]);
@@ -48,20 +54,55 @@ export default function OperationsApp({profile}:{profile:any}){
   const activeLeads=useMemo(()=>{const ids=new Set(operationalServices.map(s=>s.lead_id));return leads.filter(l=>nonHistoricalLeadIds.has(l.id)&&ids.has(l.id))},[leads,operationalServices,nonHistoricalLeadIds]);
 
   const canApprovePartners=['admin','manager'].includes(String(profile?.role||''));
-  const openView=(next:View)=>{setView(next);setMobileNav(false)};
-  const selectCalendarMode=(next:CalendarMode)=>{setCalendarMode(next);openView(next==='day'?'program':'calendar')};
+  const currentAppSnapshot=():NavigationSnapshot=>({view,calendarMode,selectedDate,operationServiceId:operationService?.id||null,operationTab});
+  const currentNavigationEntry=():NavigationEntry=>pendingVisible?{kind:'pending'}:{kind:'app',snapshot:currentAppSnapshot()};
+  const navigationKey=(entry:NavigationEntry)=>entry.kind==='pending'?'pending':JSON.stringify(entry.snapshot);
+  const syncNavigationButtons=()=>setNavigationVersion(value=>value+1);
+  const rememberEntry=(entry:NavigationEntry=currentNavigationEntry())=>{
+    const stack=backStackRef.current;
+    if(navigationKey(stack[stack.length-1]||{kind:'pending'})!==navigationKey(entry))stack.push(entry);
+    if(stack.length>60)stack.shift();
+    forwardStackRef.current=[];
+    syncNavigationButtons();
+  };
+  const restoreEntry=(entry:NavigationEntry)=>{
+    if(entry.kind==='pending'){
+      setPendingVisible(true);setOperationService(null);
+      window.dispatchEvent(new CustomEvent('hotel:open-pending-dashboard'));
+      return;
+    }
+    setPendingVisible(false);
+    window.dispatchEvent(new CustomEvent('hotel:close-pending-dashboard'));
+    setView(entry.snapshot.view);setCalendarMode(entry.snapshot.calendarMode);setSelectedDate(entry.snapshot.selectedDate);setOperationTab(entry.snapshot.operationTab);
+    setOperationService(entry.snapshot.operationServiceId?operationalServices.find(service=>service.id===entry.snapshot.operationServiceId)||null:null);
+  };
+  const goBack=()=>{
+    const target=backStackRef.current.pop();if(!target)return;
+    forwardStackRef.current.push(currentNavigationEntry());restoreEntry(target);syncNavigationButtons();
+  };
+  const goForward=()=>{
+    const target=forwardStackRef.current.pop();if(!target)return;
+    backStackRef.current.push(currentNavigationEntry());restoreEntry(target);syncNavigationButtons();
+  };
+  const openView=(next:View)=>{if(next===view&&!operationService)return;rememberEntry();setPendingVisible(false);setOperationService(null);setView(next);setMobileNav(false)};
+  const selectCalendarMode=(next:CalendarMode)=>{const nextView=next==='day'?'program':'calendar';if(next===calendarMode&&nextView===view&&!operationService)return;rememberEntry();setPendingVisible(false);setOperationService(null);setCalendarMode(next);setView(nextView);setMobileNav(false)};
   const movePeriod=(delta:number)=>{const base=parseDate(selectedDate);if(calendarMode==='day')base.setDate(base.getDate()+delta);if(calendarMode==='week')base.setDate(base.getDate()+delta*7);if(calendarMode==='month')base.setMonth(base.getMonth()+delta);if(calendarMode==='year')base.setFullYear(base.getFullYear()+delta);setSelectedDate(isoDate(base))};
-  const openService=(service:LeadService,tab:ServiceWorkspaceTab='summary')=>{setOperationTab(tab);setOperationService(service);if(service.fecha_servicio)setSelectedDate(service.fecha_servicio)};
+  const openService=(service:LeadService,tab:ServiceWorkspaceTab='summary')=>{rememberEntry();setPendingVisible(false);setOperationTab(tab);setOperationService(service);if(service.fecha_servicio)setSelectedDate(service.fecha_servicio)};
+  const canGoBack=backStackRef.current.length>0;
+  const canGoForward=forwardStackRef.current.length>0;
+  void navigationVersion;
 
   useEffect(()=>{
     const handler=(event:Event)=>{
       const detail=(event as CustomEvent<PendingTaskDetail>).detail;
       if(!detail?.leadId)return;
+      rememberEntry(detail.fromPending?{kind:'pending'}:currentNavigationEntry());
+      setPendingVisible(false);
       const taskKey=String(detail.taskKey||'');
       const tab=tabForPending(taskKey);
-      if(taskKey.startsWith('ops_documents:')){openView('records');return}
-      if(taskKey.startsWith('ops_food:')){openView('food');return}
-      if(taskKey.startsWith('ops_itinerary:')){openView('itinerary');return}
+      if(taskKey.startsWith('ops_documents:')){setOperationService(null);setView('records');return}
+      if(taskKey.startsWith('ops_food:')){setOperationService(null);setView('food');return}
+      if(taskKey.startsWith('ops_itinerary:')){setOperationService(null);setView('itinerary');return}
       const direct=detail.serviceId?operationalServices.find(service=>service.id===detail.serviceId):undefined;
       const fallback=operationalServices.find(service=>service.lead_id===detail.leadId);
       const target=direct||fallback;
@@ -69,11 +110,25 @@ export default function OperationsApp({profile}:{profile:any}){
         setError('Este pendiente todavía no tiene un servicio operacional confirmado al cual navegar.');
         return;
       }
-      setCalendarMode('day');setView('program');openService(target,tab);
+      setCalendarMode('day');setView('program');setOperationTab(tab);setOperationService(target);if(target.fecha_servicio)setSelectedDate(target.fecha_servicio);
     };
+    const onPendingOpened=()=>{if(!pendingVisible){rememberEntry({kind:'app',snapshot:currentAppSnapshot()});setPendingVisible(true)}};
+    const onPendingClosed=()=>setPendingVisible(false);
+    const onHistoryBack=()=>goBack();
+    const onHistoryForward=()=>goForward();
     window.addEventListener('hotel:open-pending-task',handler as EventListener);
-    return()=>window.removeEventListener('hotel:open-pending-task',handler as EventListener);
-  },[operationalServices]);
+    window.addEventListener('hotel:pending-opened',onPendingOpened);
+    window.addEventListener('hotel:pending-closed',onPendingClosed);
+    window.addEventListener('hotel:history-back',onHistoryBack);
+    window.addEventListener('hotel:history-forward',onHistoryForward);
+    return()=>{
+      window.removeEventListener('hotel:open-pending-task',handler as EventListener);
+      window.removeEventListener('hotel:pending-opened',onPendingOpened);
+      window.removeEventListener('hotel:pending-closed',onPendingClosed);
+      window.removeEventListener('hotel:history-back',onHistoryBack);
+      window.removeEventListener('hotel:history-forward',onHistoryForward);
+    };
+  },[operationalServices,pendingVisible,view,calendarMode,selectedDate,operationService,operationTab]);
 
   return <div className={`ops-app-shell ${railExpanded?'rail-expanded':''}`}>
     <aside className={`ops-rail ${mobileNav?'open':''} ${railExpanded?'expanded':''}`}>
@@ -99,7 +154,7 @@ export default function OperationsApp({profile}:{profile:any}){
 
     <section className="ops-app-main">
       <header className="ops-topbar">
-        <div className="ops-topbar-left"><button className="ops-mobile-menu" onClick={()=>setMobileNav(value=>!value)}>{mobileNav?<X/>:<Menu/>}</button><div className="ops-brand-copy"><span>HOTEL EXPERIENCE</span><strong>{viewTitle(view)}</strong></div></div>
+        <div className="ops-topbar-left"><button className="ops-mobile-menu" onClick={()=>setMobileNav(value=>!value)}>{mobileNav?<X/>:<Menu/>}</button><div className="ops-history-nav" aria-label="Navegación"><button type="button" onClick={goBack} disabled={!canGoBack} title="Atrás"><ChevronLeft size={17}/></button><button type="button" onClick={goForward} disabled={!canGoForward} title="Adelante"><ChevronRight size={17}/></button></div><div className="ops-brand-copy"><span>HOTEL EXPERIENCE</span><strong>{viewTitle(view)}</strong></div></div>
         <div className="ops-calendar-control">
           <div className="ops-date-control" aria-label="Fecha de operación"><button onClick={()=>movePeriod(-1)} title="Periodo anterior"><ChevronLeft size={18}/></button><label><small>OPERACIÓN</small><input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/><b>{friendlyDate(selectedDate)}</b></label><button onClick={()=>movePeriod(1)} title="Periodo siguiente"><ChevronRight size={18}/></button><button className="ops-today" onClick={()=>setSelectedDate(isoDate(new Date()))}>Hoy</button></div>
           <div className="ops-calendar-modes"><button className={calendarMode==='day'?'active':''} onClick={()=>selectCalendarMode('day')}>Día</button><button className={calendarMode==='week'?'active':''} onClick={()=>selectCalendarMode('week')}>Semana</button><button className={calendarMode==='month'?'active':''} onClick={()=>selectCalendarMode('month')}>Mes</button><button className={calendarMode==='year'?'active':''} onClick={()=>selectCalendarMode('year')}>Año</button></div>
@@ -123,7 +178,7 @@ export default function OperationsApp({profile}:{profile:any}){
       </main>}
     </section>
 
-    {operationService&&leadById.get(operationService.lead_id)&&<ServiceWorkspace lead={leadById.get(operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} initialTab={operationTab} onClose={()=>setOperationService(null)} onChanged={refresh}/>} 
+    {operationService&&leadById.get(operationService.lead_id)&&<ServiceWorkspace lead={leadById.get(operationService.lead_id)!} service={operationService} userRole={profile?.role||'agent'} initialTab={operationTab} onClose={()=>{if(backStackRef.current.length)goBack();else setOperationService(null)}} onChanged={refresh}/>} 
   </div>;
 }
 
