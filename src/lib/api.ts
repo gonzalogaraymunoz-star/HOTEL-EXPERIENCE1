@@ -4,7 +4,7 @@ import type { Lead, LeadService, CRMTask, CRMActivity } from '../types';
 export async function loadCRMData() {
   const sb = assertSupabase();
   const [leadsRes, servicesRes, tasksRes, activitiesRes] = await Promise.all([
-    sb.from('leads').select('*').order('created_at', { ascending: false }),
+    sb.from('leads').select('*').eq('hidden_from_primary', false).order('created_at', { ascending: false }),
     sb.from('lead_services').select('*').order('fecha_servicio', { ascending: true }),
     sb.from('crm_tasks').select('*').order('due_date', { ascending: true }),
     sb.from('crm_activities').select('*').order('created_at', { ascending: false }),
