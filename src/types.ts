@@ -70,6 +70,8 @@ export interface ServicePerson{
   certifications?:string[]|null;first_aid_expiry?:string|null;license_type?:string|null;license_expiry?:string|null;
   sernatur_registration?:string|null;bank_name?:string|null;account_type?:string|null;account_number?:string|null;
   default_rate?:number|null;payment_notes?:string|null;availability_notes?:string|null;emergency_contact?:string|null;
+  profile_photo_url?:string|null;profile_photo_source_url?:string|null;profile_photo_source_title?:string|null;profile_photo_updated_at?:string|null;
+  drive_sync_status?:string|null;drive_last_synced_at?:string|null;
   notes?:string|null;active:boolean;created_at:string;updated_at:string;
 }
 export interface Vehicle{
