@@ -113,8 +113,11 @@ export interface TourFoodSegment{
   unit_cost:number;currency:string;supplier_id?:string|null;notes?:string|null;
   fulfillment_status:FulfillmentStatus|string;created_by?:string|null;created_at:string;updated_at:string;
 }
+export interface FoodConsumptionType{
+  key:string;label:string;description?:string|null;active:boolean;sort_order:number;
+}
 export interface TourFoodPassenger{
-  id:string;segment_id:string;passenger_id:string;quantity:number;notes?:string|null;
+  id:string;segment_id:string;passenger_id:string;quantity:number;consumption_type?:string|null;notes?:string|null;
   created_by?:string|null;created_at:string;updated_at:string;
 }
 export interface ReservationDocument{
