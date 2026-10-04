@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {Box,Building2,CarFront,ChefHat,ChevronRight,ClipboardCheck,Compass,HardHat,Languages,LifeBuoy,Mail,PackagePlus,Phone,Plus,Radio,Search,ShieldCheck,Stethoscope,Truck,UserRoundCog,UsersRound,Wrench,X} from 'lucide-react';
 import type {Supplier,Vehicle,ServicePerson,OperationalResource} from '../types';
 import {createOperationalResource,createServicePerson,createSupplier,createVehicle,loadOperationsData,loadOperationsDirectory} from '../lib/api';
+import ServicePersonProfileModal from './ServicePersonProfileModal';
 
 export type Tab='suppliers'|'people'|'vehicles'|'resources';
 
@@ -21,6 +22,7 @@ export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}
   const [quickNotes,setQuickNotes]=useState('');
   const [quickSaving,setQuickSaving]=useState(false);
   const [directorySearch,setDirectorySearch]=useState('');
+  const [profilePersonId,setProfilePersonId]=useState<string|null>(null);
   const canEdit=role==='admin'||role==='manager';
 
   const load=async()=>{
@@ -156,6 +158,7 @@ export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}
     </>}
 
     {modal&&<CreateModal type={modal} suppliers={suppliers} people={people} onClose={()=>setModal(null)} onSaved={async()=>{setModal(null);await load()}}/>}
+    {profilePersonId&&people.find(p=>p.id===profilePersonId)&&<ServicePersonProfileModal person={people.find(p=>p.id===profilePersonId)!} suppliers={suppliers} onClose={()=>setProfilePersonId(null)} onChanged={async()=>{await load()}} onOpenFullRecord={()=>{const id=profilePersonId;setProfilePersonId(null);if(id)onOpenRecord?.('person',id)}}/>}
   </div>
 }
 
