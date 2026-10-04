@@ -15,7 +15,7 @@ export default function PrefilledOperationListButton({service}:{service:LeadServ
     const target=window.open('about:blank','_blank');
     setLoading(true);
     try{
-      const body=await openOrGenerateOperationLists(departureId);
+      const body=await openOrGenerateOperationLists(departureId,true);
       if(!body.url)throw new Error('La lista no tiene enlace disponible.');
       if(target){target.location.href=body.url;}else{window.open(body.url,'_blank','noopener,noreferrer');}
       if(Array.isArray((body as any).warnings)&&(body as any).warnings.length)console.warn('Validaciones listas prellenadas',(body as any).warnings);
