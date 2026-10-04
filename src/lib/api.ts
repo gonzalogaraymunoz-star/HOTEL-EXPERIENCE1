@@ -404,7 +404,7 @@ export async function updateServiceAssignment(leadServiceId:string,patch:any){
 export async function upsertReservationDocument(leadId:string,documentType:string,patch:any){
   const sb=assertSupabase();
   const {data:{user}}=await sb.auth.getUser();
-  const {data:existing,error:findError}=await sb.from('reservation_documents').select('id').eq('lead_id',leadId).eq('document_type',documentType).maybeSingle();
+  const {data:existing,error:findError}=await sb.from('reservation_documents').select('id').eq('lead_id',leadId).eq('document_type',documentType).is('passenger_id',null).maybeSingle();
   if(findError) throw findError;
   const completed=patch.status==='Completada'?new Date().toISOString():patch.completed_at;
   if(existing?.id){
@@ -412,7 +412,26 @@ export async function upsertReservationDocument(leadId:string,documentType:strin
     if(error) throw error;
   }else{
     const {error}=await sb.from('reservation_documents').insert({
-      lead_id:leadId,document_type:documentType,title:patch.title||'Documento',status:patch.status||'Pendiente',
+      lead_id:leadId,passenger_id:null,document_type:documentType,title:patch.title||'Documento',status:patch.status||'Pendiente',
+      url:patch.url||null,risk_data:patch.risk_data||{},completed_at:completed??null,created_by:user?.id||null
+    });
+    if(error) throw error;
+  }
+}
+
+export async function upsertPassengerReservationDocument(leadId:string,passengerId:string,documentType:string,patch:any){
+  const sb=assertSupabase();
+  const {data:{user}}=await sb.auth.getUser();
+  const {data:existing,error:findError}=await sb.from('reservation_documents').select('id')
+    .eq('lead_id',leadId).eq('passenger_id',passengerId).eq('document_type',documentType).maybeSingle();
+  if(findError) throw findError;
+  const completed=patch.status==='Completada'?new Date().toISOString():patch.completed_at;
+  if(existing?.id){
+    const {error}=await sb.from('reservation_documents').update({...patch,completed_at:completed??null,updated_at:new Date().toISOString()}).eq('id',existing.id);
+    if(error) throw error;
+  }else{
+    const {error}=await sb.from('reservation_documents').insert({
+      lead_id:leadId,passenger_id:passengerId,document_type:documentType,title:patch.title||'Documento',status:patch.status||'Pendiente',
       url:patch.url||null,risk_data:patch.risk_data||{},completed_at:completed??null,created_by:user?.id||null
     });
     if(error) throw error;
