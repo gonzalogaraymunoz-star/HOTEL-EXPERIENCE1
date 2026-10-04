@@ -15,6 +15,7 @@ type DriveSource={
 type EntityDocument={
   id:string;entity_type?:string;entity_id?:string;document_type:string;title:string;storage_bucket:string;storage_path:string;file_name:string;
   mime_type?:string|null;size_bytes?:number|null;expires_on?:string|null;notes?:string|null;status:string;created_at?:string;updated_at?:string;
+  source_kind?:string|null;external_url?:string|null;external_id?:string|null;verification_level?:'official'|'operational'|'historical'|string|null;source_metadata?:Record<string,unknown>|null;
 };
 type Requirement={
   key:string;label:string;required:boolean;reason:string;expiryField?:'first_aid_expiry'|'license_expiry';
@@ -279,7 +280,7 @@ export default function ServicePersonProfileModal({
           <div className="provider-doc-list">
             {documents.map(doc=><article key={doc.id}>
               <div className="provider-drive-icon">{String(doc.mime_type||'').startsWith('image/')?<ImageIcon size={16}/>:<FileText size={16}/>}</div>
-              <div><strong>{doc.title}</strong><span>{documentTypeLabel(doc.document_type)}{doc.expires_on?` · vence ${dateFmt(doc.expires_on)}`:''}</span></div>
+              <div><strong>{doc.title}</strong><span>{documentTypeLabel(doc.document_type)} · {verificationLabel(doc.verification_level)}{doc.expires_on?` · vence ${dateFmt(doc.expires_on)}`:''}</span></div>
               {String(doc.mime_type||'').startsWith('image/')&&<button className="no-print" type="button" disabled={photoLoading} onClick={()=>useDocumentAsPhoto(doc)}><Camera size={14}/> Usar como foto</button>}
               <button className="no-print" type="button" onClick={()=>openStoredDocument(doc)}><ExternalLink size={14}/> Abrir</button>
             </article>)}
@@ -328,16 +329,22 @@ function complianceFor(requirements:Requirement[],documents:EntityDocument[],dra
 
 function requirementState(req:Requirement,documents:EntityDocument[],draft:any){
   const matching=documents.filter(d=>d.document_type===req.key);
-  const doc=matching[0]||null;
+  const official=matching.find(d=>(d.verification_level||'official')==='official');
+  const evidence=matching.find(d=>(d.verification_level||'official')!=='official');
+  const doc=official||evidence||null;
   if(!doc)return {tone:'missing',message:req.required?'Falta respaldo documental.':'Sin documento asociado.',doc:null as EntityDocument|null};
-  const expiry=doc.expires_on||(req.expiryField?draft[req.expiryField]:null);
+  if(!official){
+    const level=doc.verification_level==='historical'?'antecedente histórico':'evidencia operativa';
+    return {tone:'review',message:`Existe ${level} en Drive, pero falta el documento oficial habilitante.`,doc};
+  }
+  const expiry=official.expires_on||(req.expiryField?draft[req.expiryField]:null);
   if(expiry){
     const end=new Date(`${expiry}T23:59:59`).getTime();
-    if(Number.isFinite(end)&&end<Date.now())return {tone:'expired',message:`Documento vencido el ${dateFmt(expiry)}.`,doc};
-    if(Number.isFinite(end)&&end-Date.now()<30*86400000)return {tone:'review',message:`Vigente hasta ${dateFmt(expiry)} · vence pronto.`,doc};
-    return {tone:'ok',message:`Documento vigente hasta ${dateFmt(expiry)}.`,doc};
+    if(Number.isFinite(end)&&end<Date.now())return {tone:'expired',message:`Documento oficial vencido el ${dateFmt(expiry)}.`,doc:official};
+    if(Number.isFinite(end)&&end-Date.now()<30*86400000)return {tone:'review',message:`Documento oficial vigente hasta ${dateFmt(expiry)} · vence pronto.`,doc:official};
+    return {tone:'ok',message:`Documento oficial vigente hasta ${dateFmt(expiry)}.`,doc:official};
   }
-  return {tone:'ok',message:'Documento cargado y disponible para revisión.',doc};
+  return {tone:'ok',message:'Documento oficial cargado y disponible para revisión.',doc:official};
 }
 
 async function resolvePhoto(person:ServicePerson,docs:EntityDocument[],setPhoto:(url:string)=>void){
@@ -362,6 +369,11 @@ async function resolvePhoto(person:ServicePerson,docs:EntityDocument[],setPhoto:
 }
 
 async function openStoredDocument(doc:EntityDocument){
+  if(doc.external_url||doc.source_kind==='drive'){
+    const url=doc.external_url||doc.storage_path;
+    if(url)window.open(url,'_blank','noopener,noreferrer');
+    return;
+  }
   const sb=assertSupabase();
   const signed=await sb.storage.from(doc.storage_bucket||BUCKET).createSignedUrl(doc.storage_path,300);
   if(signed.error)return alert(signed.error.message);
@@ -379,5 +391,6 @@ function csv(v:string){return String(v||'').split(',').map(x=>x.trim()).filter(B
 function safeName(v:string){return String(v||'archivo').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/-+/g,'-').slice(0,140)}
 function dateFmt(date:string){return new Date(`${date}T12:00:00`).toLocaleDateString('es-CL')}
 function documentTypeLabel(type:string){return ({identity:'Cédula / pasaporte',sernatur:'Registro SERNATUR',first_aid:'Primeros auxilios',driver_license:'Licencia de conducir',certification:'Certificación / credencial',bank:'Datos bancarios',contract:'Contrato / acuerdo',other:'Otro documento'} as Record<string,string>)[type]||type}
+function verificationLabel(level?:string|null){return level==='operational'?'Evidencia operativa Drive':level==='historical'?'Antecedente histórico':'Documento oficial'}
 function Field({label,children,wide=false}:{label:string;children:React.ReactNode;wide?:boolean}){return <label className={wide?'provider-field wide':'provider-field'}><span>{label}</span>{children}</label>}
 function SectionTitle({icon,title,subtitle}:{icon:React.ReactNode;title:string;subtitle:string}){return <header className="provider-section-title"><span>{icon}</span><div><h3>{title}</h3><p>{subtitle}</p></div></header>}
