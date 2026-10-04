@@ -1,7 +1,7 @@
 import React,{useState} from 'react';
 import {FileSpreadsheet,LoaderCircle} from 'lucide-react';
 import type {LeadService} from '../types';
-import {assertSupabase} from '../lib/supabase';
+import {openOrGenerateOperationLists} from '../lib/operationLists';
 
 export default function PrefilledOperationListButton({service}:{service:LeadService}){
   const [loading,setLoading]=useState(false);
@@ -15,18 +15,10 @@ export default function PrefilledOperationListButton({service}:{service:LeadServ
     const target=window.open('about:blank','_blank');
     setLoading(true);
     try{
-      const sb=assertSupabase();
-      const {data:{session}}=await sb.auth.getSession();
-      if(!session?.access_token)throw new Error('Sesión requerida.');
-      const response=await fetch('/api/operation-lists',{
-        method:'POST',
-        headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},
-        body:JSON.stringify({action:'generate',departureId})
-      });
-      const body=await response.json();
-      if(!response.ok)throw new Error(body.error||'No se pudieron generar las listas.');
+      const body=await openOrGenerateOperationLists(departureId);
+      if(!body.url)throw new Error('La lista no tiene enlace disponible.');
       if(target){target.location.href=body.url;}else{window.open(body.url,'_blank','noopener,noreferrer');}
-      if(Array.isArray(body.warnings)&&body.warnings.length)console.warn('Validaciones listas prellenadas',body.warnings);
+      if(Array.isArray((body as any).warnings)&&(body as any).warnings.length)console.warn('Validaciones listas prellenadas',(body as any).warnings);
     }catch(error:any){
       if(target)target.close();
       alert(error?.message||'No se pudieron abrir las listas prellenadas.');
