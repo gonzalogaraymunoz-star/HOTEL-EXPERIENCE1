@@ -33,8 +33,9 @@ export default function ServiceAssignmentWorkspace({lead,service,userRole,onChan
   const groupedPax=groupedServices.reduce((sum,item)=>sum+Number(item.numero_pax||0),0);
   const save=async(patch:any)=>{if(!canEdit)return;setSaving(true);try{await updateServiceAssignment(targetServiceId,patch);await load();onChanged();}finally{setSaving(false)}};
   const saveStatus=async(next:string)=>{if(!canEdit)return;setSaving(true);try{if(departure?.id)await updateDepartureOperationStatus(departure.id,next);else await updateService(service.id,{estado_operacion:next});await load();onChanged();}finally{setSaving(false)}};
-  const assignedIds=new Set(resourceAssignments.map(item=>item.resource_id));
-  const availableResources=resources.filter(item=>!assignedIds.has(item.id));
+  const nonFoodAssignments=resourceAssignments.filter(item=>{const resource=resources.find(row=>row.id===item.resource_id);return !isFood(resource?.resource_type)});
+  const assignedIds=new Set(nonFoodAssignments.map(item=>item.resource_id));
+  const availableResources=resources.filter(item=>!isFood(item.resource_type)&&!assignedIds.has(item.id));
   const coverageSet=new Set<Coverage>(Array.isArray(a.supplier_coverage)?a.supplier_coverage as Coverage[]:[]);
   const mode=String(a.operation_mode||'direct');
 
@@ -82,12 +83,12 @@ export default function ServiceAssignmentWorkspace({lead,service,userRole,onChan
     </section>
 
     <section className="assignment-section">
-      <div className="assignment-section-head"><div><span>INSUMOS</span><h3>Recursos asignados</h3></div><small>Los recursos con tipo “Alimentación” alimentan automáticamente el tablero de Alimentación.</small></div>
+      <div className="assignment-section-head"><div><span>INSUMOS</span><h3>Recursos asignados</h3></div><small>La alimentación ya no se crea como recurso genérico. Se asigna por pax y por tramo en la pestaña “Alimentación”.</small></div>
       {canEdit&&<div className="resource-add-row"><select value={resourceId} onChange={e=>setResourceId(e.target.value)}><option value="">Seleccionar insumo…</option>{availableResources.map(item=><option key={item.id} value={item.id}>{item.resource_type} · {item.code||''} · {item.name}</option>)}</select><input type="number" min="1" value={resourceQty} onChange={e=>setResourceQty(Number(e.target.value))}/><input value={resourceNotes} onChange={e=>setResourceNotes(e.target.value)} placeholder="Nota opcional"/><button disabled={!resourceId||saving} onClick={()=>void addResource()}><Plus size={15}/> Agregar</button></div>}
-      <div className="assigned-resource-list">{resourceAssignments.map(item=>{
+      <div className="assigned-resource-list">{nonFoodAssignments.map(item=>{
         const resource=resources.find(r=>r.id===item.resource_id);
         return <article key={item.id}><div><b>{resource?.name||'Recurso'}</b><span>{resource?.code||'—'} · {resource?.resource_type||'Sin tipo'} · x{item.quantity}</span>{item.notes&&<small>{item.notes}</small>}</div><span className={`resource-fulfillment ${(item.fulfillment_status||'Pendiente').toLowerCase()}`}>{item.fulfillment_status||'Pendiente'}</span>{canEdit&&<button title="Quitar insumo" onClick={async()=>{if(!confirm('¿Quitar este insumo del tour?'))return;if(departure?.id)await removeResourceFromDeparture(item.id);else await removeResourceFromService(item.id);await load();onChanged()}}><Trash2 size={14}/></button>}</article>
-      })}{!resourceAssignments.length&&<div className="workspace-empty compact">Sin insumos asignados.</div>}</div>
+      })}{!nonFoodAssignments.length&&<div className="workspace-empty compact">Sin insumos operacionales asignados.</div>}</div>
     </section>
   </div>;
 }
@@ -106,4 +107,5 @@ function VehicleField({vehicles,id,manual,disabled,onChange}:{vehicles:Vehicle[]
   return <div className="assignment-field manual-field"><span>Vehículo</span><select disabled={disabled} value={value} onChange={e=>{if(e.target.value==='__manual__')onChange(null,manual||' ');else onChange(e.target.value||null,null)}}><option value="">Sin asignar</option>{vehicles.map(vehicle=><option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_code?`${vehicle.vehicle_code} · `:''}{vehicle.label}{vehicle.plate?` · ${vehicle.plate}`:''}</option>)}<option value="__manual__">Manual…</option></select>{value==='__manual__'&&<input disabled={disabled} autoFocus value={manual?.trimStart()||''} onChange={e=>onChange(null,e.target.value)} placeholder="Vehículo / patente manual"/>}</div>
 }
 
+function isFood(value:any){return ['alimentación','alimentacion','food','alimentos'].includes(String(value||'').trim().toLowerCase())}
 function matchRole(type:string,role:string){const value=String(type||'').toLowerCase();if(role==='guide')return value.includes('guía')||value.includes('guia');if(role==='driver')return value.includes('conductor')||value.includes('chofer');if(role==='cook')return value.includes('cocin');return value.includes('coord')}

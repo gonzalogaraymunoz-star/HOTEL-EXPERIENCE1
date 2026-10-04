@@ -124,7 +124,7 @@ function EditForm({kind,item,suppliers,people,onCancel,onSaved}:any){
       </>}
       {kind==='resource'&&<>
         <Field label="Insumo"><input value={f.name||''} onChange={e=>setF({...f,name:e.target.value})}/></Field>
-        <Field label="Tipo"><input value={f.resource_type||''} onChange={e=>setF({...f,resource_type:e.target.value})}/></Field>
+        <Field label="Tipo"><select value={f.resource_type||'Otro'} onChange={e=>setF({...f,resource_type:e.target.value})}>{['Seguridad','Montaña','Operación','Higiene','Vestuario','Tecnología','Otro'].map(x=><option key={x}>{x}</option>)}</select></Field>
         <Field label="Proveedor"><select value={f.supplier_id||''} onChange={e=>setF({...f,supplier_id:e.target.value})}><option value="">Sin proveedor</option>{suppliers.filter((s:Supplier)=>s.active!==false).map((s:Supplier)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
         <Field label="Cantidad total"><input type="number" value={f.quantity_total||0} onChange={e=>setF({...f,quantity_total:e.target.value})}/></Field>
         <Field label="Disponible"><input type="number" value={f.quantity_available||0} onChange={e=>setF({...f,quantity_available:e.target.value})}/></Field>

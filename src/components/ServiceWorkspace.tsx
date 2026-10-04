@@ -1,10 +1,12 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {ArrowLeft,CalendarDays,ClipboardList,MessageSquare,Pencil,RefreshCw,Save,ShieldAlert,Users,UtensilsCrossed,Wrench,X} from 'lucide-react';
-import type {Lead,LeadService,OperationalResource,Passenger,LeadServicePassengerLink,ReservationDocument,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,TourDeparture,TourDepartureNote,Vehicle} from '../types';
-import {addTourDepartureNote,loadServiceWorkspaceData,updatePassengerOperationalData,updateResourceFulfillment,updateTourDeparture} from '../lib/operationsApi';
+import type {Lead,LeadService,OperationalResource,Passenger,LeadServicePassengerLink,ReservationDocument,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,TourDeparture,TourDepartureNote,TourFoodPassenger,TourFoodSegment,Vehicle} from '../types';
+import {addTourDepartureNote,loadServiceWorkspaceData,updatePassengerOperationalData,updateTourDeparture} from '../lib/operationsApi';
+import {foodOrder} from '../lib/food';
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
 import PassengerRiskWorkspace from './PassengerRiskWorkspace';
+import TourFoodWorkspace from './TourFoodWorkspace';
 import PrefilledOperationListButton from './PrefilledOperationListButton';
 import './PassengerEditor.css';
 
@@ -28,7 +30,6 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
   const passengers=(data?.passengers||[]) as Passenger[];
   const resources=(data?.resources||[]) as OperationalResource[];
   const resourceAssignments=(data?.resourceAssignments||[]) as ServiceResourceAssignment[];
-  const food=useMemo(()=>resourceAssignments.map(item=>({assignment:item,resource:resources.find(resource=>resource.id===item.resource_id)})).filter(item=>isFood(item.resource?.resource_type)),[resourceAssignments,resources]);
   const itinerary=(data?.itineraryServices||[]) as LeadService[];
   const departureServices=(data?.departureServices||[service]) as LeadService[];
   const reservationLeads=(data?.reservationLeads||[lead]) as Lead[];
@@ -52,7 +53,7 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
         <TabButton active={tab==='summary'} icon={<ClipboardList/>} onClick={()=>setTab('summary')}>Resumen</TabButton>
         <TabButton active={tab==='assignments'} icon={<Wrench/>} onClick={()=>setTab('assignments')}>Asignaciones</TabButton>
         <TabButton active={tab==='passengers'} icon={<Users/>} onClick={()=>setTab('passengers')}>Pasajeros</TabButton>
-        <TabButton active={tab==='food'} icon={<UtensilsCrossed/>} onClick={()=>setTab('food')}>Alimentación <em>{food.length}</em></TabButton>
+        <TabButton active={tab==='food'} icon={<UtensilsCrossed/>} onClick={()=>setTab('food')}>Alimentación</TabButton>
         <TabButton active={tab==='itinerary'} icon={<CalendarDays/>} onClick={()=>setTab('itinerary')}>Itinerario</TabButton>
         <TabButton active={tab==='risk'} icon={<ShieldAlert/>} onClick={()=>setTab('risk')}>Hoja de riesgo</TabButton>
       </nav>
@@ -61,8 +62,8 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
         {loading?<div className="workspace-empty">Cargando servicio…</div>:<>
           {tab==='summary'&&<Summary lead={lead} service={service} passengers={passengers} assignment={assignment} supplier={supplier} vehicle={vehicle} guide={guide} driver={driver} data={data} canEdit={userRole!=='viewer'} onChanged={refreshed}/>} 
           {tab==='assignments'&&<ServiceAssignmentWorkspace lead={lead} service={service} userRole={userRole} onChanged={refreshed}/>} 
-          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={tourPax} reservations={reservationLeads} onChanged={refreshed}/>} 
-          {tab==='food'&&<FoodPanel rows={food} service={service} onChanged={refreshed}/>} 
+          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={tourPax} reservations={reservationLeads} foodSegments={(data.foodSegments||[]) as TourFoodSegment[]} foodAssignments={(data.foodPassengerAssignments||[]) as TourFoodPassenger[]} onChanged={refreshed}/>} 
+          {tab==='food'&&(departure?<TourFoodWorkspace departure={departure} passengers={riskPassengers} reservations={reservationLeads} onChanged={refreshed}/>:<div className="workspace-empty">Esta operación todavía no tiene un TOUR. Vincula la salida antes de asignar alimentación.</div>)} 
           {tab==='itinerary'&&<div className="tour-reservation-documents">{reservationLeads.map(item=><section key={item.id}><header><span>RESERVA {item.codigo}</span><b>{item.reserva}</b></header><CustomerItineraryPreview lead={item} services={itinerary} passengers={passengers.filter(passenger=>passenger.lead_id===item.id)} compact/></section>)}</div>}
           {tab==='risk'&&(departure?<PassengerRiskWorkspace reservations={reservationLeads} passengers={riskPassengers} documents={(data.documents||[]) as ReservationDocument[]} departureId={departure.id} departureCode={departure.departure_code} onChanged={refreshed}/>:<div className="workspace-empty">Esta operación todavía no tiene un código TOUR. Vincula la salida antes de generar hojas de riesgo.</div>)} 
         </>}
@@ -90,7 +91,7 @@ function Summary({lead,service,passengers,assignment,supplier,vehicle,guide,driv
       <table className="workspace-table compact-table"><thead><tr><th>Reserva</th><th>Código pax</th><th>Nombre / edad</th><th>País</th><th>Documento</th><th>Notas operacionales</th></tr></thead><tbody>{passengers.map(p=>{const reservation=(data.reservationLeads as Lead[]).find(item=>item.id===p.lead_id);return <tr key={p.id}><td><b>{reservation?.codigo||'—'}</b><small>{reservation?.reserva}</small></td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name} · {age(p.birth_date)}</b></td><td>{p.nationality||'—'}</td><td>{p.document_number||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td></tr>})}</tbody></table>
       {!passengers.length&&<div className="workspace-empty compact">No hay pasajeros individuales cargados todavía.</div>}
     </section>
-    <section className="service-passenger-summary"><header><div><span>INSUMOS Y ALIMENTACIÓN</span><h3>Recursos asignados al tour</h3></div></header><div className="tour-resource-summary">{(data.resourceAssignments||[]).map((item:ServiceResourceAssignment)=>{const resource=(data.resources as OperationalResource[]).find(row=>row.id===item.resource_id);return <article key={item.id}><b>{resource?.name||'Recurso'} ×{item.quantity}</b><span>{resource?.resource_type||'Sin tipo'} · {item.fulfillment_status||'Pendiente'}</span>{item.notes&&<small>{item.notes}</small>}</article>})}{!data.resourceAssignments?.length&&<div className="workspace-empty compact">Sin insumos asignados.</div>}</div></section>
+    <section className="service-passenger-summary"><header><div><span>INSUMOS OPERACIONALES</span><h3>Recursos del tour</h3></div></header><div className="tour-resource-summary">{(data.resourceAssignments||[]).map((item:ServiceResourceAssignment)=>{const resource=(data.resources as OperationalResource[]).find(row=>row.id===item.resource_id);if(isFood(resource?.resource_type))return null;return <article key={item.id}><b>{resource?.name||'Recurso'} ×{item.quantity}</b><span>{resource?.resource_type||'Sin tipo'} · {item.fulfillment_status||'Pendiente'}</span>{item.notes&&<small>{item.notes}</small>}</article>})}{!(data.resourceAssignments||[]).some((item:ServiceResourceAssignment)=>{const resource=(data.resources as OperationalResource[]).find(row=>row.id===item.resource_id);return !isFood(resource?.resource_type)})&&<div className="workspace-empty compact">Sin insumos operacionales asignados. La alimentación se gestiona por pax en su propia pestaña.</div>}</div></section>
   </div>;
 }
 
@@ -121,7 +122,7 @@ function passengerDraft(passenger:Passenger):PassengerDraft{return{
   disability_type:passenger.disability_type||''
 }}
 
-function PassengerPanel({passengers,expected,reservations,onChanged}:{passengers:Passenger[];expected:number;reservations:Lead[];onChanged:()=>void}){
+function PassengerPanel({passengers,expected,reservations,foodSegments,foodAssignments,onChanged}:{passengers:Passenger[];expected:number;reservations:Lead[];foodSegments:TourFoodSegment[];foodAssignments:TourFoodPassenger[];onChanged:()=>void}){
   const [editingId,setEditingId]=useState<string|null>(null);
   const [draft,setDraft]=useState<PassengerDraft|null>(null);
   const [saving,setSaving]=useState(false);
@@ -144,7 +145,7 @@ function PassengerPanel({passengers,expected,reservations,onChanged}:{passengers
 
   return <section className="panel-page passenger-panel-page">
     <header className="panel-page-head"><div><span>LISTA NOMINAL</span><h2>Pasajeros · {passengers.length}/{expected}</h2><p>Estos son los mismos pasajeros de la reserva. Puedes completar aquí los datos faltantes sin crear registros duplicados.</p></div></header>
-    <div className="workspace-table-scroll"><table className="workspace-table passenger-data-table"><thead><tr><th>Reserva</th><th>Código pax</th><th>Nombre / edad</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th><th></th></tr></thead><tbody>{passengers.map(p=>{const reservation=reservations.find(item=>item.id===p.lead_id);return <tr key={p.id} className={editingId===p.id?'is-editing':''}><td><b>{reservation?.codigo||'—'}</b></td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name} · {age(p.birth_date)}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td><td><button className="passenger-edit-button" type="button" onClick={()=>begin(p)}><Pencil size={13}/> Editar</button></td></tr>})}</tbody></table></div>
+    <div className="workspace-table-scroll"><table className="workspace-table passenger-data-table"><thead><tr><th>Reserva</th><th>Código pax</th><th>Nombre / edad</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Alimentación asignada</th><th>Observaciones</th><th></th></tr></thead><tbody>{passengers.map(p=>{const reservation=reservations.find(item=>item.id===p.lead_id);const foods=foodLabelsForPassenger(p.id,foodSegments,foodAssignments);return <tr key={p.id} className={editingId===p.id?'is-editing':''}><td><b>{reservation?.codigo||'—'}</b></td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name} · {age(p.birth_date)}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td><div className="passenger-food-chips">{foods.length?foods.map(item=><span key={item}>{item}</span>):<small>Sin asignar</small>}</div></td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td><td><button className="passenger-edit-button" type="button" onClick={()=>begin(p)}><Pencil size={13}/> Editar</button></td></tr>})}</tbody></table></div>
     {!passengers.length&&<div className="workspace-empty compact">No hay pasajeros individuales cargados todavía.</div>}
 
     {active&&draft&&<section className="passenger-editor-card" aria-label={`Editar ${active.full_name}`}>
@@ -167,11 +168,7 @@ function PassengerPanel({passengers,expected,reservations,onChanged}:{passengers
   </section>
 }
 
-function FoodPanel({rows,service,onChanged}:{rows:{assignment:ServiceResourceAssignment;resource?:OperationalResource}[];service:LeadService;onChanged:()=>void}){
-  const [saving,setSaving]=useState<string|null>(null);
-  const update=async(id:string,status:string)=>{setSaving(id);try{await updateResourceFulfillment(id,status);onChanged();}finally{setSaving(null)}};
-  return <section className="panel-page"><header className="panel-page-head"><div><span>ALIMENTACIÓN DEL SERVICIO</span><h2>{service.producto}</h2><p>Se completa automáticamente desde los insumos clasificados como Alimentación.</p></div></header><div className="workspace-table-scroll"><table className="workspace-table"><thead><tr><th>Código</th><th>Ítem</th><th>Cantidad</th><th>Nota</th><th>Estado</th></tr></thead><tbody>{rows.map(({assignment,resource})=><tr key={assignment.id}><td><b>{resource?.code||'—'}</b></td><td><b>{resource?.name||'Recurso'}</b></td><td>{assignment.quantity}</td><td>{assignment.notes||'—'}</td><td><select disabled={saving===assignment.id} value={assignment.fulfillment_status||'Pendiente'} onChange={e=>void update(assignment.id,e.target.value)}><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select></td></tr>)}</tbody></table>{!rows.length&&<div className="workspace-empty">No hay alimentación asignada a este servicio.</div>}</div></section>}
-
+function foodLabelsForPassenger(passengerId:string,segments:TourFoodSegment[],assignments:TourFoodPassenger[]){const ids=new Set(assignments.filter(item=>item.passenger_id===passengerId).map(item=>item.segment_id));return segments.filter(item=>ids.has(item.id)).sort((a,b)=>foodOrder(a.food_type)-foodOrder(b.food_type)).map(item=>item.food_type)}
 function Fact({label,value}:{label:string;value:string}){return <div className="service-fact"><span>{label}</span><b>{value}</b></div>}
 function TabButton({active,icon,onClick,children}:{active:boolean;icon:React.ReactNode;onClick:()=>void;children:React.ReactNode}){return <button className={active?'active':''} onClick={onClick}>{icon}<span>{children}</span></button>}
 function modalityLabel(value:any){const key=String(value||'').toLowerCase();return key.includes('semi')?'Semiprivado':key.includes('priv')?'Privado':'Regular'}
