@@ -4,7 +4,7 @@ import type {Lead,LeadService,OperationalResource,Passenger,ReservationDocument,
 import {addTourDepartureNote,loadServiceWorkspaceData,updatePassengerOperationalData,updateResourceFulfillment,updateTourDeparture} from '../lib/operationsApi';
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
-import ReservationRiskModule from './ReservationRiskModule';
+import PassengerRiskWorkspace from './PassengerRiskWorkspace';
 import PrefilledOperationListButton from './PrefilledOperationListButton';
 import './PassengerEditor.css';
 
@@ -58,7 +58,7 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
           {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={tourPax} reservations={reservationLeads} onChanged={refreshed}/>} 
           {tab==='food'&&<FoodPanel rows={food} service={service} onChanged={refreshed}/>} 
           {tab==='itinerary'&&<div className="tour-reservation-documents">{reservationLeads.map(item=><section key={item.id}><header><span>RESERVA {item.codigo}</span><b>{item.reserva}</b></header><CustomerItineraryPreview lead={item} services={itinerary} passengers={passengers.filter(passenger=>passenger.lead_id===item.id)} compact/></section>)}</div>}
-          {tab==='risk'&&<div className="tour-reservation-documents">{reservationLeads.map(item=><ReservationRiskModule key={item.id} lead={item} services={itinerary.filter(row=>row.lead_id===item.id)} passengers={passengers.filter(passenger=>passenger.lead_id===item.id)} document={(data.documents as ReservationDocument[]).find(document=>document.lead_id===item.id&&document.document_type==='risk_sheet')||null} onChanged={refreshed}/>)}</div>} 
+          {tab==='risk'&&<PassengerRiskWorkspace reservations={reservationLeads} services={itinerary} passengers={passengers} documents={(data.documents||[]) as ReservationDocument[]} onChanged={refreshed}/>} 
         </>}
       </main>
     </section>
