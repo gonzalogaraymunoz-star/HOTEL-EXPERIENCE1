@@ -1,82 +1,105 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {CheckCircle2,Clock3,Printer,Search,UtensilsCrossed} from 'lucide-react';
-import {loadFoodBoard,updateResourceFulfillment} from '../lib/operationsApi';
+import {loadFoodBoard,updateFoodSegment,upsertFoodSegment} from '../lib/operationsApi';
+import {FOOD_TYPES,foodOrder,moneyCLP,type FoodType} from '../lib/food';
 
 export default function FoodOperationsBoard({date}:{date:string}){
-  const [rows,setRows]=useState<any[]>([]);
+  const [departures,setDepartures]=useState<any[]>([]);
+  const [segments,setSegments]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('Todos');
-  const [supplier,setSupplier]=useState('Todos');
-  const [saving,setSaving]=useState<string|null>(null);
+  const [saving,setSaving]=useState('');
+  const [costDraft,setCostDraft]=useState<Record<string,string>>({});
 
   const load=async()=>{
     setLoading(true);
-    try{setRows(await loadFoodBoard(date));}finally{setLoading(false)}
+    try{
+      const data=await loadFoodBoard(date);
+      setDepartures(data.departures);
+      setSegments(data.segments);
+      const next:Record<string,string>={};
+      for(const item of data.segments)next[`${item.departure_id}:${item.food_type}`]=String(Number(item.unit_cost||0)||'');
+      setCostDraft(next);
+    }finally{setLoading(false)}
   };
   useEffect(()=>{void load()},[date]);
 
-  const filtered=useMemo(()=>rows.filter(row=>{
-    if(status!=='Todos'&&String(row.fulfillment_status||'Pendiente')!==status)return false;
-    if(supplier!=='Todos'&&String(row.supplier_name||'Sin proveedor asignado')!==supplier)return false;
+  const segmentMap=useMemo(()=>new Map(segments.map(item=>[`${item.departure_id}:${item.food_type}`,item])),[segments]);
+  const visible=useMemo(()=>departures.filter(departure=>{
     const q=query.trim().toLowerCase();
-    if(!q)return true;
-    return [row.departure_code,row.reservation_codes,row.lead_code,row.lead_name,row.service_code,row.producto,row.resource_code,row.resource_name,row.supplier_code,row.supplier_name,row.passenger_names,row.hotel,row.meeting_point,row.notes]
-      .join(' ').toLowerCase().includes(q);
-  }),[rows,query,status,supplier]);
-  const suppliers=useMemo(()=>[...new Set(rows.map(row=>String(row.supplier_name||'Sin proveedor asignado')))].sort((a,b)=>a.localeCompare(b,'es')),[rows]);
+    if(q&&!String([departure.departure_code,departure.product_name,departure.modality].join(' ')).toLowerCase().includes(q))return false;
+    if(status==='Todos')return true;
+    const rows=FOOD_TYPES.map(type=>segmentMap.get(`${departure.id}:${type}`)).filter(Boolean);
+    return rows.some((row:any)=>String(row.fulfillment_status||'Pendiente')===status);
+  }),[departures,query,status,segmentMap]);
 
-  const metrics=useMemo(()=>({
-    total:rows.reduce((sum,row)=>sum+Number(row.quantity||0),0),
-    pending:rows.filter(row=>String(row.fulfillment_status||'Pendiente')==='Pendiente').length,
-    prepared:rows.filter(row=>row.fulfillment_status==='Preparado').length,
-    delivered:rows.filter(row=>row.fulfillment_status==='Entregado').length
-  }),[rows]);
+  const totals=useMemo(()=>{
+    const totalCost=segments.reduce((sum,row)=>sum+Number(row.total_cost||0),0);
+    const assigned=segments.reduce((sum,row)=>sum+Number(row.assigned_pax||0),0);
+    return{tramos:departures.length,assigned,totalCost};
+  },[departures,segments]);
 
-  const changeStatus=async(id:string,next:string)=>{
-    setSaving(id);
-    try{await updateResourceFulfillment(id,next);await load();}finally{setSaving(null)}
+  const saveSegment=async(departureId:string,type:FoodType,patch:any)=>{
+    const key=`${departureId}:${type}`;setSaving(key);
+    try{
+      const existing=segmentMap.get(key);
+      if(existing)await updateFoodSegment(existing.segment_id||existing.id,patch);
+      else await upsertFoodSegment(departureId,type,patch);
+      await load();
+    }finally{setSaving('')}
+  };
+  const saveCost=async(departureId:string,type:FoodType)=>{
+    const key=`${departureId}:${type}`;
+    const value=Math.max(0,Number(String(costDraft[key]||'').replace(/\D/g,''))||0);
+    await saveSegment(departureId,type,{unit_cost:value});
   };
 
-  return <section className="food-board">
+  return <section className="food-board unified-food-board">
     <header className="workspace-titlebar">
-      <div><span>INFORME DIARIO DE ALIMENTACIÓN</span><h1>{longDate(date)}</h1><p>Consolidado por tour, reservas y proveedor. Todo recurso tipo Alimentación entra automáticamente.</p></div>
+      <div><span>ALIMENTACIÓN · INSUMOS POR TRAMO</span><h1>{longDate(date)}</h1><p>Un criterio único: Desayuno, Aperitivo, Almuerzo, Snack, Box lunch y Agua individual. El costo se controla por tramo; la asignación se completa por pasajero dentro de cada TOUR.</p></div>
       <div className="workspace-metrics">
-        <Metric label="Unidades" value={metrics.total}/><Metric label="Pendientes" value={metrics.pending}/><Metric label="Preparados" value={metrics.prepared}/><Metric label="Entregados" value={metrics.delivered}/>
+        <Metric label="Tramos" value={totals.tramos}/><Metric label="Asignaciones pax" value={totals.assigned}/><Metric label="Costo total" value={moneyCLP(totals.totalCost)}/>
       </div>
     </header>
 
     <div className="workspace-toolbar">
-      <label className="workspace-search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar código, pasajero, servicio, alimento, hotel…"/></label>
-      <select value={supplier} onChange={e=>setSupplier(e.target.value)}><option>Todos</option>{suppliers.map(item=><option key={item}>{item}</option>)}</select>
+      <label className="workspace-search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar TOUR o experiencia…"/></label>
       <select value={status} onChange={e=>setStatus(e.target.value)}><option>Todos</option><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select>
       <button className="food-print-button" type="button" onClick={()=>window.print()}><Printer size={14}/> Imprimir informe</button>
     </div>
 
-    {loading?<div className="workspace-empty">Cargando alimentación…</div>:<div className="workspace-table-scroll">
-      <table className="workspace-table food-table">
-        <thead><tr><th>Tour</th><th>Reservas / pax</th><th>Alimentación</th><th>Proveedor</th><th>Cant.</th><th>Pick-up</th><th>Hotel / Punto</th><th>Estado</th><th className="no-print">Acción</th></tr></thead>
-        <tbody>{filtered.map(row=><tr key={row.assignment_id}>
-          <td><b>{row.producto}</b><small>{row.departure_code||'Sin código tour'} · {modality(row.modality)}</small></td>
-          <td><b>{row.reservation_codes||row.lead_code||'—'}</b><small>{row.numero_pax||0} pax · {row.passenger_names||'lista nominal pendiente'}</small></td>
-          <td><b>{row.resource_name}</b><small>{row.resource_code||row.resource_type}</small>{row.notes&&<span>{row.notes}</span>}</td>
-          <td><b>{row.supplier_name||'Sin proveedor asignado'}</b><small>{row.supplier_code||'—'}</small></td>
-          <td><b>{row.quantity}</b></td>
-          <td><b>{time(row.pickup_time||row.hora_inicio)}</b></td>
-          <td><b>{row.hotel||'—'}</b><small>{row.meeting_point||'Sin punto informado'}</small></td>
-          <td><FoodStatus status={row.fulfillment_status||'Pendiente'}/></td>
-          <td className="no-print"><select disabled={saving===row.assignment_id} value={row.fulfillment_status||'Pendiente'} onChange={e=>void changeStatus(row.assignment_id,e.target.value)}><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select></td>
-        </tr>)}</tbody>
-      </table>
-      {!filtered.length&&<div className="workspace-empty"><UtensilsCrossed size={22}/><b>No hay alimentación para esta fecha/filtro.</b><span>Asigna un recurso con tipo “Alimentación” a un servicio y aparecerá aquí.</span></div>}
+    {loading?<div className="workspace-empty">Cargando alimentación…</div>:<div className="food-tramo-list">
+      {visible.map(departure=>{
+        const rows=FOOD_TYPES.map(type=>({type,segment:segmentMap.get(`${departure.id}:${type}`)})).sort((a,b)=>foodOrder(a.type)-foodOrder(b.type));
+        const subtotal=rows.reduce((sum,row)=>sum+Number(row.segment?.total_cost||0),0);
+        return <article className="food-tramo-card" key={departure.id}>
+          <header>
+            <div><span>TRAMO / TOUR</span><h2>{departure.product_name}</h2><p>{departure.departure_code} · {departure.total_pax||0} pax · {modality(departure.modality)}</p></div>
+            <div><small>Costo tramo</small><strong>{moneyCLP(subtotal)}</strong></div>
+          </header>
+          <div className="food-tramo-grid food-tramo-grid-head"><span>Alimentación</span><span>Pax</span><span>Costo p/pax</span><span>Subtotal</span><span>Estado</span></div>
+          {rows.map(({type,segment})=>{
+            const key=`${departure.id}:${type}`;
+            const assigned=Number(segment?.assigned_pax||0);
+            const unit=Number(segment?.unit_cost||0);
+            return <div className="food-tramo-grid" key={type}>
+              <span><b>{type}</b>{segment?.notes&&<small>{segment.notes}</small>}</span>
+              <span><b>{assigned}/{departure.total_pax||0}</b></span>
+              <span><input inputMode="numeric" value={costDraft[key]??String(unit||'')} onChange={e=>setCostDraft(current=>({...current,[key]:e.target.value.replace(/\D/g,'')}))} onBlur={()=>void saveCost(departure.id,type)} placeholder="0"/></span>
+              <span><b>{moneyCLP(Number(segment?.total_cost||assigned*unit))}</b></span>
+              <span><select disabled={saving===key} value={segment?.fulfillment_status||'Pendiente'} onChange={e=>void saveSegment(departure.id,type,{fulfillment_status:e.target.value})}><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select></span>
+            </div>
+          })}
+          <footer><UtensilsCrossed size={14}/><span>Asignación individual: abrir este TOUR → Alimentación y marcar lo correspondiente para cada pax.</span></footer>
+        </article>
+      })}
+      {!visible.length&&<div className="workspace-empty"><UtensilsCrossed size={22}/><b>No hay tours para esta fecha/filtro.</b></div>}
     </div>}
   </section>;
 }
 
-function Metric({label,value}:{label:string;value:number}){return <div><strong>{value}</strong><span>{label}</span></div>}
-function FoodStatus({status}:{status:string}){return <span className={`food-status ${status.toLowerCase()}`}>{status==='Pendiente'?<Clock3 size={12}/>:<CheckCircle2 size={12}/>} {status}</span>}
-function time(value:any){return value?String(value).slice(0,5):'—'}
+function Metric({label,value}:{label:string;value:number|string}){return <div><strong>{value}</strong><span>{label}</span></div>}
 function parseDate(value:string){const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12)}
 function longDate(value:string){return new Intl.DateTimeFormat('es-CL',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(parseDate(value))}
-
 function modality(value:any){const key=String(value||'').toLowerCase();return key.includes('semi')?'Semiprivado':key.includes('priv')?'Privado':'Regular'}
