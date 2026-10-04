@@ -25,7 +25,11 @@ export async function loadFoodBoard(date?:string){
  }
  const paxByDeparture=new Map<string,number>();
  for(const row of services||[])paxByDeparture.set((row as any).departure_id,(paxByDeparture.get((row as any).departure_id)||0)+Number((row as any).numero_pax||0));
- return{departures:(departures||[]).map((item:any)=>({...item,total_pax:paxByDeparture.get(item.id)||0})),segments:segments||[],assignments,consumptionTypes:(consumptionTypes||[]) as FoodConsumptionType[]};
+ const activeDepartures=(departures||[]).map((item:any)=>({...item,total_pax:paxByDeparture.get(item.id)||0})).filter((item:any)=>Number(item.total_pax||0)>0);
+ const activeIds=new Set(activeDepartures.map((item:any)=>item.id));
+ const activeSegments=(segments||[]).filter((item:any)=>activeIds.has(item.departure_id));
+ const activeSegmentIds=new Set(activeSegments.map((item:any)=>item.segment_id).filter(Boolean));
+ return{departures:activeDepartures,segments:activeSegments,assignments:assignments.filter((item:any)=>activeSegmentIds.has(item.segment_id)),consumptionTypes:(consumptionTypes||[]) as FoodConsumptionType[]};
 }
 export async function loadDepartureFood(departureId:string){
  const sb=assertSupabase();
