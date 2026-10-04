@@ -23,7 +23,9 @@ type View='program'|'calendar'|'itinerary'|'food'|'records'|'suppliers'|'people'
 type CalendarMode='day'|'week'|'month'|'year';
 
 type PendingTaskDetail={leadId:string;serviceId?:string|null;taskKey:string;fromPending?:boolean};
-type NavigationSnapshot={view:View;calendarMode:CalendarMode;selectedDate:string;operationServiceId:string|null;operationTab:ServiceWorkspaceTab};
+type RecordEntityType='supplier'|'person'|'vehicle'|'resource';
+type RecordTarget={type:RecordEntityType;id:string}|null;
+type NavigationSnapshot={view:View;calendarMode:CalendarMode;selectedDate:string;operationServiceId:string|null;operationTab:ServiceWorkspaceTab;recordTarget:RecordTarget};
 type NavigationEntry={kind:'app';snapshot:NavigationSnapshot}|{kind:'pending'};
 
 function operationalCopy(service:LeadService):LeadService{return {...service,precio_venta:null,precio_unitario:null,precio_total:null,price_pp_clp:null,margen_comercial:null,comision_hotel:null,comision_vendedor:null,margen_hotel_experience:null}}
@@ -38,6 +40,7 @@ export default function OperationsApp({profile}:{profile:any}){
   const [selectedDate,setSelectedDate]=useState(()=>isoDate(new Date()));
   const [operationService,setOperationService]=useState<LeadService|null>(null);
   const [operationTab,setOperationTab]=useState<ServiceWorkspaceTab>('summary');
+  const [recordTarget,setRecordTarget]=useState<RecordTarget>(null);
   const [mobileNav,setMobileNav]=useState(false);
   const [railExpanded,setRailExpanded]=useState(false);
   const [pendingVisible,setPendingVisible]=useState(false);
@@ -54,7 +57,7 @@ export default function OperationsApp({profile}:{profile:any}){
   const activeLeads=useMemo(()=>{const ids=new Set(operationalServices.map(s=>s.lead_id));return leads.filter(l=>nonHistoricalLeadIds.has(l.id)&&ids.has(l.id))},[leads,operationalServices,nonHistoricalLeadIds]);
 
   const canApprovePartners=['admin','manager'].includes(String(profile?.role||''));
-  const currentAppSnapshot=():NavigationSnapshot=>({view,calendarMode,selectedDate,operationServiceId:operationService?.id||null,operationTab});
+  const currentAppSnapshot=():NavigationSnapshot=>({view,calendarMode,selectedDate,operationServiceId:operationService?.id||null,operationTab,recordTarget});
   const currentNavigationEntry=():NavigationEntry=>pendingVisible?{kind:'pending'}:{kind:'app',snapshot:currentAppSnapshot()};
   const navigationKey=(entry:NavigationEntry)=>entry.kind==='pending'?'pending':JSON.stringify(entry.snapshot);
   const syncNavigationButtons=()=>setNavigationVersion(value=>value+1);
@@ -73,7 +76,7 @@ export default function OperationsApp({profile}:{profile:any}){
     }
     setPendingVisible(false);
     window.dispatchEvent(new CustomEvent('hotel:close-pending-dashboard'));
-    setView(entry.snapshot.view);setCalendarMode(entry.snapshot.calendarMode);setSelectedDate(entry.snapshot.selectedDate);setOperationTab(entry.snapshot.operationTab);
+    setView(entry.snapshot.view);setCalendarMode(entry.snapshot.calendarMode);setSelectedDate(entry.snapshot.selectedDate);setOperationTab(entry.snapshot.operationTab);setRecordTarget(entry.snapshot.recordTarget||null);
     setOperationService(entry.snapshot.operationServiceId?operationalServices.find(service=>service.id===entry.snapshot.operationServiceId)||null:null);
   };
   const goBack=()=>{
@@ -84,7 +87,8 @@ export default function OperationsApp({profile}:{profile:any}){
     const target=forwardStackRef.current.pop();if(!target)return;
     backStackRef.current.push(currentNavigationEntry());restoreEntry(target);syncNavigationButtons();
   };
-  const openView=(next:View)=>{if(next===view&&!operationService)return;rememberEntry();setPendingVisible(false);setOperationService(null);setView(next);setMobileNav(false)};
+  const openView=(next:View)=>{if(next===view&&!operationService&&!recordTarget)return;rememberEntry();setPendingVisible(false);setOperationService(null);if(next!=='records')setRecordTarget(null);setView(next);setMobileNav(false)};
+  const openRecord=(type:RecordEntityType,id:string)=>{rememberEntry();setPendingVisible(false);setOperationService(null);setRecordTarget({type,id});setView('records');setMobileNav(false)};
   const selectCalendarMode=(next:CalendarMode)=>{const nextView=next==='day'?'program':'calendar';if(next===calendarMode&&nextView===view&&!operationService)return;rememberEntry();setPendingVisible(false);setOperationService(null);setCalendarMode(next);setView(nextView);setMobileNav(false)};
   const movePeriod=(delta:number)=>{const base=parseDate(selectedDate);if(calendarMode==='day')base.setDate(base.getDate()+delta);if(calendarMode==='week')base.setDate(base.getDate()+delta*7);if(calendarMode==='month')base.setMonth(base.getMonth()+delta);if(calendarMode==='year')base.setFullYear(base.getFullYear()+delta);setSelectedDate(isoDate(base))};
   const openService=(service:LeadService,tab:ServiceWorkspaceTab='summary')=>{rememberEntry();setPendingVisible(false);setOperationTab(tab);setOperationService(service);if(service.fecha_servicio)setSelectedDate(service.fecha_servicio)};
@@ -168,11 +172,11 @@ export default function OperationsApp({profile}:{profile:any}){
         {view==='calendar'&&<OperationsCalendarHub mode={calendarMode as OperationsCalendarMode} selectedDate={selectedDate} leads={activeLeads} services={operationalServices} onDateChange={setSelectedDate} onChanged={refresh} userRole={profile?.role||'agent'} onService={service=>openService(service,'summary')}/>} 
         {view==='itinerary'&&<ItineraryWorkspace leads={activeLeads} services={operationalServices} onChanged={refresh}/>} 
         {view==='food'&&<FoodOperationsBoard date={selectedDate}/>} 
-        {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'}/>} 
-        {view==='suppliers'&&<><OperationsHub role={profile?.role||'agent'} initialTab="suppliers"/><OperationsAdminTools role={profile?.role||'agent'} section="suppliers"/></>} 
-        {view==='people'&&<><OperationsHub role={profile?.role||'agent'} initialTab="people"/><OperationsAdminTools role={profile?.role||'agent'} section="service_people"/></>} 
-        {view==='vehicles'&&<><OperationsHub role={profile?.role||'agent'} initialTab="vehicles"/><OperationsAdminTools role={profile?.role||'agent'} section="vehicles"/></>} 
-        {view==='resources'&&<><OperationsHub role={profile?.role||'agent'} initialTab="resources"/><OperationsAdminTools role={profile?.role||'agent'} section="resources"/></>} 
+        {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'} initialType={recordTarget?.type} initialEntityId={recordTarget?.id}/>} 
+        {view==='suppliers'&&<><OperationsHub role={profile?.role||'agent'} initialTab="suppliers" onOpenRecord={openRecord}/><OperationsAdminTools role={profile?.role||'agent'} section="suppliers"/></>} 
+        {view==='people'&&<><OperationsHub role={profile?.role||'agent'} initialTab="people" onOpenRecord={openRecord}/><OperationsAdminTools role={profile?.role||'agent'} section="service_people"/></>} 
+        {view==='vehicles'&&<><OperationsHub role={profile?.role||'agent'} initialTab="vehicles" onOpenRecord={openRecord}/><OperationsAdminTools role={profile?.role||'agent'} section="vehicles"/></>} 
+        {view==='resources'&&<><OperationsHub role={profile?.role||'agent'} initialTab="resources" onOpenRecord={openRecord}/><OperationsAdminTools role={profile?.role||'agent'} section="resources"/></>} 
         {view==='approvals'&&canApprovePartners&&<PartnerApprovalWorkspace/>}
         {view==='team'&&<TeamView currentRole={profile?.role||'agent'}/>} 
       </main>}
