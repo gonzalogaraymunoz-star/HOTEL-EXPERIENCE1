@@ -5,7 +5,7 @@ import {updateLead} from '../lib/api';
 import {assertSupabase} from '../lib/supabase';
 import {itineraryRows} from '../lib/customerItinerary';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
-import ReservationRiskModule from './ReservationRiskModule';
+import PassengerRiskWorkspace from './PassengerRiskWorkspace';
 
 type Props={leads:Lead[];services:LeadService[];onChanged:()=>void};
 
@@ -13,7 +13,7 @@ export default function ItineraryWorkspace({leads,services,onChanged}:Props){
   const [query,setQuery]=useState('');
   const [selectedId,setSelectedId]=useState<string|null>(leads[0]?.id||null);
   const [passengers,setPassengers]=useState<Passenger[]>([]);
-  const [riskDocument,setRiskDocument]=useState<ReservationDocument|null>(null);
+  const [riskDocuments,setRiskDocuments]=useState<ReservationDocument[]>([]);
   const [copied,setCopied]=useState(false);
   const [saving,setSaving]=useState(false);
 
@@ -38,12 +38,12 @@ export default function ItineraryWorkspace({leads,services,onChanged}:Props){
   useEffect(()=>{
     let active=true;
     const load=async()=>{
-      if(!lead){setPassengers([]);setRiskDocument(null);return}
+      if(!lead){setPassengers([]);setRiskDocuments([]);return}
       const [passengerResult,riskResult]=await Promise.all([
         assertSupabase().from('passengers').select('*').eq('lead_id',lead.id).order('is_primary',{ascending:false}).order('passenger_code'),
-        assertSupabase().from('reservation_documents').select('*').eq('lead_id',lead.id).eq('document_type','risk_sheet').maybeSingle()
+        assertSupabase().from('reservation_documents').select('*').eq('lead_id',lead.id).eq('document_type','risk_sheet').order('created_at')
       ]);
-      if(active){setPassengers((passengerResult.data||[]) as Passenger[]);setRiskDocument((riskResult.data||null) as ReservationDocument|null)}
+      if(active){setPassengers((passengerResult.data||[]) as Passenger[]);setRiskDocuments((riskResult.data||[]) as ReservationDocument[])}
     };
     void load();return()=>{active=false};
   },[lead?.id]);
@@ -77,7 +77,7 @@ export default function ItineraryWorkspace({leads,services,onChanged}:Props){
           <div><button onClick={copy}>{copied?<Check size={15}/>:<Copy size={15}/>} {copied?'Copiado':'Copiar resumen'}</button><button disabled={saving} onClick={markSent}><Send size={15}/> {lead.itinerary_sent_at?'Actualizar registro':'Registrar envío'}</button></div>
         </div>
         <CustomerItineraryPreview lead={lead} services={itinerary} passengers={passengers}/>
-        <ReservationRiskModule lead={lead} services={itinerary} passengers={passengers} document={riskDocument} onChanged={onChanged}/>
+        <PassengerRiskWorkspace reservations={[lead]} services={itinerary} passengers={passengers} documents={riskDocuments} onChanged={onChanged}/>
         {lead.itinerary_sent_at&&<footer className="itinerary-sent-note">Último registro de envío: {new Date(lead.itinerary_sent_at).toLocaleString('es-CL')} · {lead.itinerary_sent_via||'sin canal'}. Descargar el PDF no marca un envío inexistente.</footer>}
       </>}
     </main>
