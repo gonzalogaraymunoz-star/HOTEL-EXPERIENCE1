@@ -18,6 +18,7 @@ type OperationalDocument={
   id:string;entity_type:EntityType;entity_id:string;document_type:string;title:string;
   storage_bucket:string;storage_path:string;file_name:string;mime_type?:string|null;size_bytes?:number|null;
   expires_on?:string|null;notes?:string|null;status:'active'|'archived';uploaded_by?:string|null;
+  source_kind?:string|null;external_url?:string|null;external_id?:string|null;verification_level?:string|null;source_metadata?:Record<string,unknown>|null;
   created_at:string;updated_at:string;
 };
 
@@ -280,7 +281,7 @@ function EntityRecord({type,entity,suppliers,people,documents,sources,canEdit,sa
           const state=expiryState(doc.expires_on);
           return <article key={doc.id}>
             <div className="document-icon"><FileText size={18}/></div>
-            <div className="document-copy"><strong>{doc.title}</strong><span>{documentLabel(type,doc.document_type)} · {formatBytes(doc.size_bytes)}</span>{doc.notes&&<small>{doc.notes}</small>}</div>
+            <div className="document-copy"><strong>{doc.title}</strong><span>{documentLabel(type,doc.document_type)} · {doc.source_kind==='drive'?'Google Drive':formatBytes(doc.size_bytes)} · {doc.verification_level==='operational'?'Evidencia operativa':doc.verification_level==='historical'?'Antecedente histórico':'Documento oficial'}</span>{doc.notes&&<small>{doc.notes}</small>}</div>
             <div className={`document-expiry ${state}`}><small>{doc.expires_on?'Vigencia':'Sin vencimiento'}</small><b>{doc.expires_on?dateFmt(doc.expires_on):'—'}</b></div>
             <button className="doc-open" onClick={()=>onOpen(doc)}><ExternalLink size={14}/> Abrir</button>
             {canEdit&&<button className="doc-archive" onClick={()=>onArchive(doc)} title="Archivar"><Archive size={14}/></button>}
@@ -428,6 +429,11 @@ async function uploadDocuments(type:EntityType,entityId:string,input:{documentTy
 }
 
 async function openDocument(doc:OperationalDocument){
+  if(doc.external_url||doc.source_kind==='drive'){
+    const url=doc.external_url||doc.storage_path;
+    if(url)window.open(url,'_blank','noopener,noreferrer');
+    return;
+  }
   const {data,error}=await assertSupabase().storage.from(doc.storage_bucket||BUCKET).createSignedUrl(doc.storage_path,300);
   if(error)return alert(error.message);
   window.open(data.signedUrl,'_blank','noopener,noreferrer');
