@@ -1,9 +1,11 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {Box,Building2,CarFront,ChefHat,ChevronRight,ClipboardCheck,Compass,FileText,HardHat,Languages,LifeBuoy,Mail,PackagePlus,Phone,Plus,Radio,Search,ShieldCheck,Stethoscope,Truck,UserRoundCog,UsersRound,Wrench,X} from 'lucide-react';
+import {Box,Building2,CarFront,ChefHat,ChevronRight,ClipboardCheck,Compass,HardHat,Languages,LifeBuoy,Mail,PackagePlus,Phone,Plus,Radio,Search,ShieldCheck,Stethoscope,Truck,UserRoundCog,UsersRound,Wrench,X} from 'lucide-react';
 import type {Supplier,Vehicle,ServicePerson,OperationalResource} from '../types';
 import {createOperationalResource,createServicePerson,createSupplier,createVehicle,loadOperationsData,loadOperationsDirectory} from '../lib/api';
 import ServicePersonProfileModal from './ServicePersonProfileModal';
-import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
+import VehicleProfileModal from './VehicleProfileModal';
+import {assertSupabase} from '../lib/supabase';
+import {vehicleDocumentReadiness,type VehicleDocument} from '../lib/vehicleDocuments';
 
 export type Tab='suppliers'|'people'|'vehicles'|'resources';
 
@@ -25,13 +27,16 @@ export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}
   const [directorySearch,setDirectorySearch]=useState('');
   const [profilePersonId,setProfilePersonId]=useState<string|null>(null);
   const [profileVehicleId,setProfileVehicleId]=useState<string|null>(null);
+  const [vehicleDocuments,setVehicleDocuments]=useState<VehicleDocument[]>([]);
   const canEdit=role==='admin'||role==='manager';
 
   const load=async()=>{
     setLoading(true);
     try{
-      const [a,b]=await Promise.all([loadOperationsData(),loadOperationsDirectory()]);
+      const [a,b,docs]=await Promise.all([loadOperationsData(),loadOperationsDirectory(),assertSupabase().from('operational_entity_documents').select('*').eq('entity_type','vehicle').eq('status','active')]);
+      if(docs.error)throw docs.error;
       setSuppliers(a.suppliers);setVehicles(a.vehicles);setPeople(b.people);setResources(b.resources);
+      setVehicleDocuments(docs.data||[]);
     }finally{setLoading(false)}
   };
   useEffect(()=>{load()},[]);
@@ -155,30 +160,13 @@ export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}
     {loading?<div className="loading-card">Cargando operación…</div>:<>
             {tab==='suppliers'&&<SuppliersTab suppliers={filterSuppliers(suppliers,directorySearch)} vehicles={vehicles} canEdit={canEdit} onNew={()=>setModal('supplier')}/>}
       {tab==='people'&&<PeopleTab people={filterPeople(people,directorySearch)} suppliers={suppliers} canEdit={canEdit} onNew={()=>setModal('person')} onOpen={(_type:string,id:string)=>setProfilePersonId(id)}/>} 
-      {tab==='vehicles'&&<VehiclesTab vehicles={filterVehicles(vehicles,directorySearch)} suppliers={suppliers} people={people} canEdit={canEdit} onNew={()=>setModal('vehicle')} onOpen={(_type:string,id:string)=>setProfileVehicleId(id)}/>}
+      {tab==='vehicles'&&<VehiclesTab vehicles={filterVehicles(vehicles,directorySearch)} suppliers={suppliers} people={people} documents={vehicleDocuments} canEdit={canEdit} onNew={()=>setModal('vehicle')} onOpen={(_type:string,id:string)=>setProfileVehicleId(id)}/>}
       {tab==='resources'&&<ResourcesTab resources={filterResources(resources,directorySearch)} suppliers={suppliers} canEdit={canEdit} onNew={()=>setModal('resource')}/>}
     </>}
 
     {modal&&<CreateModal type={modal} suppliers={suppliers} people={people} onClose={()=>setModal(null)} onSaved={async()=>{setModal(null);await load()}}/>}
     {profilePersonId&&people.find(p=>p.id===profilePersonId)&&<ServicePersonProfileModal person={people.find(p=>p.id===profilePersonId)!} suppliers={suppliers} onClose={()=>setProfilePersonId(null)} onChanged={async()=>{await load()}} onOpenFullRecord={()=>{const id=profilePersonId;setProfilePersonId(null);if(id)onOpenRecord?.('person',id)}}/>}
-    {profileVehicleId&&<div className="provider-profile-backdrop" onMouseDown={()=>setProfileVehicleId(null)}>
-      <section className="provider-profile" style={{width:'min(1220px,96vw)',maxHeight:'94vh',overflow:'hidden'}} onMouseDown={e=>e.stopPropagation()}>
-        <header className="provider-profile-top no-print" style={{gridTemplateColumns:'1fr auto',padding:'14px 18px'}}>
-          <div className="provider-profile-identity">
-            <span className="eyebrow">HOTEL EXPERIENCE · VEHÍCULO</span>
-            <h1 style={{fontSize:22,margin:'3px 0'}}>Ficha 360 del vehículo</h1>
-            <p style={{margin:0}}>Datos, vigencias, documentos y fuentes Drive en una sola ficha.</p>
-          </div>
-          <div className="provider-profile-actions">
-            <button type="button" onClick={()=>{const id=profileVehicleId;setProfileVehicleId(null);if(id)onOpenRecord?.('vehicle',id)}}><FileText size={15}/> Abrir en Fichas 360</button>
-            <button className="provider-close" type="button" onClick={()=>setProfileVehicleId(null)}><X/></button>
-          </div>
-        </header>
-        <div style={{overflow:'auto',maxHeight:'calc(94vh - 86px)'}}>
-          <OperationalRecordsWorkspace role={role} initialType="vehicle" initialEntityId={profileVehicleId}/>
-        </div>
-      </section>
-    </div>}
+    {profileVehicleId&&vehicles.find(v=>v.id===profileVehicleId)&&<VehicleProfileModal vehicle={vehicles.find(v=>v.id===profileVehicleId)!} suppliers={suppliers} people={people} canEdit={canEdit} onClose={()=>setProfileVehicleId(null)} onChanged={load} onOpenFullRecord={onOpenRecord?()=>{const id=profileVehicleId;setProfileVehicleId(null);onOpenRecord('vehicle',id)}:undefined}/>}
   </div>
 }
 
@@ -241,12 +229,14 @@ function PeopleTab({people,suppliers,canEdit,onNew,onOpen}:any){
   </section>
 }
 
-function VehiclesTab({vehicles,suppliers,people,canEdit,onNew,onOpen}:any){
+function VehiclesTab({vehicles,suppliers,people,documents,canEdit,onNew,onOpen}:any){
   return <section>
     <TabHeader title="Vehículos" subtitle="Flota propia y de terceros: patente, capacidad, conductor y disponibilidad." action={canEdit?'Nuevo vehículo':null} onAction={onNew}/>
     <div className="vehicle-grid">
       {vehicles.map((v:Vehicle)=>{
         const s=suppliers.find((x:Supplier)=>x.id===v.supplier_id);
+        const docs=(documents||[]).filter((d:VehicleDocument)=>d.entity_id===v.id);
+        const readiness=vehicleDocumentReadiness(docs,v.active);
         return <article className="vehicle-card directory-openable" key={v.id} role="button" tabIndex={0} onClick={()=>onOpen?.('vehicle',v.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onOpen?.('vehicle',v.id)}}}>
           <div className="vehicle-plate">{v.plate}</div><h3>{v.label}</h3><p>{[v.brand,v.model,v.year].filter(Boolean).join(' · ')||s?.name||'Propio / independiente'}</p>
           <div className="supplier-meta-row"><span>Proveedor</span><b>{s?.name||'Propio / independiente'}</b></div>
@@ -255,6 +245,7 @@ function VehiclesTab({vehicles,suppliers,people,canEdit,onNew,onOpen}:any){
           <div className="supplier-meta-row"><span>Estado</span><b>{v.active?'Activo':'Fuera de servicio'}</b></div>
           <div className="supplier-meta-row"><span>Rev. técnica</span><b>{(v as any).technical_review_expiry||'—'}</b></div>
           <div className="supplier-meta-row"><span>Seguro</span><b>{(v as any).insurance_expiry||'—'}</b></div>
+          <div className={`vehicle-document-state ${readiness.tone}`}>{readiness.label} · {readiness.ok}/{readiness.total} respaldos · {docs.length} archivo(s)</div>
           <button className="record-open-button" type="button" onClick={e=>{e.stopPropagation();onOpen?.('vehicle',v.id)}}>Abrir ficha <ChevronRight size={14}/></button>
         </article>
       })}

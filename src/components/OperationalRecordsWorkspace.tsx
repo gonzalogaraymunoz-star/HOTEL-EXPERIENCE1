@@ -9,6 +9,7 @@ import {
   updateServicePerson,updateSupplier,updateVehicle
 } from '../lib/api';
 import {assertSupabase} from '../lib/supabase';
+import {hasStoredOperationalFile} from '../lib/vehicleDocuments';
 import './OperationalRecordsWorkspace.css';
 
 type EntityType='supplier'|'person'|'vehicle'|'resource';
@@ -429,7 +430,7 @@ async function uploadDocuments(type:EntityType,entityId:string,input:{documentTy
 }
 
 async function openDocument(doc:OperationalDocument){
-  if(doc.external_url||doc.source_kind==='drive'){
+  if(!hasStoredOperationalFile(doc)&&(doc.external_url||doc.source_kind==='drive')){
     const url=doc.external_url||doc.storage_path;
     if(url)window.open(url,'_blank','noopener,noreferrer');
     return;
