@@ -108,6 +108,15 @@ export interface TourDepartureNote{
   id:string;departure_id:string;source:'sales'|'operations'|'system'|string;note:string;
   created_by?:string|null;created_at:string;
 }
+export interface TourFoodSegment{
+  id:string;departure_id:string;food_type:'Desayuno'|'Aperitivo'|'Almuerzo'|'Snack'|'Box lunch'|'Agua individual'|string;
+  unit_cost:number;currency:string;supplier_id?:string|null;notes?:string|null;
+  fulfillment_status:FulfillmentStatus|string;created_by?:string|null;created_at:string;updated_at:string;
+}
+export interface TourFoodPassenger{
+  id:string;segment_id:string;passenger_id:string;quantity:number;notes?:string|null;
+  created_by?:string|null;created_at:string;updated_at:string;
+}
 export interface ReservationDocument{
   id:string;lead_id:string;passenger_id?:string|null;departure_id?:string|null;document_type:string;title:string;url?:string|null;status:string;completed_at?:string|null;
   risk_data?:Record<string,unknown>|null;created_by?:string|null;created_at:string;updated_at:string;
