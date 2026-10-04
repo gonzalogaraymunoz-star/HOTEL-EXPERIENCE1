@@ -1,6 +1,6 @@
 import {assertSupabase} from './supabase';
-import type {FoodConsumptionType,FulfillmentStatus,Passenger,TourFoodPassenger,TourFoodSegment} from '../types';
-import type {FoodConsumptionKey,FoodType} from './food';
+import type {FulfillmentStatus,Passenger,TourFoodPassenger,TourFoodSegment} from '../types';
+import type {FoodType} from './food';
 
 export async function loadFoodBoard(date?:string){
  const sb=assertSupabase();
@@ -9,13 +9,12 @@ export async function loadFoodBoard(date?:string){
  const {data:departures,error:departureError}=await departuresQuery;
  if(departureError)throw departureError;
  const departureIds=(departures||[]).map((item:any)=>item.id);
- if(!departureIds.length)return{departures:[],segments:[],assignments:[],consumptionTypes:[] as FoodConsumptionType[]};
- const [{data:segments,error:segmentError},{data:services,error:serviceError},{data:consumptionTypes,error:consumptionError}]=await Promise.all([
+ if(!departureIds.length)return{departures:[],segments:[],assignments:[]};
+ const [{data:segments,error:segmentError},{data:services,error:serviceError}]=await Promise.all([
   sb.from('operation_food_board').select('*').in('departure_id',departureIds),
-  sb.from('lead_services').select('departure_id,numero_pax').in('departure_id',departureIds).in('booking_status',['confirmed','completed']),
-  sb.from('food_consumption_types').select('*').eq('active',true).order('sort_order')
+  sb.from('lead_services').select('departure_id,numero_pax').in('departure_id',departureIds).in('booking_status',['confirmed','completed'])
  ]);
- if(segmentError)throw segmentError;if(serviceError)throw serviceError;if(consumptionError)throw consumptionError;
+ if(segmentError)throw segmentError;if(serviceError)throw serviceError;
  const segmentIds=(segments||[]).map((item:any)=>item.segment_id).filter(Boolean);
  let assignments:any[]=[];
  if(segmentIds.length){
@@ -29,19 +28,17 @@ export async function loadFoodBoard(date?:string){
  const activeIds=new Set(activeDepartures.map((item:any)=>item.id));
  const activeSegments=(segments||[]).filter((item:any)=>activeIds.has(item.departure_id));
  const activeSegmentIds=new Set(activeSegments.map((item:any)=>item.segment_id).filter(Boolean));
- return{departures:activeDepartures,segments:activeSegments,assignments:assignments.filter((item:any)=>activeSegmentIds.has(item.segment_id)),consumptionTypes:(consumptionTypes||[]) as FoodConsumptionType[]};
+ return{departures:activeDepartures,segments:activeSegments,assignments:assignments.filter((item:any)=>activeSegmentIds.has(item.segment_id))};
 }
 export async function loadDepartureFood(departureId:string){
  const sb=assertSupabase();
  const {data:segments,error}=await sb.from('tour_food_segments').select('*').eq('departure_id',departureId).order('created_at');
  if(error)throw error;
  const ids=(segments||[]).map((item:any)=>item.id);
- const {data:consumptionTypes,error:consumptionError}=await sb.from('food_consumption_types').select('*').eq('active',true).order('sort_order');
- if(consumptionError)throw consumptionError;
- if(!ids.length)return{segments:[] as TourFoodSegment[],assignments:[] as TourFoodPassenger[],consumptionTypes:(consumptionTypes||[]) as FoodConsumptionType[]};
+ if(!ids.length)return{segments:[] as TourFoodSegment[],assignments:[] as TourFoodPassenger[]};
  const {data:assignments,error:assignmentError}=await sb.from('tour_food_passengers').select('*').in('segment_id',ids).order('created_at');
  if(assignmentError)throw assignmentError;
- return{segments:(segments||[]) as TourFoodSegment[],assignments:(assignments||[]) as TourFoodPassenger[],consumptionTypes:(consumptionTypes||[]) as FoodConsumptionType[]};
+ return{segments:(segments||[]) as TourFoodSegment[],assignments:(assignments||[]) as TourFoodPassenger[]};
 }
 export async function upsertFoodSegment(departureId:string,foodType:FoodType,patch:Partial<TourFoodSegment>={}){
  const sb=assertSupabase();
@@ -55,22 +52,16 @@ export async function updateFoodSegment(id:string,patch:Partial<TourFoodSegment>
  const {data,error}=await assertSupabase().from('tour_food_segments').update({...patch,updated_at:new Date().toISOString()}).eq('id',id).select('*').single();
  if(error)throw error;return data as TourFoodSegment;
 }
-export async function setPassengerFoodConsumption(departureId:string,foodType:FoodType,passengerId:string,consumptionType:FoodConsumptionKey|string|null){
+export async function togglePassengerFood(departureId:string,foodType:FoodType,passengerId:string,enabled:boolean){
  const sb=assertSupabase();
  const segment=await upsertFoodSegment(departureId,foodType,{});
- if(!consumptionType){
-  const {error}=await sb.from('tour_food_passengers').delete().eq('segment_id',segment.id).eq('passenger_id',passengerId);
-  if(error)throw error;return null;
+ if(enabled){
+  const {data:{user}}=await sb.auth.getUser();
+  const {data,error}=await sb.from('tour_food_passengers').upsert({segment_id:segment.id,passenger_id:passengerId,quantity:1,created_by:user?.id||null,updated_at:new Date().toISOString()},{onConflict:'segment_id,passenger_id'}).select('*').single();
+  if(error)throw error;return data as TourFoodPassenger;
  }
- const {data:{user}}=await sb.auth.getUser();
- const {data,error}=await sb.from('tour_food_passengers').upsert({
-  segment_id:segment.id,passenger_id:passengerId,quantity:1,consumption_type:consumptionType,
-  created_by:user?.id||null,updated_at:new Date().toISOString()
- },{onConflict:'segment_id,passenger_id'}).select('*').single();
- if(error)throw error;return data as TourFoodPassenger;
-}
-export async function togglePassengerFood(departureId:string,foodType:FoodType,passengerId:string,enabled:boolean){
- return setPassengerFoodConsumption(departureId,foodType,passengerId,enabled?'standard':null);
+ const {error}=await sb.from('tour_food_passengers').delete().eq('segment_id',segment.id).eq('passenger_id',passengerId);
+ if(error)throw error;return null;
 }
 export async function updateResourceFulfillment(id:string,status:FulfillmentStatus|string){const sb=assertSupabase();const first=await sb.from('tour_departure_resources').update({fulfillment_status:status,updated_at:new Date().toISOString()}).eq('id',id).select('id').maybeSingle();if(first.error)throw first.error;if(first.data)return;const {error}=await sb.from('service_resource_assignments').update({fulfillment_status:status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error}
 type PassengerOperationalPatch=Partial<Pick<Passenger,'full_name'|'email'|'phone'|'nationality'|'document_type'|'document_number'|'birth_date'|'dietary_restrictions'|'medical_notes'|'disability_type'>>;
