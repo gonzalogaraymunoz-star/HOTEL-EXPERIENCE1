@@ -109,6 +109,6 @@ export interface TourDepartureNote{
   created_by?:string|null;created_at:string;
 }
 export interface ReservationDocument{
-  id:string;lead_id:string;passenger_id?:string|null;document_type:string;title:string;url?:string|null;status:string;completed_at?:string|null;
+  id:string;lead_id:string;passenger_id?:string|null;departure_id?:string|null;document_type:string;title:string;url?:string|null;status:string;completed_at?:string|null;
   risk_data?:Record<string,unknown>|null;created_by?:string|null;created_at:string;updated_at:string;
 }
