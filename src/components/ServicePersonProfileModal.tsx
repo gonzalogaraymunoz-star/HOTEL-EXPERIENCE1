@@ -217,9 +217,9 @@ export default function ServicePersonProfileModal({
                   <small>{req.reason}</small>
                 </div>
                 <div className="provider-requirement-actions no-print">
-                  {state.doc&&<button type="button" onClick={()=>openStoredDocument(state.doc!)}><ExternalLink size={14}/> Abrir documento</button>}
+                  {state.doc&&<button type="button" onClick={()=>openStoredDocument(state.doc!)}><ExternalLink size={14}/>{(state.doc.verification_level||'official')==='official'?'Abrir documento oficial':'Abrir evidencia Drive'}</button>}
                   <label className="doc-upload-button">
-                    <Upload size={14}/>{uploadingType===req.key?'Subiendo…':state.doc?'Reemplazar / agregar':'Subir documento'}
+                    <Upload size={14}/>{uploadingType===req.key?'Subiendo…':state.doc&&((state.doc.verification_level||'official')!=='official')?'Subir documento oficial':state.doc?'Reemplazar / agregar':'Subir documento'}
                     <input ref={el=>{fileInputs.current[req.key]=el}} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx" disabled={Boolean(uploadingType)} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadRequirement(req,file)}}/>
                   </label>
                 </div>
