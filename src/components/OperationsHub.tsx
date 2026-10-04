@@ -244,24 +244,18 @@ function VehiclesTab({vehicles,suppliers,people,canEdit,onNew,onOpen}:any){
 }
 
 function ResourcesTab({resources,suppliers,canEdit,onNew}:any){
+  const generic=resources.filter((item:OperationalResource)=>!isFood(item.resource_type));
   return <section>
-    <TabHeader title="Insumos operacionales" subtitle="Equipamiento, seguridad, alimentación y logística disponibles para cada salida." action={canEdit?'Nuevo insumo':null} onAction={onNew}/>
+    <TabHeader title="Insumos operacionales" subtitle="Los insumos físicos siguen aquí. Alimentación usa una sola ficha y se divide por tramo y por pasajero." action={canEdit?'Nuevo insumo':null} onAction={onNew}/>
     <div className="resource-guide">
-      {[
-        ['Seguridad','Botiquines, oxígeno, radios, mantas térmicas'],
-        ['Montaña','Bastones, cascos, crampones, mochilas'],
-        ['Alimentación','Coolers, termos, vajilla, mesas, agua'],
-        ['Operación','Carpas, sillas, linternas, baterías, GPS'],
-        ['Higiene','Alcohol gel, bolsas, papel, limpieza'],
-        ['Vestuario','Parkas, guantes, polainas, chalecos reflectantes']
-      ].map(x=><div key={x[0]}><b>{x[0]}</b><span>{x[1]}</span></div>)}
+      <div><b>Alimentación</b><span>Desayuno · Aperitivo · Almuerzo · Snack · Box lunch · Agua individual</span><small>Se administra desde “Alimentación”; no crear cada comida como un insumo separado.</small></div>
     </div>
     <div className="resource-table">
       <div className="resource-row head"><span>Insumo</span><span>Tipo</span><span>Disponible</span><span>Ubicación</span><span>Estado</span><span>Vence / mantención</span></div>
-      {resources.map((r:OperationalResource)=><div className="resource-row" key={r.id}>
+      {generic.map((r:OperationalResource)=><div className="resource-row" key={r.id}>
         <span><b>{r.name}</b><small>{r.code||''}</small></span><span>{r.resource_type}</span><span>{r.quantity_available}/{r.quantity_total}</span><span>{r.location||'—'}</span><span><i className={`resource-status ${statusSlug(r.status)}`}/>{r.status}</span><span>{r.expiry_date||r.maintenance_due||'—'}</span>
       </div>)}
-      {!resources.length&&<div className="empty-card">No hay insumos cargados.</div>}
+      {!generic.length&&<div className="empty-card">No hay otros insumos cargados. Alimentación se gestiona en su ficha única.</div>}
     </div>
   </section>
 }
@@ -340,7 +334,7 @@ function CreateModal({type,suppliers,people,onClose,onSaved}:any){
       </>}
       {type==='resource'&&<>
         <F label="Nombre *" wide><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></F>
-        <F label="Tipo"><select value={form.resource_type} onChange={e=>setForm({...form,resource_type:e.target.value})}>{['Seguridad','Montaña','Alimentación','Operación','Higiene','Vestuario','Tecnología','Otro'].map(x=><option key={x}>{x}</option>)}</select></F>
+        <F label="Tipo"><select value={form.resource_type} onChange={e=>setForm({...form,resource_type:e.target.value})}>{['Seguridad','Montaña','Operación','Higiene','Vestuario','Tecnología','Otro'].map(x=><option key={x}>{x}</option>)}</select></F>
         <F label="Código interno"><input value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/></F>
         <F label="Cantidad total"><input type="number" min={0} value={form.quantity_total} onChange={e=>setForm({...form,quantity_total:Number(e.target.value)})}/></F>
         <F label="Disponible"><input type="number" min={0} value={form.quantity_available} onChange={e=>setForm({...form,quantity_available:Number(e.target.value)})}/></F>
@@ -364,10 +358,11 @@ function split(s:string){return String(s||'').split(',').map(x=>x.trim()).filter
 function filterSuppliers(items:Supplier[],q:string){const s=q.toLowerCase().trim();if(!s)return items;return items.filter(x=>[x.name,x.supplier_type,x.contact_name,x.phone,x.email,x.rut].some(v=>String(v||'').toLowerCase().includes(s)))}
 function filterPeople(items:ServicePerson[],q:string){const s=q.toLowerCase().trim();if(!s)return items;return items.filter(x=>[x.full_name,x.person_type,x.phone,x.email,x.rut,...(x.languages||[]),...(x.specialties||[])].some(v=>String(v||'').toLowerCase().includes(s)))}
 function filterVehicles(items:Vehicle[],q:string){const s=q.toLowerCase().trim();if(!s)return items;return items.filter(x=>[x.label,x.plate,x.driver_name,x.driver_phone].some(v=>String(v||'').toLowerCase().includes(s)))}
-function filterResources(items:OperationalResource[],q:string){const s=q.toLowerCase().trim();if(!s)return items;return items.filter(x=>[x.name,x.resource_type,x.code,x.location,x.status,x.notes].some(v=>String(v||'').toLowerCase().includes(s)))}
+function filterResources(items:OperationalResource[],q:string){const base=items.filter(x=>!isFood(x.resource_type));const s=q.toLowerCase().trim();if(!s)return base;return base.filter(x=>[x.name,x.resource_type,x.code,x.location,x.status,x.notes].some(v=>String(v||'').toLowerCase().includes(s)))}
 
 function defaults(type:string){if(type==='supplier')return{name:'',supplier_type:'Operador turístico',contact_name:'',phone:'',whatsapp:'',email:'',website:'',services_offered:'',rut:'',sernatur_registration:'',permit_number:'',insurance_policy:'',insurance_expiry:'',bank_name:'',account_type:'',account_number:'',payment_notes:'',notes:''};if(type==='vehicle')return{supplier_id:'',driver_person_id:'',label:'',plate:'',brand:'',model:'',year:'',capacity:1,driver_name:'',driver_phone:'',technical_review_expiry:'',circulation_permit_expiry:'',insurance_expiry:'',notes:''};if(type==='person')return{full_name:'',person_type:'Guía',supplier_id:'',phone:'',whatsapp:'',email:'',rut:'',languages:'Español',specialties:'',certifications:'',first_aid_expiry:'',license_type:'',license_expiry:'',sernatur_registration:'',default_rate:'',availability_notes:'',emergency_contact:'',notes:''};return{resource_type:'Seguridad',name:'',code:'',quantity_total:1,quantity_available:1,supplier_id:'',location:'',maintenance_due:'',expiry_date:'',status:'Disponible',notes:''}}
 const titles:any={supplier:'Agregar proveedor',vehicle:'Agregar vehículo',person:'Agregar prestador',resource:'Agregar insumo'}
 const money=(n:any)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(n||0))
 const statusSlug=(s:string)=>String(s||'').toLowerCase().replace(/\s+/g,'-')
+function isFood(value:any){return ['alimentación','alimentacion','food','alimentos'].includes(String(value||'').trim().toLowerCase())}
 function personIcon(type:string){if(type.includes('Cociner'))return <ChefHat/>;if(type.includes('Conductor'))return <Truck/>;if(type.includes('montaña'))return <HardHat/>;if(type.includes('Wellness'))return <Stethoscope/>;return <UserRoundCog/>}
