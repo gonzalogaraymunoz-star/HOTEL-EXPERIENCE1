@@ -153,7 +153,7 @@ export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}
     {loading?<div className="loading-card">Cargando operación…</div>:<>
             {tab==='suppliers'&&<SuppliersTab suppliers={filterSuppliers(suppliers,directorySearch)} vehicles={vehicles} canEdit={canEdit} onNew={()=>setModal('supplier')}/>}
       {tab==='people'&&<PeopleTab people={filterPeople(people,directorySearch)} suppliers={suppliers} canEdit={canEdit} onNew={()=>setModal('person')} onOpen={(_type:string,id:string)=>setProfilePersonId(id)}/>} 
-      {tab==='vehicles'&&<VehiclesTab vehicles={filterVehicles(vehicles,directorySearch)} suppliers={suppliers} people={people} canEdit={canEdit} onNew={()=>setModal('vehicle')}/>}
+      {tab==='vehicles'&&<VehiclesTab vehicles={filterVehicles(vehicles,directorySearch)} suppliers={suppliers} people={people} canEdit={canEdit} onNew={()=>setModal('vehicle')} onOpen={onOpenRecord}/>}
       {tab==='resources'&&<ResourcesTab resources={filterResources(resources,directorySearch)} suppliers={suppliers} canEdit={canEdit} onNew={()=>setModal('resource')}/>}
     </>}
 
