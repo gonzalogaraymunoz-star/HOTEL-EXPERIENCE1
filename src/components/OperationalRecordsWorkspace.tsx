@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {
   AlertCircle,Archive,Box,Building2,CalendarClock,CarFront,CheckCircle2,ChevronRight,
-  ExternalLink,FileText,FolderOpen,Paperclip,Save,Search,ShieldCheck,Upload,UsersRound
+  ExternalLink,FileText,FolderOpen,Link2,Paperclip,Save,Search,ShieldCheck,Upload,UsersRound,X
 } from 'lucide-react';
 import type {OperationalResource,ServicePerson,Supplier,Vehicle} from '../types';
 import {
@@ -18,6 +18,12 @@ type OperationalDocument={
   id:string;entity_type:EntityType;entity_id:string;document_type:string;title:string;
   storage_bucket:string;storage_path:string;file_name:string;mime_type?:string|null;size_bytes?:number|null;
   expires_on?:string|null;notes?:string|null;status:'active'|'archived';uploaded_by?:string|null;
+  created_at:string;updated_at:string;
+};
+
+type OperationalSource={
+  id:string;entity_type:EntityType;entity_id:string;source_kind:string;external_id?:string|null;
+  title:string;url:string;query_text?:string|null;observed_at:string;metadata?:Record<string,unknown>|null;
   created_at:string;updated_at:string;
 };
 
@@ -64,14 +70,15 @@ const documentOptions:Record<EntityType,Option[]>={
   ]
 };
 
-export default function OperationalRecordsWorkspace({role}:{role:string}){
-  const [type,setType]=useState<EntityType>('person');
+export default function OperationalRecordsWorkspace({role,initialType='person',initialEntityId}:{role:string;initialType?:EntityType;initialEntityId?:string}){
+  const [type,setType]=useState<EntityType>(initialType);
   const [suppliers,setSuppliers]=useState<Supplier[]>([]);
   const [people,setPeople]=useState<ServicePerson[]>([]);
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [resources,setResources]=useState<OperationalResource[]>([]);
   const [documents,setDocuments]=useState<OperationalDocument[]>([]);
-  const [selectedKey,setSelectedKey]=useState('');
+  const [sources,setSources]=useState<OperationalSource[]>([]);
+  const [selectedKey,setSelectedKey]=useState(initialEntityId?entityKey(initialType,initialEntityId):'');
   const [query,setQuery]=useState('');
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
@@ -82,17 +89,20 @@ export default function OperationalRecordsWorkspace({role}:{role:string}){
     setLoading(true);
     try{
       const sb=assertSupabase();
-      const [core,directory,docs]=await Promise.all([
+      const [core,directory,docs,sourceRows]=await Promise.all([
         loadOperationsData(),
         loadOperationsDirectory(),
-        sb.from('operational_entity_documents').select('*').order('created_at',{ascending:false})
+        sb.from('operational_entity_documents').select('*').order('created_at',{ascending:false}),
+        sb.from('operational_entity_sources').select('*').order('observed_at',{ascending:false})
       ]);
       if(docs.error)throw docs.error;
+      if(sourceRows.error)throw sourceRows.error;
       setSuppliers(core.suppliers||[]);
       setVehicles(core.vehicles||[]);
       setPeople(directory.people||[]);
       setResources(directory.resources||[]);
       setDocuments((docs.data||[]) as OperationalDocument[]);
+      setSources((sourceRows.data||[]) as OperationalSource[]);
     }finally{setLoading(false)}
   };
   useEffect(()=>{void load()},[]);
@@ -111,8 +121,13 @@ export default function OperationalRecordsWorkspace({role}:{role:string}){
   },[selected,type,selectedKey,suppliers,people,vehicles,resources]);
   const selectedEntity=allSelected as Entity|null;
   const selectedDocs=useMemo(()=>documents.filter(d=>d.entity_type===type&&d.entity_id===(selectedEntity as any)?.id&&d.status==='active'),[documents,type,selectedEntity]);
+  const selectedSources=useMemo(()=>sources.filter(s=>s.entity_type===type&&s.entity_id===(selectedEntity as any)?.id),[sources,type,selectedEntity]);
 
-  useEffect(()=>{setSelectedKey('')},[type]);
+  useEffect(()=>{if(initialType&&initialType!==type)setType(initialType)},[initialType]);
+  useEffect(()=>{
+    if(initialEntityId&&initialType===type){setSelectedKey(entityKey(type,initialEntityId));return}
+    if(!initialEntityId)setSelectedKey('');
+  },[type,initialType,initialEntityId]);
 
   const overview=useMemo(()=>{
     const base=type==='supplier'?suppliers:type==='person'?people:type==='vehicle'?vehicles:resources;
@@ -176,6 +191,7 @@ export default function OperationalRecordsWorkspace({role}:{role:string}){
           suppliers={suppliers}
           people={people}
           documents={selectedDocs}
+          sources={selectedSources}
           canEdit={canEdit}
           saving={saving}
           uploading={uploading}
@@ -193,6 +209,25 @@ export default function OperationalRecordsWorkspace({role}:{role:string}){
             setUploading(true);
             try{await uploadDocuments(type,(selectedEntity as any).id,input);await load()}catch(e:any){alert(e?.message||'No se pudo subir el documento.')}finally{setUploading(false)}
           }}
+          onAddSource={async(source:any)=>{
+            if(!canEdit)return;
+            const row={
+              entity_type:type,entity_id:(selectedEntity as any).id,source_kind:'drive',
+              external_id:extractDriveId(source.url),title:source.title||entityName(type,selectedEntity as any),
+              url:source.url,query_text:source.queryText||entityName(type,selectedEntity as any),
+              observed_at:new Date().toISOString(),metadata:{linked_from:'hotel_experience_ui'}
+            };
+            const {error}=await assertSupabase().from('operational_entity_sources').upsert(row,{onConflict:'entity_type,entity_id,url'});
+            if(error)throw error;
+            await load();
+          }}
+          onDeleteSource={async(source:OperationalSource)=>{
+            if(!canEdit)return;
+            if(!confirm(`¿Desvincular la fuente “${source.title}”? El archivo de Drive no se elimina.`))return;
+            const {error}=await assertSupabase().from('operational_entity_sources').delete().eq('id',source.id);
+            if(error)return alert(error.message);
+            await load();
+          }}
           onOpen={openDocument}
           onArchive={async doc=>{
             if(!canEdit)return;
@@ -207,7 +242,7 @@ export default function OperationalRecordsWorkspace({role}:{role:string}){
   </div>;
 }
 
-function EntityRecord({type,entity,suppliers,people,documents,canEdit,saving,uploading,onSave,onUpload,onOpen,onArchive}:any){
+function EntityRecord({type,entity,suppliers,people,documents,sources,canEdit,saving,uploading,onSave,onUpload,onAddSource,onDeleteSource,onOpen,onArchive}:any){
   const [draft,setDraft]=useState<any>(()=>draftFor(type,entity));
   useEffect(()=>{setDraft(draftFor(type,entity))},[type,entity.id,entity.updated_at]);
   const score=profileScore(type,entity,documents);
@@ -233,6 +268,11 @@ function EntityRecord({type,entity,suppliers,people,documents,canEdit,saving,upl
     </section>
 
     <section className="record-section">
+      <SectionTitle icon={<Link2/>} title="Fuente Drive" subtitle="Evidencia y consulta del Drive que dio origen o respalda esta ficha."/>
+      <DriveSourcePanel entityName={entityName(type,entity)} sources={sources||[]} canEdit={canEdit} onAdd={onAddSource} onDelete={onDeleteSource}/>
+    </section>
+
+    <section className="record-section">
       <SectionTitle icon={<Paperclip/>} title="Documentos respaldados" subtitle="Archivos privados asociados directamente a esta ficha."/>
       {canEdit&&<DocumentUploader type={type} uploading={uploading} onUpload={onUpload}/>} 
       <div className="document-list">
@@ -249,6 +289,39 @@ function EntityRecord({type,entity,suppliers,people,documents,canEdit,saving,upl
         {!documents.length&&<div className="records-empty">Todavía no hay documentos cargados en esta ficha.</div>}
       </div>
     </section>
+  </div>;
+}
+
+function DriveSourcePanel({entityName,sources,canEdit,onAdd,onDelete}:{entityName:string;sources:OperationalSource[];canEdit:boolean;onAdd:(x:any)=>Promise<void>;onDelete:(x:OperationalSource)=>Promise<void>}){
+  const [title,setTitle]=useState('');
+  const [url,setUrl]=useState('');
+  const [saving,setSaving]=useState(false);
+  const query=entityName.trim();
+  const add=async()=>{
+    const value=url.trim();
+    if(!/^https:\/\/(drive|docs)\.google\.com\//i.test(value))return alert('Usa un enlace válido de Google Drive, Docs o Sheets.');
+    setSaving(true);
+    try{await onAdd({title:title.trim()||entityName,url:value,queryText:query});setTitle('');setUrl('')}catch(e:any){alert(e?.message||'No se pudo vincular la fuente Drive.')}finally{setSaving(false)}
+  };
+  return <div className="drive-source-panel">
+    <div className="drive-source-actions">
+      <a className="drive-query-button" href={driveSearchUrl(query)} target="_blank" rel="noreferrer"><Search size={14}/> Buscar “{query}” en Drive</a>
+      <small>La búsqueda se abre en el Drive de la cuenta conectada al navegador.</small>
+    </div>
+    <div className="drive-source-list">
+      {sources.map(source=><article key={source.id}>
+        <div className="drive-source-icon"><Link2 size={17}/></div>
+        <div className="drive-source-copy"><strong>{source.title}</strong><span>{source.source_kind==='drive'?'Google Drive':source.source_kind} · consultado {new Date(source.observed_at).toLocaleDateString('es-CL')}</span>{source.query_text&&<small>Consulta: {source.query_text}</small>}</div>
+        <a className="doc-open" href={source.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/> Abrir fuente</a>
+        {canEdit&&<button className="doc-archive" type="button" onClick={()=>onDelete(source)} title="Desvincular fuente"><X size={14}/></button>}
+      </article>)}
+      {!sources.length&&<div className="drive-source-empty">Todavía no hay una fuente Drive vinculada. Puedes buscar por nombre o pegar el archivo exacto.</div>}
+    </div>
+    {canEdit&&<div className="drive-source-linker">
+      <label><span>Título de la fuente</span><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ej. Listados Servicios marzo"/></label>
+      <label className="wide"><span>Enlace Drive</span><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://docs.google.com/..."/></label>
+      <button className="primary-button" type="button" disabled={saving||!url.trim()} onClick={add}><Link2 size={14}/>{saving?'Vinculando…':'Vincular fuente'}</button>
+    </div>}
   </div>;
 }
 
@@ -421,6 +494,8 @@ function safeName(v:string){return String(v||'archivo').normalize('NFD').replace
 function expiryState(date?:string|null){if(!date)return 'none';const days=Math.ceil((new Date(`${date}T12:00:00`).getTime()-Date.now())/86400000);return days<0?'expired':days<=30?'soon':'ok'}
 function dateFmt(d:string){return new Date(`${d}T12:00:00`).toLocaleDateString('es-CL')}
 function formatBytes(v?:number|null){const n=Number(v||0);if(!n)return 'Tamaño no registrado';if(n<1024*1024)return `${Math.round(n/1024)} KB`;return `${(n/1024/1024).toFixed(1)} MB`}
+function driveSearchUrl(query:string){return `https://drive.google.com/drive/u/0/search?q=${encodeURIComponent(query)}`}
+function extractDriveId(url:string){const m=String(url||'').match(/(?:\/d\/|\/folders\/)([-_a-zA-Z0-9]+)/);return m?.[1]||null}
 function Field({label,children,wide=false}:{label:string;children:React.ReactNode;wide?:boolean}){return <label className={wide?'record-field wide':'record-field'}><span>{label}</span>{children}</label>}
 function SectionTitle({icon,title,subtitle}:{icon:React.ReactNode;title:string;subtitle:string}){return <header className="record-section-title"><span>{icon}</span><div><h3>{title}</h3><p>{subtitle}</p></div></header>}
 function TypeButton({active,onClick,icon,label}:{active:boolean;onClick:()=>void;icon:React.ReactNode;label:string}){return <button className={active?'active':''} onClick={onClick}>{icon}{label}</button>}
