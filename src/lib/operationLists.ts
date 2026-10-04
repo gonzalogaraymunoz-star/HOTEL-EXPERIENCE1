@@ -48,14 +48,16 @@ export async function reconcileMissingOperationLists():Promise<ReconcileResult>{
   return{checked:rows.length,generated,failed};
 }
 
-export async function openOrGenerateOperationLists(departureId:string){
+export async function openOrGenerateOperationLists(departureId:string,force=false){
   const sb=assertSupabase();
-  const {data,error}=await sb.from('tour_departures')
-    .select('operation_lists_url,operation_lists_status,operation_lists_error')
-    .eq('id',departureId)
-    .single();
-  if(error)throw error;
-  if(data?.operation_lists_url)return{url:data.operation_lists_url,existing:true};
+  if(!force){
+    const {data,error}=await sb.from('tour_departures')
+      .select('operation_lists_url,operation_lists_status,operation_lists_error')
+      .eq('id',departureId)
+      .single();
+    if(error)throw error;
+    if(data?.operation_lists_url)return{url:data.operation_lists_url,existing:true};
+  }
   const body=await generateOne(departureId);
   return{url:body.url||body.spreadsheetUrl,existing:false,warnings:body.warnings||[]};
 }
