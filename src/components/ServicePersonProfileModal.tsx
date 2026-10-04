@@ -50,6 +50,15 @@ export default function ServicePersonProfileModal({
       setDocuments((docs.data||[]) as EntityDocument[]);
       const explicit=person.profile_photo_url||'';
       if(explicit){setPhotoUrl(explicit);return}
+      const storedSource=String(person.profile_photo_source_url||'');
+      if(storedSource.startsWith('supabase://')){
+        const raw=storedSource.slice('supabase://'.length);
+        const slash=raw.indexOf('/');
+        const bucket=slash>0?raw.slice(0,slash):BUCKET;
+        const path=slash>0?raw.slice(slash+1):raw;
+        const signed=await sb.storage.from(bucket).createSignedUrl(path,3600);
+        if(!signed.error&&signed.data?.signedUrl){setPhotoUrl(signed.data.signedUrl);return}
+      }
       const imageDoc=(docs.data||[]).find((d:any)=>String(d.mime_type||'').startsWith('image/'));
       if(imageDoc){
         const signed=await sb.storage.from(imageDoc.storage_bucket||BUCKET).createSignedUrl(imageDoc.storage_path,3600);
@@ -98,7 +107,7 @@ export default function ServicePersonProfileModal({
       const signed=await sb.storage.from(doc.storage_bucket||BUCKET).createSignedUrl(doc.storage_path,60*60*24*30);
       if(signed.error)throw signed.error;
       await updateServicePerson(person.id,{
-        profile_photo_url:signed.data.signedUrl,
+        profile_photo_url:null,
         profile_photo_source_url:`supabase://${doc.storage_bucket||BUCKET}/${doc.storage_path}`,
         profile_photo_source_title:doc.title,
         profile_photo_updated_at:new Date().toISOString()
