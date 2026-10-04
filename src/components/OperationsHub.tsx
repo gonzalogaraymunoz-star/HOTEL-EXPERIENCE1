@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {Box,Building2,CarFront,ChefHat,ChevronRight,ClipboardCheck,Compass,HardHat,Languages,LifeBuoy,Mail,PackagePlus,Phone,Plus,Radio,Search,ShieldCheck,Stethoscope,Truck,UserRoundCog,UsersRound,Wrench,X} from 'lucide-react';
+import {Box,Building2,CarFront,ChefHat,ChevronRight,ClipboardCheck,Compass,FileText,HardHat,Languages,LifeBuoy,Mail,PackagePlus,Phone,Plus,Radio,Search,ShieldCheck,Stethoscope,Truck,UserRoundCog,UsersRound,Wrench,X} from 'lucide-react';
 import type {Supplier,Vehicle,ServicePerson,OperationalResource} from '../types';
 import {createOperationalResource,createServicePerson,createSupplier,createVehicle,loadOperationsData,loadOperationsDirectory} from '../lib/api';
 import ServicePersonProfileModal from './ServicePersonProfileModal';
