@@ -374,7 +374,7 @@ export async function createServicePerson(payload:any){
   if(error) throw error;return data;
 }
 export async function updateServicePerson(id:string,patch:any){
-  const row=cleanNullable(patch,['supplier_id','phone','whatsapp','email','rut','nationality','first_aid_expiry','license_type','license_expiry','sernatur_registration','bank_name','account_type','account_number','payment_notes','availability_notes','emergency_contact','notes']);
+  const row=cleanNullable(patch,['supplier_id','phone','whatsapp','email','rut','nationality','first_aid_expiry','license_type','license_expiry','sernatur_registration','bank_name','account_type','account_number','payment_notes','availability_notes','emergency_contact','profile_photo_url','profile_photo_source_url','profile_photo_source_title','profile_photo_updated_at','drive_sync_status','drive_last_synced_at','notes']);
   const {error}=await assertSupabase().from('service_people').update(row).eq('id',id);
   if(error) throw error;
 }
