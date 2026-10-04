@@ -3,6 +3,29 @@ const GOAS_SERVICE_NAMES={
 };
 
 function unique(values){return Array.from(new Set((values||[]).filter(Boolean)))}
+function normalize(value=''){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim()}
+function inferTemplateKeys(departure,services,products=[]){
+  const text=normalize([
+    departure?.product_name,departure?.tour_id,
+    ...products.flatMap(p=>[p?.name,p?.code,p?.slug,p?.stops]),
+    ...(services||[]).flatMap(s=>[s?.productName,s?.code])
+  ].filter(Boolean).join(' '));
+  const keys=[];
+  const add=(key,condition)=>{if(condition&&!keys.includes(key))keys.push(key)};
+  add('luna',/valle de la luna|valle luna/.test(text));
+  add('chaxa',/chaxa|salar de atacama/.test(text));
+  add('socaire',/socaire|altiplan|piedras rojas|aguas calientes|miscanti|miniques/.test(text));
+  add('tatio',/tatio|geiser|geyser/.test(text));
+  add('arcoiris',/arcoiris|arco iris|yerbas buenas/.test(text));
+  add('catarpe',/catarpe|cuchabrache/.test(text));
+  add('quitor',/quitor|pukara/.test(text));
+  add('talabre',/talabre|kezala/.test(text));
+  add('coyo',/coyo|baltinache|tebinquinche|tebenquinche|tulor|vallecito|laguna cejar/.test(text));
+  add('marte',/valle de marte|valle marte|valle de la muerte/.test(text));
+  add('frontera',/hito cajon|frontera/.test(text));
+  add('transfer',/\btrf\b|transfer|traslado|aeropuerto/.test(text));
+  return keys.length?keys:['otros'];
+}
 function hotelFor(lead){
   if(lead?.hotel_partners?.partner_type==='hotel')return lead.hotel_partners.name||'';
   return lead?.hotel_room||lead?.pickup_location||'';
@@ -101,13 +124,16 @@ async function loadDeparture(admin,departureId){
     };
   });
 
-  const templateKeys=unique((mappingRes.data||[]).map(m=>m.template_key));
-  if(!templateKeys.length)throw Object.assign(new Error('El producto no tiene plantillas operacionales configuradas.'),{status:409});
+  let templateKeys=unique((mappingRes.data||[]).map(m=>m.template_key));
+  const products=(productRes.data||[]).map(p=>({id:p.id,code:p.code||'',slug:p.product_slug||'',name:p.name||'',category:p.category||'',stops:p.stops||''}));
+  if(!templateKeys.length){
+    templateKeys=inferTemplateKeys(departure,serviceGroups,products);
+    warnings.push('La salida no tenía contrato explícito producto→lista; se resolvió automáticamente por el nombre y contexto del tour.');
+  }
   const primaryOperation=serviceGroups.find(group=>Object.values(group.operation).some(Boolean))?.operation||{date:departure.service_date||''};
   const passengerMap=new Map();
   for(const group of serviceGroups)for(const pax of group.passengers)if(!passengerMap.has(pax.id))passengerMap.set(pax.id,pax);
   for(const pax of passengerMap.values())if(pax.birthDate&&!Number.isInteger(pax.age))warnings.push(`${pax.code||pax.fullName}: fecha de nacimiento inválida o posterior al servicio; la edad quedó vacía.`);
-  const products=(productRes.data||[]).map(p=>({id:p.id,code:p.code||'',slug:p.product_slug||'',name:p.name||'',category:p.category||'',stops:p.stops||''}));
   const resources=(resourceRes.data||[]).map(r=>({code:r.operational_resources?.code||'',name:r.operational_resources?.name||'',type:r.operational_resources?.resource_type||'',quantity:r.quantity,status:r.fulfillment_status,notes:r.notes||''}));
   const risk=(documentRes.data||[]).filter(d=>d.document_type==='risk').map(d=>({reservationId:d.lead_id,title:d.title,status:d.status,data:d.risk_data||{},url:d.url||''}));
   return{departure,services:serviceGroups,products,operation:primaryOperation,passengers:[...passengerMap.values()],templateKeys,warnings,resources,notes:(noteRes.data||[]).map(n=>({source:n.source,note:n.note,createdAt:n.created_at})),risk,itinerary:itineraryRes.data||[]};
@@ -125,15 +151,37 @@ async function postGoas(config,payload){
 }
 
 export async function generateGoasOperationLists(admin,departureId){
-  const [config,data]=await Promise.all([loadIntegrationConfig(admin),loadDeparture(admin,departureId)]),tourCode=data.departure.departure_code||data.departure.id,generated=[];
-  for(const key of data.templateKeys){
-    const service=GOAS_SERVICE_NAMES[key]||GOAS_SERVICE_NAMES.otros;
-    const result=await postGoas(config,{schemaVersion:2,tourCode,service,templateKey:key,productName:data.departure.product_name||data.products[0]?.name||service,serviceDate:data.operation.date,operation:data.operation,passengers:data.passengers,departure:{id:data.departure.id,code:tourCode,date:data.departure.service_date,modality:data.departure.modality,status:data.departure.status},products:data.products,services:data.services,resources:data.resources,notes:data.notes,risk:data.risk,itinerary:data.itinerary});
-    generated.push({service,...result});
+  const attemptedAt=new Date().toISOString();
+  await admin.from('tour_departures').update({
+    operation_lists_status:'generating',
+    operation_lists_error:null,
+    operation_lists_attempted_at:attemptedAt
+  }).eq('id',departureId);
+  try{
+    const [config,data]=await Promise.all([loadIntegrationConfig(admin),loadDeparture(admin,departureId)]),tourCode=data.departure.departure_code||data.departure.id,generated=[];
+    for(const key of data.templateKeys){
+      const service=GOAS_SERVICE_NAMES[key]||GOAS_SERVICE_NAMES.otros;
+      const result=await postGoas(config,{schemaVersion:2,tourCode,service,templateKey:key,productName:data.departure.product_name||data.products[0]?.name||service,serviceDate:data.operation.date,operation:data.operation,passengers:data.passengers,departure:{id:data.departure.id,code:tourCode,date:data.departure.service_date,modality:data.departure.modality,status:data.departure.status},products:data.products,services:data.services,resources:data.resources,notes:data.notes,risk:data.risk,itinerary:data.itinerary});
+      generated.push({service,...result});
+    }
+    const withUrl=generated.find(item=>item.spreadsheetUrl||item.url),url=withUrl?.spreadsheetUrl||withUrl?.url;
+    if(!url)throw new Error('GOAS generó las listas pero no devolvió un enlace de Google Sheets.');
+    const {error:updateError}=await admin.from('tour_departures').update({
+      operation_lists_url:url,
+      operation_lists_updated_at:new Date().toISOString(),
+      operation_lists_services:data.templateKeys.map(k=>GOAS_SERVICE_NAMES[k]||k),
+      operation_lists_status:'ready',
+      operation_lists_error:null,
+      operation_lists_attempted_at:attemptedAt
+    }).eq('id',departureId);
+    if(updateError)throw updateError;
+    return{url,spreadsheetUrl:url,departureCode:tourCode,services:data.templateKeys.map(k=>GOAS_SERVICE_NAMES[k]||k),passengers:data.passengers.length,warnings:data.warnings,generated};
+  }catch(error){
+    await admin.from('tour_departures').update({
+      operation_lists_status:'error',
+      operation_lists_error:String(error?.message||'No se pudieron generar las listas.').slice(0,1200),
+      operation_lists_attempted_at:attemptedAt
+    }).eq('id',departureId);
+    throw error;
   }
-  const withUrl=generated.find(item=>item.spreadsheetUrl||item.url),url=withUrl?.spreadsheetUrl||withUrl?.url;
-  if(!url)throw new Error('GOAS generó las listas pero no devolvió un enlace de Google Sheets.');
-  const {error:updateError}=await admin.from('tour_departures').update({operation_lists_url:url,operation_lists_updated_at:new Date().toISOString(),operation_lists_services:data.templateKeys.map(k=>GOAS_SERVICE_NAMES[k]||k)}).eq('id',departureId);
-  if(updateError)throw updateError;
-  return{url,spreadsheetUrl:url,departureCode:tourCode,services:data.templateKeys.map(k=>GOAS_SERVICE_NAMES[k]||k),passengers:data.passengers.length,warnings:data.warnings,generated};
 }
