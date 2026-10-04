@@ -1,11 +1,11 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {Box,Building2,CarFront,ChefHat,ClipboardCheck,Compass,HardHat,Languages,LifeBuoy,Mail,PackagePlus,Phone,Plus,Radio,Search,ShieldCheck,Stethoscope,Truck,UserRoundCog,UsersRound,Wrench,X} from 'lucide-react';
+import {Box,Building2,CarFront,ChefHat,ChevronRight,ClipboardCheck,Compass,HardHat,Languages,LifeBuoy,Mail,PackagePlus,Phone,Plus,Radio,Search,ShieldCheck,Stethoscope,Truck,UserRoundCog,UsersRound,Wrench,X} from 'lucide-react';
 import type {Supplier,Vehicle,ServicePerson,OperationalResource} from '../types';
 import {createOperationalResource,createServicePerson,createSupplier,createVehicle,loadOperationsData,loadOperationsDirectory} from '../lib/api';
 
 export type Tab='suppliers'|'people'|'vehicles'|'resources';
 
-export default function OperationsHub({role,initialTab='suppliers'}:{role:string;initialTab?:Tab}){
+export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}:{role:string;initialTab?:Tab;onOpenRecord?:(type:'supplier'|'person'|'vehicle'|'resource',id:string)=>void}){
   const [tab,setTab]=useState<Tab>(initialTab);
   const [suppliers,setSuppliers]=useState<Supplier[]>([]);
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
@@ -159,17 +159,17 @@ export default function OperationsHub({role,initialTab='suppliers'}:{role:string
   </div>
 }
 
-function SuppliersTab({suppliers,vehicles,canEdit,onNew}:any){
+function SuppliersTab({suppliers,vehicles,canEdit,onNew,onOpen}:any){
   return <section>
     <TabHeader title="Proveedores / agencias" subtitle="Empresas o personas jurídicas a quienes se contrata y paga." action={canEdit?'Nuevo proveedor':null} onAction={onNew}/>
     <div className="supplier-grid">
       {suppliers.map((s:Supplier)=>{
         const fleet=vehicles.filter((v:Vehicle)=>v.supplier_id===s.id);
-        return <article className="supplier-card" key={s.id}>
+        return <article className="supplier-card directory-openable" key={s.id} role="button" tabIndex={0} onClick={()=>onOpen?.('supplier',s.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onOpen?.('supplier',s.id)}}}>
           <div className="supplier-card-head"><div className="supplier-icon"><Building2/></div><span className="mode-chip">{s.supplier_type}</span></div>
           <h3>{s.name}</h3>
           <p>{s.contact_name||'Sin contacto'}</p>
-          <div className="contact-actions">
+          <div className="contact-actions" onClick={e=>e.stopPropagation()}>
             {s.phone&&<a href={`tel:${s.phone}`}><Phone size={13}/>{s.phone}</a>}
             {s.whatsapp&&<a href={`https://wa.me/${String(s.whatsapp).replace(/\D/g,'')}`} target="_blank" rel="noreferrer"><Phone size={13}/>WhatsApp</a>}
             {s.email&&<a href={`mailto:${s.email}`}><Mail size={13}/>{s.email}</a>}
@@ -180,6 +180,7 @@ function SuppliersTab({suppliers,vehicles,canEdit,onNew}:any){
           <div className="supplier-meta-row"><span>Vehículos</span><b>{fleet.length}</b></div>
           <div className="supplier-meta-row"><span>Banco</span><b>{s.bank_name||'—'}</b></div>
           {s.payment_notes&&<div className="supplier-note">{s.payment_notes}</div>}
+          <button className="record-open-button" type="button" onClick={e=>{e.stopPropagation();onOpen?.('supplier',s.id)}}>Abrir ficha <ChevronRight size={14}/></button>
         </article>
       })}
       {!suppliers.length&&<div className="empty-card">No hay proveedores registrados.</div>}
@@ -187,17 +188,17 @@ function SuppliersTab({suppliers,vehicles,canEdit,onNew}:any){
   </section>
 }
 
-function PeopleTab({people,suppliers,canEdit,onNew}:any){
+function PeopleTab({people,suppliers,canEdit,onNew,onOpen}:any){
   const groups=['Guía','Conductor','Cocinero/a','Guía de montaña','Coordinador/a','Fotógrafo/a','Terapeuta / Wellness','Otro'];
   return <section>
     <TabHeader title="Prestadores de servicios" subtitle="Base de datos de personas disponibles para ejecutar la operación." action={canEdit?'Nuevo prestador':null} onAction={onNew}/>
     <div className="people-summary">{groups.map(g=><div key={g}><span>{g}</span><b>{people.filter((p:ServicePerson)=>p.person_type===g).length}</b></div>)}</div>
     <div className="people-grid">
-      {people.map((p:ServicePerson)=><article className="person-card" key={p.id}>
+      {people.map((p:ServicePerson)=><article className="person-card directory-openable" key={p.id} role="button" tabIndex={0} onClick={()=>onOpen?.('person',p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onOpen?.('person',p.id)}}}>
         <div className="person-card-head"><div className="person-role-icon">{personIcon(p.person_type)}</div><span className="mode-chip">{p.person_type}</span></div>
         <h3>{p.full_name}</h3>
         {p.supplier_id&&<p className="person-company">Agencia / proveedor: {suppliers.find((s:Supplier)=>s.id===p.supplier_id)?.name||'Vinculado'}</p>}
-        <div className="contact-actions">
+        <div className="contact-actions" onClick={e=>e.stopPropagation()}>
           {p.phone&&<a href={`tel:${p.phone}`}><Phone size={13}/>{p.phone}</a>}
           {p.whatsapp&&<a href={`https://wa.me/${String(p.whatsapp).replace(/\D/g,'')}`} target="_blank" rel="noreferrer"><Phone size={13}/>WhatsApp</a>}
           {p.email&&<a href={`mailto:${p.email}`}><Mail size={13}/>{p.email}</a>}
@@ -210,19 +211,20 @@ function PeopleTab({people,suppliers,canEdit,onNew}:any){
         <div className="supplier-meta-row"><span>SERNATUR</span><b>{p.sernatur_registration||'—'}</b></div>
         <div className="supplier-meta-row"><span>Tarifa ref.</span><b>{p.default_rate?money(p.default_rate):'—'}</b></div>
         {p.notes&&<div className="supplier-note">{p.notes}</div>}
+        <button className="record-open-button" type="button" onClick={e=>{e.stopPropagation();onOpen?.('person',p.id)}}>Abrir ficha · revisar y editar <ChevronRight size={14}/></button>
       </article>)}
       {!people.length&&<div className="empty-card">No hay prestadores individuales cargados.</div>}
     </div>
   </section>
 }
 
-function VehiclesTab({vehicles,suppliers,people,canEdit,onNew}:any){
+function VehiclesTab({vehicles,suppliers,people,canEdit,onNew,onOpen}:any){
   return <section>
     <TabHeader title="Vehículos" subtitle="Flota propia y de terceros: patente, capacidad, conductor y disponibilidad." action={canEdit?'Nuevo vehículo':null} onAction={onNew}/>
     <div className="vehicle-grid">
       {vehicles.map((v:Vehicle)=>{
         const s=suppliers.find((x:Supplier)=>x.id===v.supplier_id);
-        return <article className="vehicle-card" key={v.id}>
+        return <article className="vehicle-card directory-openable" key={v.id} role="button" tabIndex={0} onClick={()=>onOpen?.('vehicle',v.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onOpen?.('vehicle',v.id)}}}>
           <div className="vehicle-plate">{v.plate}</div><h3>{v.label}</h3><p>{[v.brand,v.model,v.year].filter(Boolean).join(' · ')||s?.name||'Propio / independiente'}</p>
           <div className="supplier-meta-row"><span>Proveedor</span><b>{s?.name||'Propio / independiente'}</b></div>
           <div className="supplier-meta-row"><span>Capacidad</span><b>{v.capacity||'—'} pax</b></div>
@@ -230,6 +232,7 @@ function VehiclesTab({vehicles,suppliers,people,canEdit,onNew}:any){
           <div className="supplier-meta-row"><span>Estado</span><b>{v.active?'Activo':'Fuera de servicio'}</b></div>
           <div className="supplier-meta-row"><span>Rev. técnica</span><b>{(v as any).technical_review_expiry||'—'}</b></div>
           <div className="supplier-meta-row"><span>Seguro</span><b>{(v as any).insurance_expiry||'—'}</b></div>
+          <button className="record-open-button" type="button" onClick={e=>{e.stopPropagation();onOpen?.('vehicle',v.id)}}>Abrir ficha <ChevronRight size={14}/></button>
         </article>
       })}
       {!vehicles.length&&<div className="empty-card">No hay vehículos cargados.</div>}
