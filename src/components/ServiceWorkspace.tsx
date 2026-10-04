@@ -1,7 +1,8 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {ArrowLeft,CalendarDays,ClipboardList,MessageSquare,Pencil,RefreshCw,Save,ShieldAlert,Users,UtensilsCrossed,Wrench,X} from 'lucide-react';
-import type {Lead,LeadService,OperationalResource,Passenger,LeadServicePassengerLink,ReservationDocument,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,TourDeparture,TourDepartureNote,Vehicle} from '../types';
+import type {Lead,LeadService,OperationalResource,Passenger,LeadServicePassengerLink,ReservationDocument,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,TourDeparture,TourDepartureNote,TourFoodPassenger,TourFoodSegment,Vehicle} from '../types';
 import {addTourDepartureNote,loadServiceWorkspaceData,updatePassengerOperationalData,updateTourDeparture} from '../lib/operationsApi';
+import {foodOrder} from '../lib/food';
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
 import PassengerRiskWorkspace from './PassengerRiskWorkspace';
@@ -61,7 +62,7 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
         {loading?<div className="workspace-empty">Cargando servicio…</div>:<>
           {tab==='summary'&&<Summary lead={lead} service={service} passengers={passengers} assignment={assignment} supplier={supplier} vehicle={vehicle} guide={guide} driver={driver} data={data} canEdit={userRole!=='viewer'} onChanged={refreshed}/>} 
           {tab==='assignments'&&<ServiceAssignmentWorkspace lead={lead} service={service} userRole={userRole} onChanged={refreshed}/>} 
-          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={tourPax} reservations={reservationLeads} onChanged={refreshed}/>} 
+          {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={tourPax} reservations={reservationLeads} foodSegments={(data.foodSegments||[]) as TourFoodSegment[]} foodAssignments={(data.foodPassengerAssignments||[]) as TourFoodPassenger[]} onChanged={refreshed}/>} 
           {tab==='food'&&(departure?<TourFoodWorkspace departure={departure} passengers={riskPassengers} reservations={reservationLeads} onChanged={refreshed}/>:<div className="workspace-empty">Esta operación todavía no tiene un TOUR. Vincula la salida antes de asignar alimentación.</div>)} 
           {tab==='itinerary'&&<div className="tour-reservation-documents">{reservationLeads.map(item=><section key={item.id}><header><span>RESERVA {item.codigo}</span><b>{item.reserva}</b></header><CustomerItineraryPreview lead={item} services={itinerary} passengers={passengers.filter(passenger=>passenger.lead_id===item.id)} compact/></section>)}</div>}
           {tab==='risk'&&(departure?<PassengerRiskWorkspace reservations={reservationLeads} passengers={riskPassengers} documents={(data.documents||[]) as ReservationDocument[]} departureId={departure.id} departureCode={departure.departure_code} onChanged={refreshed}/>:<div className="workspace-empty">Esta operación todavía no tiene un código TOUR. Vincula la salida antes de generar hojas de riesgo.</div>)} 
@@ -121,7 +122,7 @@ function passengerDraft(passenger:Passenger):PassengerDraft{return{
   disability_type:passenger.disability_type||''
 }}
 
-function PassengerPanel({passengers,expected,reservations,onChanged}:{passengers:Passenger[];expected:number;reservations:Lead[];onChanged:()=>void}){
+function PassengerPanel({passengers,expected,reservations,foodSegments,foodAssignments,onChanged}:{passengers:Passenger[];expected:number;reservations:Lead[];foodSegments:TourFoodSegment[];foodAssignments:TourFoodPassenger[];onChanged:()=>void}){
   const [editingId,setEditingId]=useState<string|null>(null);
   const [draft,setDraft]=useState<PassengerDraft|null>(null);
   const [saving,setSaving]=useState(false);
@@ -144,7 +145,7 @@ function PassengerPanel({passengers,expected,reservations,onChanged}:{passengers
 
   return <section className="panel-page passenger-panel-page">
     <header className="panel-page-head"><div><span>LISTA NOMINAL</span><h2>Pasajeros · {passengers.length}/{expected}</h2><p>Estos son los mismos pasajeros de la reserva. Puedes completar aquí los datos faltantes sin crear registros duplicados.</p></div></header>
-    <div className="workspace-table-scroll"><table className="workspace-table passenger-data-table"><thead><tr><th>Reserva</th><th>Código pax</th><th>Nombre / edad</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Observaciones</th><th></th></tr></thead><tbody>{passengers.map(p=>{const reservation=reservations.find(item=>item.id===p.lead_id);return <tr key={p.id} className={editingId===p.id?'is-editing':''}><td><b>{reservation?.codigo||'—'}</b></td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name} · {age(p.birth_date)}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td><td><button className="passenger-edit-button" type="button" onClick={()=>begin(p)}><Pencil size={13}/> Editar</button></td></tr>})}</tbody></table></div>
+    <div className="workspace-table-scroll"><table className="workspace-table passenger-data-table"><thead><tr><th>Reserva</th><th>Código pax</th><th>Nombre / edad</th><th>Nacionalidad</th><th>Nacimiento</th><th>Documento</th><th>Contacto</th><th>Alimentación asignada</th><th>Observaciones</th><th></th></tr></thead><tbody>{passengers.map(p=>{const reservation=reservations.find(item=>item.id===p.lead_id);const foods=foodLabelsForPassenger(p.id,foodSegments,foodAssignments);return <tr key={p.id} className={editingId===p.id?'is-editing':''}><td><b>{reservation?.codigo||'—'}</b></td><td><b>{p.passenger_code}</b></td><td><b>{p.full_name} · {age(p.birth_date)}</b>{p.is_primary&&<small>Principal</small>}</td><td>{p.nationality||'—'}</td><td>{p.birth_date||'—'}</td><td>{[p.document_type,p.document_number].filter(Boolean).join(' · ')||'—'}</td><td>{[p.phone,p.email].filter(Boolean).join(' · ')||'—'}</td><td><div className="passenger-food-chips">{foods.length?foods.map(item=><span key={item}>{item}</span>):<small>Sin asignar</small>}</div></td><td>{[p.dietary_restrictions,p.medical_notes,p.disability_type].filter(Boolean).join(' · ')||'—'}</td><td><button className="passenger-edit-button" type="button" onClick={()=>begin(p)}><Pencil size={13}/> Editar</button></td></tr>})}</tbody></table></div>
     {!passengers.length&&<div className="workspace-empty compact">No hay pasajeros individuales cargados todavía.</div>}
 
     {active&&draft&&<section className="passenger-editor-card" aria-label={`Editar ${active.full_name}`}>
@@ -167,6 +168,7 @@ function PassengerPanel({passengers,expected,reservations,onChanged}:{passengers
   </section>
 }
 
+function foodLabelsForPassenger(passengerId:string,segments:TourFoodSegment[],assignments:TourFoodPassenger[]){const ids=new Set(assignments.filter(item=>item.passenger_id===passengerId).map(item=>item.segment_id));return segments.filter(item=>ids.has(item.id)).sort((a,b)=>foodOrder(a.food_type)-foodOrder(b.food_type)).map(item=>item.food_type)}
 function Fact({label,value}:{label:string;value:string}){return <div className="service-fact"><span>{label}</span><b>{value}</b></div>}
 function TabButton({active,icon,onClick,children}:{active:boolean;icon:React.ReactNode;onClick:()=>void;children:React.ReactNode}){return <button className={active?'active':''} onClick={onClick}>{icon}<span>{children}</span></button>}
 function modalityLabel(value:any){const key=String(value||'').toLowerCase();return key.includes('semi')?'Semiprivado':key.includes('priv')?'Privado':'Regular'}
