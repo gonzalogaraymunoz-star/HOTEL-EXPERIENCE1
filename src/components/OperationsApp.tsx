@@ -6,6 +6,7 @@ import {
 import type {Lead,LeadService} from '../types';
 import {loadCRMData} from '../lib/api';
 import {assertSupabase} from '../lib/supabase';
+import {reconcileMissingOperationLists} from '../lib/operationLists';
 import BrandLogo from './BrandLogo';
 import OperationsCalendarHub,{type OperationsCalendarMode} from './OperationsCalendarHub';
 import DailyOperationsBoard from './DailyOperationsBoard';
@@ -50,6 +51,19 @@ export default function OperationsApp({profile}:{profile:any}){
 
   const refresh=async()=>{setLoading(true);setError('');try{const data=await loadCRMData();setLeads(data.leads);setServices(data.services)}catch(e:any){setError(e?.message||'No se pudo cargar la operación.')}finally{setLoading(false)}};
   useEffect(()=>{void refresh()},[]);
+  useEffect(()=>{
+    let cancelled=false;
+    const timer=window.setTimeout(()=>{
+      void reconcileMissingOperationLists()
+        .then(result=>{
+          if(cancelled)return;
+          if(result.generated>0)void refresh();
+          if(result.failed>0)console.warn('Listas operacionales pendientes con error',result);
+        })
+        .catch(error=>console.warn('No se pudieron reconciliar las listas operacionales',error));
+    },900);
+    return()=>{cancelled=true;window.clearTimeout(timer)};
+  },[]);
 
   const nonHistoricalLeadIds=useMemo(()=>new Set(leads.filter(lead=>String((lead as any).lifecycle_stage||'active')!=='historical').map(lead=>lead.id)),[leads]);
   const operationalServices=useMemo(()=>services.filter(service=>{const booking=String(service.booking_status||'confirmed').toLowerCase();return nonHistoricalLeadIds.has(service.lead_id)&&['confirmed','completed'].includes(booking)}).map(operationalCopy),[services,nonHistoricalLeadIds]);
