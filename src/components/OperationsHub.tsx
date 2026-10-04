@@ -3,6 +3,7 @@ import {Box,Building2,CarFront,ChefHat,ChevronRight,ClipboardCheck,Compass,HardH
 import type {Supplier,Vehicle,ServicePerson,OperationalResource} from '../types';
 import {createOperationalResource,createServicePerson,createSupplier,createVehicle,loadOperationsData,loadOperationsDirectory} from '../lib/api';
 import ServicePersonProfileModal from './ServicePersonProfileModal';
+import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
 
 export type Tab='suppliers'|'people'|'vehicles'|'resources';
 
@@ -23,6 +24,7 @@ export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}
   const [quickSaving,setQuickSaving]=useState(false);
   const [directorySearch,setDirectorySearch]=useState('');
   const [profilePersonId,setProfilePersonId]=useState<string|null>(null);
+  const [profileVehicleId,setProfileVehicleId]=useState<string|null>(null);
   const canEdit=role==='admin'||role==='manager';
 
   const load=async()=>{
@@ -153,12 +155,30 @@ export default function OperationsHub({role,initialTab='suppliers',onOpenRecord}
     {loading?<div className="loading-card">Cargando operación…</div>:<>
             {tab==='suppliers'&&<SuppliersTab suppliers={filterSuppliers(suppliers,directorySearch)} vehicles={vehicles} canEdit={canEdit} onNew={()=>setModal('supplier')}/>}
       {tab==='people'&&<PeopleTab people={filterPeople(people,directorySearch)} suppliers={suppliers} canEdit={canEdit} onNew={()=>setModal('person')} onOpen={(_type:string,id:string)=>setProfilePersonId(id)}/>} 
-      {tab==='vehicles'&&<VehiclesTab vehicles={filterVehicles(vehicles,directorySearch)} suppliers={suppliers} people={people} canEdit={canEdit} onNew={()=>setModal('vehicle')} onOpen={onOpenRecord}/>}
+      {tab==='vehicles'&&<VehiclesTab vehicles={filterVehicles(vehicles,directorySearch)} suppliers={suppliers} people={people} canEdit={canEdit} onNew={()=>setModal('vehicle')} onOpen={(_type:string,id:string)=>setProfileVehicleId(id)}/>}
       {tab==='resources'&&<ResourcesTab resources={filterResources(resources,directorySearch)} suppliers={suppliers} canEdit={canEdit} onNew={()=>setModal('resource')}/>}
     </>}
 
     {modal&&<CreateModal type={modal} suppliers={suppliers} people={people} onClose={()=>setModal(null)} onSaved={async()=>{setModal(null);await load()}}/>}
     {profilePersonId&&people.find(p=>p.id===profilePersonId)&&<ServicePersonProfileModal person={people.find(p=>p.id===profilePersonId)!} suppliers={suppliers} onClose={()=>setProfilePersonId(null)} onChanged={async()=>{await load()}} onOpenFullRecord={()=>{const id=profilePersonId;setProfilePersonId(null);if(id)onOpenRecord?.('person',id)}}/>}
+    {profileVehicleId&&<div className="provider-profile-backdrop" onMouseDown={()=>setProfileVehicleId(null)}>
+      <section className="provider-profile" style={{width:'min(1220px,96vw)',maxHeight:'94vh',overflow:'hidden'}} onMouseDown={e=>e.stopPropagation()}>
+        <header className="provider-profile-top no-print" style={{gridTemplateColumns:'1fr auto',padding:'14px 18px'}}>
+          <div className="provider-profile-identity">
+            <span className="eyebrow">HOTEL EXPERIENCE · VEHÍCULO</span>
+            <h1 style={{fontSize:22,margin:'3px 0'}}>Ficha 360 del vehículo</h1>
+            <p style={{margin:0}}>Datos, vigencias, documentos y fuentes Drive en una sola ficha.</p>
+          </div>
+          <div className="provider-profile-actions">
+            <button type="button" onClick={()=>{const id=profileVehicleId;setProfileVehicleId(null);if(id)onOpenRecord?.('vehicle',id)}}><FileText size={15}/> Abrir en Fichas 360</button>
+            <button className="provider-close" type="button" onClick={()=>setProfileVehicleId(null)}><X/></button>
+          </div>
+        </header>
+        <div style={{overflow:'auto',maxHeight:'calc(94vh - 86px)'}}>
+          <OperationalRecordsWorkspace role={role} initialType="vehicle" initialEntityId={profileVehicleId}/>
+        </div>
+      </section>
+    </div>}
   </div>
 }
 
