@@ -148,7 +148,7 @@ export default function OperationsApp({profile}:{profile:any}){
         <RailButton icon={<Building2/>} label="Operadores" active={view==='suppliers'} onClick={()=>openView('suppliers')}/>
         <RailButton icon={<UsersRound/>} label="Prestadores" active={view==='people'} onClick={()=>openView('people')}/>
         <RailButton icon={<CarFront/>} label="Vehículos" active={view==='vehicles'} onClick={()=>openView('vehicles')}/>
-        <RailButton icon={<Box/>} label="Recursos" active={view==='resources'} onClick={()=>openView('resources')}/>
+        <RailButton icon={<Box/>} label="Insumos" active={view==='resources'} onClick={()=>openView('resources')}/>
         {canApprovePartners&&<><span className="ops-rail-divider"/><RailButton icon={<CheckCircle2/>} label="Aprobaciones" active={view==='approvals'} onClick={()=>openView('approvals')}/></>}
         {profile?.role==='admin'&&<RailButton icon={<Users/>} label="Equipo" active={view==='team'} onClick={()=>openView('team')}/>} 
       </nav>
@@ -194,7 +194,7 @@ function tabForPending(taskKey:string):ServiceWorkspaceTab{
   return'summary';
 }
 function RailButton({icon,label,active,onClick}:{icon:React.ReactNode;label:string;active:boolean;onClick:()=>void}){return <button className={active?'ops-rail-button active':'ops-rail-button'} onClick={onClick} title={label}>{icon}<span>{label}</span></button>}
-function viewTitle(view:View){return ({program:'Programa diario',calendar:'Calendario operativo',itinerary:'Itinerarios',food:'Alimentación',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Recursos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view]}
+function viewTitle(view:View){return ({program:'Programa diario',calendar:'Calendario operativo',itinerary:'Itinerarios',food:'Alimentación',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view]}
 function parseDate(value:string){const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12,0,0)}
 function isoDate(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
 function friendlyDate(value:string){return new Intl.DateTimeFormat('es-CL',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).format(parseDate(value)).replace('.','').toUpperCase()}
