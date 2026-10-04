@@ -1,0 +1,18 @@
+.passenger-risk-workspace{display:grid;gap:14px}
+.passenger-risk-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:14px 16px;border:1px solid #d8d1c7;border-radius:14px;background:#faf8f4}
+.passenger-risk-head span{font-size:8px;letter-spacing:.12em;font-weight:850;color:#756f68}
+.passenger-risk-head h2{margin:4px 0 3px;font-size:20px;letter-spacing:-.03em}
+.passenger-risk-head p{margin:0;color:#756f68;font-size:10px}
+.passenger-risk-head>strong{font-size:10px;border:1px solid #cdc6bc;background:#fff;border-radius:999px;padding:7px 9px;white-space:nowrap}
+.passenger-risk-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.passenger-risk-buttons button{min-width:0;border:1px solid #d4cdc4;border-radius:12px;background:#fff;min-height:64px;padding:10px;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:9px;text-align:left;color:#1c1b19}
+.passenger-risk-buttons button:hover{border-color:#9f978c;background:#fbfaf7}
+.passenger-risk-buttons button.active{border-color:#171715;box-shadow:0 0 0 1px #171715}
+.risk-button-status{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:#fff5ea;color:#996039;border:1px solid #dfb992}
+.risk-button-status.done{background:#eff8f2;color:#2f6d4a;border-color:#98bea6}
+.risk-button-copy{display:grid;gap:2px;min-width:0}
+.risk-button-copy small{font-size:8px;letter-spacing:.08em;color:#756f68;font-weight:850}
+.risk-button-copy b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.risk-button-copy em{font-size:8px;color:#756f68;font-style:normal}
+.risk-button-state{font-size:8px;font-weight:850;color:#756f68;text-transform:uppercase;letter-spacing:.05em}
+@media(max-width:760px){.passenger-risk-head{flex-direction:column}.passenger-risk-buttons{grid-template-columns:1fr}.risk-button-state{display:none}}
