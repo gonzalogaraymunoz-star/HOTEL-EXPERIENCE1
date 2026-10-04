@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {ArrowLeft,CalendarDays,ClipboardList,MessageSquare,Pencil,RefreshCw,Save,ShieldAlert,Users,UtensilsCrossed,Wrench,X} from 'lucide-react';
-import type {Lead,LeadService,OperationalResource,Passenger,ReservationDocument,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,TourDeparture,TourDepartureNote,Vehicle} from '../types';
+import type {Lead,LeadService,OperationalResource,Passenger,LeadServicePassengerLink,ReservationDocument,ServiceAssignment,ServicePerson,ServiceResourceAssignment,Supplier,TourDeparture,TourDepartureNote,Vehicle} from '../types';
 import {addTourDepartureNote,loadServiceWorkspaceData,updatePassengerOperationalData,updateResourceFulfillment,updateTourDeparture} from '../lib/operationsApi';
 import ServiceAssignmentWorkspace from './ServiceAssignmentWorkspace';
 import CustomerItineraryPreview from './CustomerItineraryPreview';
@@ -33,6 +33,12 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
   const departureServices=(data?.departureServices||[service]) as LeadService[];
   const reservationLeads=(data?.reservationLeads||[lead]) as Lead[];
   const departure=data?.departure as TourDeparture|null;
+  const passengerLinks=(data?.passengerLinks||[]) as LeadServicePassengerLink[];
+  const riskPassengers=useMemo(()=>{
+    const serviceIds=new Set(departureServices.map(item=>item.id));
+    const linkedIds=new Set(passengerLinks.filter(link=>serviceIds.has(link.lead_service_id)&&link.confirmed!==false).map(link=>link.passenger_id));
+    return linkedIds.size?passengers.filter(passenger=>linkedIds.has(passenger.id)):passengers;
+  },[passengers,passengerLinks,departureServices]);
   const tourPax=departureServices.reduce((sum,item)=>sum+Number(item.numero_pax||0),0);
 
   return <div className="service-workspace-overlay">
@@ -58,7 +64,7 @@ export default function ServiceWorkspace({lead,service,userRole,onClose,onChange
           {tab==='passengers'&&<PassengerPanel passengers={passengers} expected={tourPax} reservations={reservationLeads} onChanged={refreshed}/>} 
           {tab==='food'&&<FoodPanel rows={food} service={service} onChanged={refreshed}/>} 
           {tab==='itinerary'&&<div className="tour-reservation-documents">{reservationLeads.map(item=><section key={item.id}><header><span>RESERVA {item.codigo}</span><b>{item.reserva}</b></header><CustomerItineraryPreview lead={item} services={itinerary} passengers={passengers.filter(passenger=>passenger.lead_id===item.id)} compact/></section>)}</div>}
-          {tab==='risk'&&<PassengerRiskWorkspace reservations={reservationLeads} services={itinerary} passengers={passengers} documents={(data.documents||[]) as ReservationDocument[]} onChanged={refreshed}/>} 
+          {tab==='risk'&&(departure?<PassengerRiskWorkspace reservations={reservationLeads} passengers={riskPassengers} documents={(data.documents||[]) as ReservationDocument[]} departureId={departure.id} departureCode={departure.departure_code} onChanged={refreshed}/>:<div className="workspace-empty">Esta operación todavía no tiene un código TOUR. Vincula la salida antes de generar hojas de riesgo.</div>)} 
         </>}
       </main>
     </section>
