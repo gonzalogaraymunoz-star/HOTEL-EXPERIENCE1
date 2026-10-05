@@ -37,7 +37,9 @@ export default function PassengerRiskWorkspace({
       });
       const body=await response.json();
       if(!response.ok)throw new Error(body.error||'No se pudo generar la hoja de riesgo.');
-      if(target)target.location.href=body.url;else window.open(body.url,'_blank','noopener,noreferrer');
+      const destination=body.driveUrl||body.url;
+      if(!destination)throw new Error('La hoja fue generada, pero no tiene enlace disponible.');
+      if(target)target.location.href=destination;else window.open(destination,'_blank','noopener,noreferrer');
       onChanged();
     }catch(error:any){
       if(target)target.close();
@@ -76,7 +78,7 @@ export default function PassengerRiskWorkspace({
       <div>
         <span>HOJA DE RIESGO · ITINERARIO COMPLETO · SERNATUR</span>
         <h2>{orderedPassengers.length} hoja{orderedPassengers.length===1?'':'s'} · 1 por pasajero</h2>
-        <p>Cada pasajero tiene una única hoja de riesgo. El formulario oficial XLSX se autorellena con todos sus servicios confirmados, desde el inicio hasta el final de su itinerario.</p>
+        <p>Cada pasajero tiene una única hoja de riesgo. El formulario oficial XLSX se autorellena con todos sus servicios confirmados. Cuando está lista, se abre desde Google Drive para visualizarla o descargarla desde ahí.</p>
       </div>
       <div style={{display:'grid',gap:7,justifyItems:'end'}}><strong>{generated}/{orderedPassengers.length} generadas</strong><button type="button" disabled={Boolean(loadingId)||generated===orderedPassengers.length} onClick={()=>void generateAll()}>{loadingId==='__all__'?<LoaderCircle size={13} className="spin"/>:null}{generated===orderedPassengers.length?'Todas preparadas':'Preparar todas'}</button></div>
     </header>
@@ -87,7 +89,15 @@ export default function PassengerRiskWorkspace({
         const document=riskDocuments.find(item=>item.passenger_id===passenger.id);
         const ready=document?.status==='Generada';
         const loading=loadingId===passenger.id;
-        return <button key={passenger.id} type="button" disabled={Boolean(loadingId)} onClick={()=>void generate(passenger)}>
+        const driveUrl=document?.drive_url||document?.url||null;
+        const openOrGenerate=()=>{
+          if(ready&&driveUrl){
+            window.open(driveUrl,'_blank','noopener,noreferrer');
+            return;
+          }
+          void generate(passenger);
+        };
+        return <button key={passenger.id} type="button" disabled={Boolean(loadingId)} onClick={openOrGenerate} title={ready&&driveUrl?'Abrir hoja de riesgo en Google Drive':'Generar hoja de riesgo'}>
           <span className={ready?'risk-button-status done':'risk-button-status'}>
             {loading?<LoaderCircle size={16} className="spin"/>:ready?<CheckCircle2 size={15}/>:<FileText size={15}/>}
           </span>
@@ -96,7 +106,7 @@ export default function PassengerRiskWorkspace({
             <b>{passenger.full_name||'Pasajero sin nombre'}</b>
             <em>{reservation?.codigo||'Reserva'} · itinerario completo</em>
           </span>
-          <span className="risk-button-state">{loading?'Generando…':ready?'Regenerar hoja':'Generar hoja'}</span>
+          <span className="risk-button-state">{loading?'Generando…':ready&&driveUrl?'Abrir en Drive':ready?'Hoja generada':'Generar hoja'}</span>
         </button>
       })}
     </div>
