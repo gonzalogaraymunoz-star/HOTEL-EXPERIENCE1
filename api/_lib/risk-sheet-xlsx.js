@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import {createHash} from 'node:crypto';
 import {archiveReservationDocument} from './reservation-drive.js';
 
 export const RISK_TEMPLATE_KEY='risk_sheet_standard';
@@ -46,7 +47,9 @@ async function loadTemplate(admin){
   if(!data)throw Object.assign(new Error('No está configurada la plantilla estándar de hoja de riesgo.'),{status:500});
   const embedded=byteaBuffer(data.file_bytes);
   if(!embedded?.length)throw Object.assign(new Error('La plantilla XLSX de hoja de riesgo no tiene respaldo binario disponible.'),{status:502});
-  return{bytes:embedded,sourceUrl:data.source_url||'',fileName:data.file_name||'Formulario_Aceptacion_Riesgo_Turismo_Aventura.xlsx'};
+  const actualSha=createHash('sha256').update(embedded).digest('hex');
+  if(data.sha256&&String(data.sha256)!==actualSha)throw Object.assign(new Error('La plantilla XLSX de hoja de riesgo no coincide con el formulario maestro configurado.'),{status:502});
+  return{bytes:embedded,sourceUrl:data.source_url||'',fileName:data.file_name||'Formulario_Aceptacion_Riesgo_Turismo_Aventura.xlsx',sha256:actualSha};
 }
 
 async function loadPassengerItinerary(admin,passengerId){
@@ -114,7 +117,7 @@ async function loadPassengerItinerary(admin,passengerId){
       description:parts.filter(Boolean).join(' · '),
       start,
       finish,
-      meetingPoint:assignment?.meeting_point||lead.pickup_location||''
+      meetingPoint:assignment?.meeting_point||lead.pickup_location||lead.empresa_ejecuta||''
     };
   }).sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.start).localeCompare(String(b.start))||String(a.service.created_at).localeCompare(String(b.service.created_at)));
 
@@ -185,21 +188,26 @@ async function fillRiskWorkbook(templateBytes,ctx){
   const serviceDates=ctx.itinerary.map(item=>item.date).filter(Boolean);
   const uniqueGuides=unique(ctx.itinerary.map(item=>item.guide?.full_name||item.assignment?.guide_name));
   const uniqueGuideIds=unique(ctx.itinerary.map(item=>item.guide?.rut));
-  const activityRange=serviceDates.length?`${displayDate(serviceDates[0])}${serviceDates.at(-1)!==serviceDates[0]?` / ${displayDate(serviceDates.at(-1))}`:''}`:'';
+  const activityStart=serviceDates.length?displayDate(serviceDates[0]):'';
+  const activityName=ctx.itinerary.length===1
+    ?String(first?.service?.producto||first?.departure?.product_name||first?.product?.name||'Adventure tourism activity')
+    :'Tours en San Pedro de Atacama';
+  const firstMeeting=first?.meetingPoint||ctx.lead.pickup_location||ctx.lead.empresa_ejecuta||'';
+  const lastMeeting=last?.meetingPoint||ctx.lead.pickup_location||ctx.lead.empresa_ejecuta||firstMeeting;
 
   setCell(ws,'B5',ctx.passenger.full_name);
   setCell(ws,'D5',ctx.passenger.nationality);
   setCell(ws,'B6',ctx.passenger.document_number);
   setCell(ws,'E6',ageOn(ctx.passenger.birth_date,first?.date));
   setCell(ws,'G6','');
-  setCell(ws,'B9',ctx.lead.reservation_reference||'Complete itinerary');
-  setCell(ws,'D9',activityRange);
+  setCell(ws,'B9',activityName);
+  setCell(ws,'D9',activityStart);
   setCell(ws,'B10',uniqueGuides.length===1?uniqueGuides[0]:uniqueGuides.length?'VARIOUS':'');
   setCell(ws,'E10',uniqueGuideIds.length===1?uniqueGuideIds[0]:'');
   setCell(ws,'B11',ctx.itinerary.length===1?(first?.start||''):'VARIOUS');
   setCell(ws,'D11',ctx.itinerary.length===1?(last?.finish||''):'VARIOUS');
-  setCell(ws,'F11',first?.meetingPoint||ctx.lead.pickup_location||'');
-  setCell(ws,'H11','');
+  setCell(ws,'F11',firstMeeting);
+  setCell(ws,'H11',lastMeeting);
 
   ctx.itinerary.forEach((item,index)=>{
     const row=15+index;
@@ -246,6 +254,7 @@ export async function generatePassengerRiskSheet(admin,user,passengerId){
     source_template_key:RISK_TEMPLATE_KEY,
     source_template_url:template.sourceUrl,
     source_template_file_name:template.fileName,
+    source_template_sha256:template.sha256,
     template_source:'database_binary_from_official_xlsx',
     scope:'passenger_full_itinerary',
     lead_id:ctx.lead.id,
@@ -270,8 +279,9 @@ export async function generatePassengerRiskSheet(admin,user,passengerId){
   if(findError)throw findError;
   let documentId=existing?.id||null;
   const documentPatch={
+    document_type:RISK_DOCUMENT_TYPE,
     title:`Hoja de riesgo · ${ctx.passenger.passenger_code} · itinerario completo`,
-    status:'Generada',url:null,risk_data:riskData,completed_at:null,departure_id:null,
+    status:'Generada',url:null,risk_data:riskData,completed_at:generatedAt,departure_id:null,
     source_app:'hotel_experience',storage_bucket:RISK_BUCKET,storage_path:storagePath,
     archive_category:'risk',drive_sync_status:'pending',drive_sync_error:null,updated_at:generatedAt
   };
