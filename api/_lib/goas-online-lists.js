@@ -124,11 +124,16 @@ async function loadDeparture(admin,departureId){
     };
   });
 
-  let templateKeys=unique((mappingRes.data||[]).map(m=>m.template_key));
+  const explicitTemplateKeys=unique((services||[]).map(service=>service.operation_list_template_key));
+  const mappedTemplateKeys=unique((mappingRes.data||[]).map(m=>m.template_key));
+  let templateKeys=unique([...explicitTemplateKeys,...mappedTemplateKeys]);
   const products=(productRes.data||[]).map(p=>({id:p.id,code:p.code||'',slug:p.product_slug||'',name:p.name||'',category:p.category||'',stops:p.stops||''}));
   if(!templateKeys.length){
     templateKeys=inferTemplateKeys(departure,serviceGroups,products);
     warnings.push('La salida no tenía contrato explícito producto→lista; se resolvió automáticamente por el nombre y contexto del tour.');
+  }
+  if(explicitTemplateKeys.length){
+    warnings.push(`Lista operacional definida explícitamente desde LINK Ventas: ${explicitTemplateKeys.map(key=>GOAS_SERVICE_NAMES[key]||key).join(' + ')}.`);
   }
   const primaryOperation=serviceGroups.find(group=>Object.values(group.operation).some(Boolean))?.operation||{date:departure.service_date||''};
   const passengerMap=new Map();
