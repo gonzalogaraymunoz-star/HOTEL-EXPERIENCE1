@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {
-  Box,Building2,CalendarDays,CarFront,CheckCircle2,ChevronLeft,ChevronRight,ClipboardList,FolderOpen,
+  BookOpen,Box,Building2,CalendarDays,CarFront,CheckCircle2,ChevronLeft,ChevronRight,ClipboardList,FolderOpen,
   LogOut,Menu,RefreshCw,Route,UtensilsCrossed,UsersRound,X,Users
 } from 'lucide-react';
 import type {Lead,LeadService} from '../types';
@@ -10,6 +10,7 @@ import {reconcileMissingOperationLists} from '../lib/operationLists';
 import BrandLogo from './BrandLogo';
 import OperationsCalendarHub,{type OperationsCalendarMode} from './OperationsCalendarHub';
 import DailyOperationsBoard from './DailyOperationsBoard';
+import EmbeddedCatalog from './EmbeddedCatalog';
 import FoodOperationsBoard from './FoodOperationsBoard';
 import ItineraryWorkspace from './ItineraryWorkspace';
 import OperationalRecordsWorkspace from './OperationalRecordsWorkspace';
@@ -20,7 +21,7 @@ import ServiceWorkspace,{type ServiceWorkspaceTab} from './ServiceWorkspace';
 import TeamView from './TeamView';
 import './OperationsApp.css';
 
-type View='program'|'calendar'|'itinerary'|'food'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
+type View='program'|'calendar'|'itinerary'|'catalog'|'food'|'records'|'suppliers'|'people'|'vehicles'|'resources'|'approvals'|'team';
 type CalendarMode='day'|'week'|'month'|'year';
 
 type PendingTaskDetail={leadId:string;serviceId?:string|null;taskKey:string;fromPending?:boolean};
@@ -157,6 +158,7 @@ export default function OperationsApp({profile}:{profile:any}){
         <RailButton icon={<ClipboardList/>} label="Programa" active={view==='program'} onClick={()=>selectCalendarMode('day')}/>
         <RailButton icon={<CalendarDays/>} label="Calendario" active={view==='calendar'} onClick={()=>selectCalendarMode(calendarMode==='day'?'month':calendarMode)}/>
         <RailButton icon={<Route/>} label="Itinerarios" active={view==='itinerary'} onClick={()=>openView('itinerary')}/>
+        <RailButton icon={<BookOpen/>} label="Catálogo" active={view==='catalog'} onClick={()=>openView('catalog')}/>
         <RailButton icon={<UtensilsCrossed/>} label="Alimentación" active={view==='food'} onClick={()=>openView('food')}/>
         <RailButton icon={<FolderOpen/>} label="Fichas" active={view==='records'} onClick={()=>openView('records')}/>
         <span className="ops-rail-divider"/>
@@ -186,6 +188,7 @@ export default function OperationsApp({profile}:{profile:any}){
         {view==='program'&&<DailyOperationsBoard date={selectedDate} leads={activeLeads} services={operationalServices} onOperation={service=>openService(service,'summary')}/>} 
         {view==='calendar'&&<OperationsCalendarHub mode={calendarMode as OperationsCalendarMode} selectedDate={selectedDate} leads={activeLeads} services={operationalServices} onDateChange={setSelectedDate} onChanged={refresh} userRole={profile?.role||'agent'} onService={service=>openService(service,'summary')}/>} 
         {view==='itinerary'&&<ItineraryWorkspace leads={activeLeads} services={operationalServices} onChanged={refresh}/>} 
+        {view==='catalog'&&<EmbeddedCatalog/>} 
         {view==='food'&&<FoodOperationsBoard date={selectedDate}/>} 
         {view==='records'&&<OperationalRecordsWorkspace role={profile?.role||'agent'} initialType={recordTarget?.type} initialEntityId={recordTarget?.id}/>} 
         {view==='suppliers'&&<><OperationsHub role={profile?.role||'agent'} initialTab="suppliers" onOpenRecord={openRecord}/><OperationsAdminTools role={profile?.role||'agent'} section="suppliers"/></>} 
@@ -209,7 +212,7 @@ function tabForPending(taskKey:string):ServiceWorkspaceTab{
   return'summary';
 }
 function RailButton({icon,label,active,onClick}:{icon:React.ReactNode;label:string;active:boolean;onClick:()=>void}){return <button className={active?'ops-rail-button active':'ops-rail-button'} onClick={onClick} title={label}>{icon}<span>{label}</span></button>}
-function viewTitle(view:View){return ({program:'Programa diario',calendar:'Calendario operativo',itinerary:'Itinerarios',food:'Alimentación',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view]}
+function viewTitle(view:View){return ({program:'Programa diario',calendar:'Calendario operativo',itinerary:'Itinerarios',catalog:'Catálogo',food:'Alimentación',records:'Fichas 360',suppliers:'Operadores',people:'Prestadores',vehicles:'Vehículos',resources:'Insumos',approvals:'Aprobación de negocios',team:'Equipo'} as Record<View,string>)[view]}
 function parseDate(value:string){const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d,12,0,0)}
 function isoDate(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
 function friendlyDate(value:string){return new Intl.DateTimeFormat('es-CL',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).format(parseDate(value)).replace('.','').toUpperCase()}
