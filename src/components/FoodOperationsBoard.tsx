@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Printer,Search,UtensilsCrossed} from 'lucide-react';
-import {loadFoodBoard,updateFoodSegment,upsertFoodSegment} from '../lib/operationsApi';
+import {loadFoodBoard} from '../lib/operationsApi';
 import {FOOD_TYPES,foodOrder,type FoodType} from '../lib/food';
 
 export default function FoodOperationsBoard({date}:{date:string}){
@@ -10,7 +10,6 @@ export default function FoodOperationsBoard({date}:{date:string}){
   const [loading,setLoading]=useState(true);
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('Todos');
-  const [saving,setSaving]=useState('');
 
   const load=async()=>{
     setLoading(true);
@@ -34,8 +33,12 @@ export default function FoodOperationsBoard({date}:{date:string}){
     const q=query.trim().toLowerCase();
     if(q&&!String([departure.departure_code,departure.product_name,departure.modality].join(' ')).toLowerCase().includes(q))return false;
     if(status==='Todos')return true;
-    const rows=FOOD_TYPES.map(type=>segmentMap.get(String(departure.id)+':'+String(type))).filter(Boolean);
-    return rows.some((row:any)=>String(row.fulfillment_status||'Pendiente')===status);
+    const assignedByType=FOOD_TYPES.map(type=>{
+      const segment=segmentMap.get(String(departure.id)+':'+String(type)) as any;
+      const segmentId=segment?.segment_id||segment?.id;
+      return segmentId?(assignmentCountBySegment.get(segmentId)||0):0;
+    });
+    return status==='Asignado'?assignedByType.some(count=>count>0):assignedByType.some(count=>count===0);
   }),[departures,query,status,segmentMap]);
 
   const totals=useMemo(()=>({
@@ -44,20 +47,9 @@ export default function FoodOperationsBoard({date}:{date:string}){
     asignaciones:assignments.length,
   }),[departures,assignments]);
 
-  const saveSegment=async(departureId:string,type:FoodType,patch:any)=>{
-    const key=departureId+':'+type;
-    setSaving(key);
-    try{
-      const existing=segmentMap.get(key);
-      if(existing)await updateFoodSegment((existing as any).segment_id||(existing as any).id,patch);
-      else await upsertFoodSegment(departureId,type,patch);
-      await load();
-    }finally{setSaving('')}
-  };
-
   return <section className="food-board unified-food-board">
     <header className="workspace-titlebar">
-      <div><span>ALIMENTACIÓN · TRAMOS POR TOUR</span><h1>{longDate(date)}</h1><p>Los seis tramos son fijos. Aquí se controla cuántos pasajeros reciben cada uno y su estado operativo. Los costos se gestionan fuera de esta pantalla.</p></div>
+      <div><span>ALIMENTACIÓN · TRAMOS POR TOUR</span><h1>{longDate(date)}</h1><p>Los seis tramos son fijos. Aquí solo se controla a qué pasajeros está asignado cada tramo. Una vez asignado, no requiere una segunda confirmación.</p></div>
       <div className="workspace-metrics">
         <Metric label="Tours" value={totals.tours}/><Metric label="Pax del día" value={totals.pax}/><Metric label="Asignaciones" value={totals.asignaciones}/>
       </div>
@@ -65,7 +57,7 @@ export default function FoodOperationsBoard({date}:{date:string}){
 
     <div className="workspace-toolbar">
       <label className="workspace-search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar TOUR o experiencia…"/></label>
-      <select value={status} onChange={e=>setStatus(e.target.value)}><option>Todos</option><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select>
+      <select value={status} onChange={e=>setStatus(e.target.value)}><option>Todos</option><option>Asignado</option><option>No asignado</option></select>
       <button className="food-print-button" type="button" onClick={()=>window.print()}><Printer size={14}/> Imprimir plan</button>
     </div>
 
@@ -79,7 +71,6 @@ export default function FoodOperationsBoard({date}:{date:string}){
           </header>
           <div className="food-tramo-grid food-tramo-grid-head"><span>Tramo de alimentación</span><span>Pax</span><span>Cobertura</span><span>Observación</span><span>Estado</span></div>
           {rows.map(({type,segment})=>{
-            const key=String(departure.id)+':'+String(type);
             const segmentId=(segment as any)?.segment_id||(segment as any)?.id;
             const assigned=segmentId?(assignmentCountBySegment.get(segmentId)||0):0;
             const total=Number(departure.total_pax||0);
@@ -88,10 +79,10 @@ export default function FoodOperationsBoard({date}:{date:string}){
               <span><b>{assigned}/{total}</b></span>
               <span><b>{assigned===total&&total>0?'Completo':assigned>0?'Parcial':'Sin asignar'}</b>{assigned<total&&<small>Faltan {Math.max(0,total-assigned)} pax</small>}</span>
               <span>{(segment as any)?.notes||'—'}</span>
-              <span><select disabled={saving===key} value={(segment as any)?.fulfillment_status||'Pendiente'} onChange={e=>void saveSegment(departure.id,type,{fulfillment_status:e.target.value})}><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select></span>
+              <span><b>{assigned>0?'Asignado':'No asignado'}</b></span>
             </div>
           })}
-          <footer><UtensilsCrossed size={14}/><span>Abre este TOUR → Alimentación para marcar qué tramo recibe cada pasajero.</span></footer>
+          <footer><UtensilsCrossed size={14}/><span>Abre este TOUR → Alimentación para asignar cada tramo a los pasajeros correspondientes.</span></footer>
         </article>
       })}
       {!visible.length&&<div className="workspace-empty"><UtensilsCrossed size={22}/><b>No hay pasajeros confirmados que alimentar para esta fecha.</b><span>Los tours aparecen aquí cuando tienen reservas y pax operacionales.</span></div>}
