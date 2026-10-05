@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import {archiveReservationDocument} from './reservation-drive.js';
 
 export const RISK_TEMPLATE_KEY='risk_sheet_standard';
 export const RISK_DOCUMENT_TYPE='risk_sheet';
@@ -267,27 +268,31 @@ export async function generatePassengerRiskSheet(admin,user,passengerId){
     .select('id,status').eq('lead_id',ctx.passenger.lead_id).eq('passenger_id',ctx.passenger.id)
     .eq('document_type',RISK_DOCUMENT_TYPE).is('departure_id',null).maybeSingle();
   if(findError)throw findError;
+  let documentId=existing?.id||null;
+  const documentPatch={
+    title:`Hoja de riesgo · ${ctx.passenger.passenger_code} · itinerario completo`,
+    status:'Generada',url:null,risk_data:riskData,completed_at:null,departure_id:null,
+    source_app:'hotel_experience',storage_bucket:RISK_BUCKET,storage_path:storagePath,
+    archive_category:'risk',drive_sync_status:'pending',drive_sync_error:null,updated_at:generatedAt
+  };
   if(existing?.id){
-    const {error}=await admin.from('reservation_documents').update({
-      title:`Hoja de riesgo · ${ctx.passenger.passenger_code} · itinerario completo`,
-      status:'Generada',url:null,risk_data:riskData,completed_at:null,updated_at:generatedAt,departure_id:null
-    }).eq('id',existing.id);
+    const {error}=await admin.from('reservation_documents').update(documentPatch).eq('id',existing.id);
     if(error)throw error;
   }else{
-    const {error}=await admin.from('reservation_documents').insert({
-      lead_id:ctx.passenger.lead_id,passenger_id:ctx.passenger.id,departure_id:null,
-      document_type:RISK_DOCUMENT_TYPE,title:`Hoja de riesgo · ${ctx.passenger.passenger_code} · itinerario completo`,
-      status:'Generada',url:null,risk_data:riskData,created_by:user.id
-    });
+    const {data:inserted,error}=await admin.from('reservation_documents').insert({
+      lead_id:ctx.passenger.lead_id,passenger_id:ctx.passenger.id,created_by:user.id,...documentPatch
+    }).select('id').single();
     if(error)throw error;
+    documentId=inserted.id;
   }
 
+  const drive=documentId?await archiveReservationDocument(admin,documentId).catch(error=>({status:'blocked',error:String(error?.message||error)})):null;
   const {data:signed,error:signedError}=await admin.storage.from(RISK_BUCKET).createSignedUrl(storagePath,3600,{download:fileName});
   if(signedError)throw signedError;
   return{
     url:signed.signedUrl,fileName,passengerCode:ctx.passenger.passenger_code,
     passengerName:ctx.passenger.full_name,leadCode:ctx.lead.codigo,
     itineraryServices:ctx.itinerary.length,itineraryStart:startDate,itineraryEnd:endDate,
-    generatedAt
+    generatedAt,driveSync:drive?.status||'pending',driveUrl:drive?.driveUrl||null,folderUrl:drive?.folderUrl||null
   };
 }
