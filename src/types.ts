@@ -16,6 +16,9 @@ export interface Lead{
   nationality?:string|null;stay_days?:number|null;reservation_reference?:string|null;sales_stage?:string|null;
   arrival_flight_number?:string|null;departure_flight_number?:string|null;pickup_location?:string|null;hotel_room?:string|null;
   itinerary_sent_at?:string|null;itinerary_sent_via?:string|null;reservation_completed_at?:string|null;
+  reservation_drive_folder_id?:string|null;reservation_drive_folder_url?:string|null;
+  reservation_drive_folder_status?:'pending'|'ready'|'blocked'|'error'|string|null;
+  reservation_drive_folder_error?:string|null;reservation_drive_folder_synced_at?:string|null;
 }
 export interface LeadService{
   id:string;lead_id:string;service_code?:string|null;producto:string;tour_id?:string|null;modality?:TourModality|string|null;
@@ -119,5 +122,7 @@ export interface TourFoodPassenger{
 }
 export interface ReservationDocument{
   id:string;lead_id:string;passenger_id?:string|null;departure_id?:string|null;document_type:string;title:string;url?:string|null;status:string;completed_at?:string|null;
-  risk_data?:Record<string,unknown>|null;created_by?:string|null;created_at:string;updated_at:string;
+  risk_data?:Record<string,unknown>|null;source_app?:string|null;storage_bucket?:string|null;storage_path?:string|null;
+  drive_file_id?:string|null;drive_url?:string|null;drive_sync_status?:string|null;drive_sync_error?:string|null;archive_category?:string|null;
+  created_by?:string|null;created_at:string;updated_at:string;
 }
