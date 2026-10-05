@@ -53,8 +53,10 @@ function CatalogIndex(){
 
 function ExperienceCard({product}:{product:PublicCatalogProduct}){
   const name=publicName(product);
+  const heroUrl=product.hero?.url||fallbackImage;
+  const llama=product.product_slug==='caminata_de_llamas';
   return <a href={`/catalogo/${encodeURIComponent(product.product_slug)}`} className="he-experience-card">
-    <div className="he-card-image-wrap"><img src={product.hero?.url||fallbackImage} alt={name}/></div>
+    <div className="he-card-image-wrap">{llama?<div className="he-llama-photo" style={{backgroundImage:`url("${heroUrl}")`}} role="img" aria-label={name}/>:<img src={heroUrl} alt={name}/>}</div>
     <div className="he-card-body">
       <div className="he-catalog-eyebrow">{publicGroup(product)}</div>
       <h2>{name}</h2>
@@ -78,10 +80,13 @@ function CatalogDetail({slug}:{slug:string}){
   const route=stops(product);
   const structured=Boolean(product.altitude||product.difficulty||product.minimum_age||product.detail||product.know_more||product.itinerary?.length||product.includes?.length||product.recommendations?.length);
 
+  const heroUrl=product.hero?.url||fallbackImage;
+  const llama=product.product_slug==='caminata_de_llamas';
+
   return <main className="he-catalog he-catalog-detail">
     <a className="he-catalog-back" href="/catalogo"><ArrowLeft size={18}/> Volver al catálogo</a>
     <section className="he-product-hero">
-      <img src={product.hero?.url||fallbackImage} alt={name}/>
+      {llama?<div className="he-product-hero-bg he-llama-photo" style={{backgroundImage:`url("${heroUrl}")`}} role="img" aria-label={name}/>:<img src={heroUrl} alt={name}/>} 
       <div className="he-product-shade"/>
       <div className="he-product-title">
         <div className="he-catalog-eyebrow light">{publicGroup(product)} · San Pedro de Atacama</div>
