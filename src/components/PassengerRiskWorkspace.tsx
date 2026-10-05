@@ -21,7 +21,7 @@ export default function PassengerRiskWorkspace({
     return ar.localeCompare(br)||String(a.passenger_code||'').localeCompare(String(b.passenger_code||''));
   }),[passengers,reservations]);
   const riskDocuments=useMemo(()=>documents.filter(item=>item.document_type==='risk_sheet'&&item.passenger_id&&!item.departure_id),[documents]);
-  const generated=riskDocuments.filter(item=>item.status==='Generada'&&orderedPassengers.some(passenger=>passenger.id===item.passenger_id)).length;
+  const generated=riskDocuments.filter(item=>item.status==='Generada'&&Boolean(item.drive_url)&&orderedPassengers.some(passenger=>passenger.id===item.passenger_id)).length;
 
   const generate=async(passenger:Passenger)=>{
     const target=window.open('about:blank','_blank');
@@ -42,7 +42,7 @@ export default function PassengerRiskWorkspace({
         if(target)target.location.href=body.driveUrl;else window.open(body.driveUrl,'_blank','noopener,noreferrer');
       }else{
         if(target)target.close();
-        alert('La hoja quedó generada. El acceso se habilitará desde Google Drive cuando termine la sincronización; no se abrirá una descarga directa de Excel.');
+        throw new Error(body.driveError||'La hoja fue rellenada, pero todavía no está subida a Google Drive. No se descargará un XLSX temporal.');
       }
     }catch(error:any){
       if(target)target.close();
@@ -90,9 +90,9 @@ export default function PassengerRiskWorkspace({
       {orderedPassengers.map(passenger=>{
         const reservation=reservations.find(item=>item.id===passenger.lead_id);
         const document=riskDocuments.find(item=>item.passenger_id===passenger.id);
-        const ready=document?.status==='Generada';
+        const driveUrl=document?.drive_url||null;
+        const ready=document?.status==='Generada'&&Boolean(driveUrl);
         const loading=loadingId===passenger.id;
-        const driveUrl=document?.drive_url||document?.url||null;
         const openOrGenerate=()=>{
           if(ready&&driveUrl){
             window.open(driveUrl,'_blank','noopener,noreferrer');
@@ -109,7 +109,7 @@ export default function PassengerRiskWorkspace({
             <b>{passenger.full_name||'Pasajero sin nombre'}</b>
             <em>{reservation?.codigo||'Reserva'} · itinerario completo</em>
           </span>
-          <span className="risk-button-state">{loading?'Generando…':ready&&driveUrl?'Abrir en Drive':ready?'Hoja generada':'Generar hoja'}</span>
+          <span className="risk-button-state">{loading?'Generando y subiendo…':ready?'Abrir en Drive':document?.status==='Generada'?'Pendiente Drive · reintentar':'Generar hoja'}</span>
         </button>
       })}
     </div>
