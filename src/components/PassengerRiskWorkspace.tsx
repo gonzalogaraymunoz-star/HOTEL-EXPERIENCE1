@@ -37,10 +37,13 @@ export default function PassengerRiskWorkspace({
       });
       const body=await response.json();
       if(!response.ok)throw new Error(body.error||'No se pudo generar la hoja de riesgo.');
-      const destination=body.driveUrl||body.url;
-      if(!destination)throw new Error('La hoja fue generada, pero no tiene enlace disponible.');
-      if(target)target.location.href=destination;else window.open(destination,'_blank','noopener,noreferrer');
-      onChanged();
+      await onChanged();
+      if(body.driveUrl){
+        if(target)target.location.href=body.driveUrl;else window.open(body.driveUrl,'_blank','noopener,noreferrer');
+      }else{
+        if(target)target.close();
+        alert('La hoja quedó generada. El acceso se habilitará desde Google Drive cuando termine la sincronización; no se abrirá una descarga directa de Excel.');
+      }
     }catch(error:any){
       if(target)target.close();
       alert(error?.message||'No se pudo generar la hoja de riesgo del itinerario completo.');
