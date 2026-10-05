@@ -4,8 +4,8 @@ import type {Lead,LeadService,OperationalResource,ServiceAssignment,ServicePerso
 import {assignResourceToService,removeResourceFromService,updateService,updateServiceAssignment} from '../lib/api';
 import {assignResourceToDeparture,loadServiceWorkspaceData,removeResourceFromDeparture,updateDepartureOperationStatus} from '../lib/operationsApi';
 
-type Coverage='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
-const coverage:[Coverage,string][]=[['vehicle','Vehículo'],['driver','Conductor'],['guide','Guía'],['food','Alimentación'],['coordination','Coordinación'],['resources','Insumos'],['entrances','Entradas']];
+type Coverage='vehicle'|'driver'|'guide'|'coordination'|'resources'|'entrances';
+const coverage:[Coverage,string][]=[['vehicle','Vehículo'],['driver','Conductor'],['guide','Guía'],['coordination','Coordinación'],['resources','Insumos'],['entrances','Entradas']];
 
 export default function ServiceAssignmentWorkspace({lead,service,userRole,onChanged}:{lead:Lead;service:LeadService;userRole:string;onChanged:()=>void}){
   const [data,setData]=useState<any>(null);
@@ -73,7 +73,6 @@ export default function ServiceAssignmentWorkspace({lead,service,userRole,onChan
       <div className="assignment-form-grid">
         <PersonField label="Guía" role="guide" people={people} id={a.guide_person_id} manual={a.guide_name} disabled={!canEdit||saving} onChange={(id,manual)=>void save({guide_person_id:id,guide_name:manual})}/>
         <PersonField label="Conductor" role="driver" people={people} id={a.driver_person_id} manual={a.driver_name} disabled={!canEdit||saving} onChange={(id,manual)=>void save({driver_person_id:id,driver_name:manual})}/>
-        <PersonField label="Cocinero/a" role="cook" people={people} id={a.cook_person_id} manual={a.cook_name} disabled={!canEdit||saving} onChange={(id,manual)=>void save({cook_person_id:id,cook_name:manual})}/>
         <PersonField label="Coordinación" role="coord" people={people} id={a.coordinator_person_id} manual={a.coordinator_name} disabled={!canEdit||saving} onChange={(id,manual)=>void save({coordinator_person_id:id,coordinator_name:manual})}/>
         <VehicleField vehicles={vehicles} id={a.vehicle_id} manual={a.vehicle_name_manual} disabled={!canEdit||saving} onChange={(id,manual)=>void save({vehicle_id:id,vehicle_name_manual:manual})}/>
         <Field label="Pick-up"><input disabled={!canEdit||saving} type="time" value={String(a.pickup_time||'').slice(0,5)} onChange={e=>void save({pickup_time:e.target.value||null})}/></Field>
@@ -95,7 +94,7 @@ export default function ServiceAssignmentWorkspace({lead,service,userRole,onChan
 
 function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="assignment-field"><span>{label}</span>{children}</label>}
 
-function PersonField({label,role,people,id,manual,disabled,onChange}:{label:string;role:'guide'|'driver'|'cook'|'coord';people:ServicePerson[];id?:string|null;manual?:string|null;disabled:boolean;onChange:(id:string|null,manual:string|null)=>void}){
+function PersonField({label,role,people,id,manual,disabled,onChange}:{label:string;role:'guide'|'driver'|'coord';people:ServicePerson[];id?:string|null;manual?:string|null;disabled:boolean;onChange:(id:string|null,manual:string|null)=>void}){
   const matches=useMemo(()=>people.filter(person=>matchRole(person.person_type,role)),[people,role]);
   const manualMode=!id&&Boolean(manual);
   const value=id|| (manualMode?'__manual__':'');
@@ -108,4 +107,4 @@ function VehicleField({vehicles,id,manual,disabled,onChange}:{vehicles:Vehicle[]
 }
 
 function isFood(value:any){return ['alimentación','alimentacion','food','alimentos'].includes(String(value||'').trim().toLowerCase())}
-function matchRole(type:string,role:string){const value=String(type||'').toLowerCase();if(role==='guide')return value.includes('guía')||value.includes('guia');if(role==='driver')return value.includes('conductor')||value.includes('chofer');if(role==='cook')return value.includes('cocin');return value.includes('coord')}
+function matchRole(type:string,role:string){const value=String(type||'').toLowerCase();if(role==='guide')return value.includes('guía')||value.includes('guia');if(role==='driver')return value.includes('conductor')||value.includes('chofer');return value.includes('coord')}
