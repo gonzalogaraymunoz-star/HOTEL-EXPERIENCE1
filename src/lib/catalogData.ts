@@ -61,7 +61,8 @@ function attachImages(product:any,images:CatalogImage[]):PublicCatalogProduct{
   const hero=explicitHero||legacyCover;
   const cover=legacyCover||hero;
   const gallery=own.filter(image=>image.image_role==='gallery'&&image.storage_path!==hero?.storage_path);
-  return {...product,hero,cover,gallery};
+  const public_origin=product.public_origin==='LAMA'?'Operación local':product.public_origin;
+  return {...product,public_origin,hero,cover,gallery};
 }
 
 export async function loadPublicCatalog(slug?:string):Promise<PublicCatalogProduct[]>{
