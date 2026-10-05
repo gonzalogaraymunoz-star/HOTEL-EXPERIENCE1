@@ -219,6 +219,37 @@ function setMetaByLabels(sheet,data){
   rightOf(sheet,'fecha',excelDate(d.service_date));rightOf(sheet,'servicio',d.product_name);rightOf(sheet,'conductor',c.driverName);rightOf(sheet,'patente',c.vehicle?.plate||'');rightOf(sheet,'guía',c.guideName);rightOf(sheet,'guia',c.guideName);
   rightOf(sheet,'registro sernatur',c.guideSernatur||c.guideRut,0);rightOf(sheet,'rut empresa',c.supplier?.rut||'');rightOf(sheet,'agencia',c.supplier?.name||'');rightOf(sheet,'operador',c.supplier?.name||'');
 }
+function tatioObservation(p){
+  const values=[p?.dietary_restrictions,p?.medical_notes,p?.disability_type]
+    .map(value=>String(value||'').trim())
+    .filter(value=>{const n=normalize(value);return value&&!['no','ninguno','ninguna','sin','none','n/a','na','no aplica','no informada','no informado'].includes(n);});
+  return unique(values).join(' · ');
+}
+function fillTatio(sheet,data){
+  const ctx=data.context||{};
+  cell(sheet,'D1',data.departure.product_name||'Tatio');
+  cell(sheet,'D2',excelDate(data.departure.service_date),true);
+  cell(sheet,'D3',[ctx.driverName,ctx.driverRut?('RUT: '+ctx.driverRut):''].filter(Boolean).join('       '));
+  cell(sheet,'D4',ctx.vehicle?.plate||'');
+  cell(sheet,'D5',[ctx.guideName,ctx.guideRut?('RUT: '+ctx.guideRut):''].filter(Boolean).join('       '));
+  cell(sheet,'D6',ctx.guideSernatur||'');
+  cell(sheet,'D7',ctx.supplier?.rut||'');
+  data.rows.slice(0,14).forEach((row,index)=>{
+    const r=11+index,p=row.passenger,n=splitName(p);
+    cell(sheet,`B${r}`,index+1);
+    cell(sheet,`C${r}`,n.first);
+    cell(sheet,`D${r}`,n.last);
+    cell(sheet,`E${r}`,p.document_number||'');
+    cell(sheet,`F${r}`,p.nationality||'');
+    cell(sheet,`G${r}`,p.phone||'');
+    cell(sheet,`H${r}`,tatioObservation(p));
+    cell(sheet,`I${r}`,gender(p));
+    cell(sheet,`J${r}`,excelDate(p.birth_date),true);
+    cell(sheet,`K${r}`,ageAt(p.birth_date,row.service.fecha_servicio));
+  });
+  if(data.rows.length>14)data.warnings.push(`Tatio oficial tiene 14 espacios de pasajeros; la salida contiene ${data.rows.length}.`);
+}
+
 function fillStandard(sheet,data,startRow){
   setMetaByLabels(sheet,data);data.rows.forEach((row,index)=>{const r=startRow+index;const p=row.passenger;const name=splitName(p);cell(sheet,`B${r}`,index+1);cell(sheet,`C${r}`,name.first);cell(sheet,`D${r}`,name.last);cell(sheet,`E${r}`,p.document_number||'');cell(sheet,`F${r}`,p.nationality||'');cell(sheet,`G${r}`,row.hotel||'');cell(sheet,`H${r}`,p.dietary_restrictions||'');cell(sheet,`I${r}`,gender(p));cell(sheet,`J${r}`,excelDate(p.birth_date),true);cell(sheet,`K${r}`,ageAt(p.birth_date,row.service.fecha_servicio));});
 }
@@ -232,7 +263,7 @@ function fillArcoiris(sheet,data){setMetaByLabels(sheet,data);data.rows.forEach(
 function fillCatarpe(sheet,data){setMetaByLabels(sheet,data);data.rows.forEach((row,index)=>{const r=17+index,p=row.passenger,n=splitName(p),age=ageAt(p.birth_date,row.service.fecha_servicio),d=disabilityFlags(p);cell(sheet,`B${r}`,index+1);cell(sheet,`C${r}`,n.first);cell(sheet,`I${r}`,n.last);cell(sheet,`K${r}`,row.hotel||'');cell(sheet,`M${r}`,p.document_number||'');cell(sheet,`N${r}`,p.phone||'');cell(sheet,`Q${r}`,mark(d.physical));cell(sheet,`R${r}`,mark(d.sensory));cell(sheet,`S${r}`,mark(gender(p)==='F'));cell(sheet,`T${r}`,mark(gender(p)==='M'));cell(sheet,`U${r}`,mark(age!==null&&age<=19));cell(sheet,`V${r}`,mark(age!==null&&age>=20&&age<=35));cell(sheet,`W${r}`,mark(age!==null&&age>=36&&age<=59));cell(sheet,`X${r}`,mark(age!==null&&age>=60));});}
 function fillQuitor(sheet,data){setMetaByLabels(sheet,data);data.rows.forEach((row,index)=>{const r=14+index,p=row.passenger,d=disabilityFlags(p);cell(sheet,`A${r}`,index+1);cell(sheet,`B${r}`,fullName(p));cell(sheet,`F${r}`,p.nationality||'');cell(sheet,`H${r}`,p.document_number||'');cell(sheet,`I${r}`,row.hotel||'');cell(sheet,`K${r}`,mark(d.physical));cell(sheet,`L${r}`,mark(d.sensory));cell(sheet,`M${r}`,mark(gender(p)==='F'));cell(sheet,`N${r}`,mark(gender(p)==='M'));});}
 function fillTemplate(key,sheet,data){
-  if(key==='luna')return fillLuna(sheet,data);if(key==='chaxa')return fillChaxa(sheet,data);if(key==='socaire')return fillSocaire(sheet,data);if(key==='talabre')return fillTalabre(sheet,data);if(key==='coyo')return fillCoyo(sheet,data);if(key==='marte')return fillMarte(sheet,data);if(key==='arcoiris')return fillArcoiris(sheet,data);if(key==='catarpe')return fillCatarpe(sheet,data);if(key==='quitor')return fillQuitor(sheet,data);
+  if(key==='luna')return fillLuna(sheet,data);if(key==='chaxa')return fillChaxa(sheet,data);if(key==='socaire')return fillSocaire(sheet,data);if(key==='talabre')return fillTalabre(sheet,data);if(key==='coyo')return fillCoyo(sheet,data);if(key==='marte')return fillMarte(sheet,data);if(key==='arcoiris')return fillArcoiris(sheet,data);if(key==='catarpe')return fillCatarpe(sheet,data);if(key==='quitor')return fillQuitor(sheet,data);if(key==='tatio')return fillTatio(sheet,data);
   if(key==='transfer')return fillStandard(sheet,data,12);return fillStandard(sheet,data,11);
 }
 
