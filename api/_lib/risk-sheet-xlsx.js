@@ -149,6 +149,20 @@ function setYesNo(ws,row,value,spec=''){
   if(spec)ws.getCell(`D${row}`).value=spec;
 }
 function safeUnmerge(ws,range){try{ws.unMergeCells(range)}catch{}}
+function groupItineraryByDay(itinerary){
+  const groups=[];
+  for(const item of itinerary||[]){
+    const key=String(item.date||'');
+    let group=groups.find(entry=>entry.date===key);
+    if(!group){
+      group={date:key,day:item.day||'',schedules:[],descriptions:[]};
+      groups.push(group);
+    }
+    if(item.schedule)group.schedules.push(item.schedule);
+    if(item.description)group.descriptions.push(item.description);
+  }
+  return groups;
+}
 
 async function fillRiskWorkbook(templateBytes,ctx){
   const workbook=new ExcelJS.Workbook();
@@ -156,8 +170,9 @@ async function fillRiskWorkbook(templateBytes,ctx){
   const ws=workbook.getWorksheet('Risk Acceptance Form')||workbook.worksheets[0];
   if(!ws)throw new Error('La plantilla no contiene la hoja Risk Acceptance Form.');
 
+  const dailyItinerary=groupItineraryByDay(ctx.itinerary);
   const baseRows=4;
-  const extra=Math.max(0,ctx.itinerary.length-baseRows);
+  const extra=Math.max(0,dailyItinerary.length-baseRows);
   const lowerMerges=[
     'A20:H20','A21:B21','C21:D21','E21:H21','A22:B22','C22:D22','E22:H22',
     'A24:H24','D25:H25','D26:H26','D27:H27','D28:H28','D29:H29','D30:H30','D31:H31','D32:H32','D33:H33',
@@ -178,7 +193,7 @@ async function fillRiskWorkbook(templateBytes,ctx){
 
   // Limpiar los datos de ejemplo del formulario oficial.
   ['B5','D5','B6','E6','G6','B9','D9','B10','E10','B11','D11','F11','H11'].forEach(address=>setCell(ws,address,''));
-  const itineraryCapacity=Math.max(baseRows,ctx.itinerary.length);
+  const itineraryCapacity=Math.max(baseRows,dailyItinerary.length);
   for(let i=0;i<itineraryCapacity;i++){
     const row=15+i;
     setCell(ws,`A${row}`,'');setCell(ws,`B${row}`,'');setCell(ws,`C${row}`,'');setCell(ws,`D${row}`,'');
@@ -209,13 +224,15 @@ async function fillRiskWorkbook(templateBytes,ctx){
   setCell(ws,'F11',firstMeeting);
   setCell(ws,'H11',lastMeeting);
 
-  ctx.itinerary.forEach((item,index)=>{
+  dailyItinerary.forEach((item,index)=>{
     const row=15+index;
     setCell(ws,`A${row}`,item.day);
     setCell(ws,`B${row}`,displayDate(item.date));
-    setCell(ws,`C${row}`,item.schedule);
-    setCell(ws,`D${row}`,item.description);
+    setCell(ws,`C${row}`,item.schedules.join('\n'));
+    setCell(ws,`D${row}`,item.descriptions.join('\n'));
+    ws.getCell(`C${row}`).alignment={...(ws.getCell(`C${row}`).alignment||{}),wrapText:true,vertical:'middle'};
     ws.getCell(`D${row}`).alignment={...(ws.getCell(`D${row}`).alignment||{}),wrapText:true,vertical:'middle'};
+    ws.getRow(row).height=Math.max(ws.getRow(row).height||15,18+14*Math.max(item.schedules.length,item.descriptions.length));
   });
 
   const offset=extra;
