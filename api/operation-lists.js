@@ -1,5 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
-import {listDepartureDocumentsForLead} from './_lib/departure-operation-lists.js';
+import {generateDepartureD80,listDepartureDocumentsForLead} from './_lib/departure-operation-lists.js';
 import {generateGoasOperationLists} from './_lib/goas-online-lists.js';
 
 export const config={maxDuration:60};
@@ -24,7 +24,7 @@ export default async function handler(req,res){
   if(req.method!=='POST')return res.status(405).json({error:'Método no permitido.'});
   try{
     const admin=setup();
-    await userFrom(req,admin);
+    const {user}=await userFrom(req,admin);
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
 
     if(body.action==='list_for_lead'){
@@ -35,6 +35,11 @@ export default async function handler(req,res){
     if(body.action==='generate'){
       if(!body.departureId)return res.status(400).json({error:'Falta departureId.'});
       return res.status(200).json(await generateGoasOperationLists(admin,body.departureId));
+    }
+
+    if(body.action==='generate_d80'){
+      if(!body.departureId)return res.status(400).json({error:'Falta departureId.'});
+      return res.status(200).json(await generateDepartureD80(admin,user,body.departureId));
     }
 
     return res.status(400).json({error:'Acción no reconocida.'});
