@@ -81,7 +81,7 @@ export default function TourFoodWorkspace({
       <div>
         <span>ALIMENTACIÓN · TRAMOS POR PASAJERO</span>
         <h2>{departure.product_name}</h2>
-        <p>Los tramos son Desayuno, Aperitivo, Almuerzo, Snack, Box lunch y Agua individual. Marca qué recibe cada pasajero; los costos no se gestionan aquí.</p>
+        <p>Los tramos son Desayuno, Aperitivo, Almuerzo, Snack, Box lunch y Agua individual. Solo asigna qué recibe cada pasajero; una vez asignado el tramo no requiere otra confirmación.</p>
       </div>
       <div className="tour-food-total"><small>Pax del tour</small><strong>{passengers.length}</strong><span>{assignments.length} asignaciones de alimentación</span></div>
     </header>
@@ -97,7 +97,7 @@ export default function TourFoodWorkspace({
           <label className="food-segment-note"><span>Observación general del tramo</span><input value={noteDraft[type]??segment?.notes??''} onChange={e=>setNoteDraft(current=>({...current,[type]:e.target.value}))} onBlur={()=>void saveNote(type)} placeholder="Ej. retiro 05:30 · proveedor · preparación…"/></label>
 
           <footer>
-            <select disabled={busy} value={segment?.fulfillment_status||'Pendiente'} onChange={e=>void saveSegment(type,{fulfillment_status:e.target.value})}><option>Pendiente</option><option>Preparado</option><option>Entregado</option></select>
+            <span className={count>0?'food-assignment-state assigned':'food-assignment-state'}>{count>0?'Asignado':'No asignado'} · {count}/{passengers.length} pax</span>
             <button type="button" disabled={Boolean(saving)||!passengers.length} onClick={()=>void setAll(type)}>{busy?<LoaderCircle size={13} className="spin"/>:null}{passengers.length&&passengers.every(p=>isAssigned(type,p.id))?'Quitar a todos':'Asignar a todos'}</button>
           </footer>
         </article>
