@@ -1,6 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import {archiveReservationDocument,ensureReservationDriveFolder,syncPendingReservationDocuments} from './_lib/reservation-drive.js';
+import {generatePassengerRiskSheet} from './_lib/risk-sheet-xlsx.js';
 
 export const config={maxDuration:60};
 const BUCKET='operation-documents';
@@ -175,6 +176,24 @@ export default async function handler(req,res){
       const generated=await passengerPdf(admin,body.leadId);
       const result=await storeBuffer(admin,user,{leadId:body.leadId,documentType:'passenger_background',title:'Antecedentes de pasajeros',category:'passenger',fileName:generated.fileName,mimeType:'application/pdf',buffer:generated.bytes,sourceApp:'hotel_experience'});
       return res.status(200).json({ok:true,...result});
+    }
+    if(action==='prepare_risk_sheets'){
+      const {data:passengers,error}=await admin.from('passengers')
+        .select('id,passenger_code,full_name')
+        .eq('lead_id',body.leadId)
+        .order('passenger_code');
+      if(error)throw error;
+      const results=[];
+      for(const passenger of passengers||[]){
+        try{
+          const generated=await generatePassengerRiskSheet(admin,user,passenger.id);
+          results.push({passengerId:passenger.id,passengerCode:passenger.passenger_code,status:'ready',...generated});
+        }catch(error){
+          results.push({passengerId:passenger.id,passengerCode:passenger.passenger_code,status:'error',error:String(error?.message||error)});
+        }
+      }
+      const failed=results.filter(item=>item.status==='error');
+      return res.status(failed.length?207:200).json({ok:failed.length===0,count:results.length,failed:failed.length,results});
     }
     if(action==='sync_pending'){
       const results=await syncPendingReservationDocuments(admin,{leadId:body.leadId||null,limit:Math.min(200,Number(body.limit||100))});
