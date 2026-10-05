@@ -281,7 +281,7 @@ export async function createLeadService(leadId:string, payload:{
 
 export async function loadOperationsData(){
   const sb=assertSupabase();
-  const [passengers,passengerLinks,suppliers,vehicles,assignments,documents,departures,departureNotes]=await Promise.all([
+  const [passengers,passengerLinks,suppliers,vehicles,assignments,documents,departures,departureNotes,foodSegments,foodPassengers]=await Promise.all([
     sb.from('passengers').select('*').order('created_at'),
     sb.from('lead_service_passengers').select('*'),
     sb.from('suppliers').select('*').eq('active',true).order('name'),
@@ -289,10 +289,12 @@ export async function loadOperationsData(){
     sb.from('service_assignments').select('*'),
     sb.from('reservation_documents').select('*'),
     sb.from('tour_departures').select('*'),
-    sb.from('tour_departure_notes').select('*').order('created_at',{ascending:false})
+    sb.from('tour_departure_notes').select('*').order('created_at',{ascending:false}),
+    sb.from('tour_food_segments').select('*').order('created_at'),
+    sb.from('tour_food_passengers').select('*').order('created_at')
   ]);
-  for(const r of [passengers,passengerLinks,suppliers,vehicles,assignments,documents,departures,departureNotes]) if(r.error) throw r.error;
-  return {passengers:passengers.data||[],passengerLinks:passengerLinks.data||[],suppliers:suppliers.data||[],vehicles:vehicles.data||[],assignments:assignments.data||[],documents:documents.data||[],departures:departures.data||[],departureNotes:departureNotes.data||[]};
+  for(const r of [passengers,passengerLinks,suppliers,vehicles,assignments,documents,departures,departureNotes,foodSegments,foodPassengers]) if(r.error) throw r.error;
+  return {passengers:passengers.data||[],passengerLinks:passengerLinks.data||[],suppliers:suppliers.data||[],vehicles:vehicles.data||[],assignments:assignments.data||[],documents:documents.data||[],departures:departures.data||[],departureNotes:departureNotes.data||[],foodSegments:foodSegments.data||[],foodPassengers:foodPassengers.data||[]};
 }
 
 export async function loadOperationsDirectory(){
