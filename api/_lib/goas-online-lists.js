@@ -44,6 +44,30 @@ function ageOn(birthDate,serviceDate){
   if(onDate.getUTCMonth()<birth.getUTCMonth()||(onDate.getUTCMonth()===birth.getUTCMonth()&&onDate.getUTCDate()<birth.getUTCDate()))age-=1;
   return age;
 }
+function tatioObservation(pax){
+  const values=[pax?.dietary,pax?.medicalNotes,pax?.disability]
+    .map(value=>String(value||'').trim())
+    .filter(value=>{
+      const n=normalize(value);
+      return value&&!['no','ninguno','ninguna','sin','none','n/a','na','no aplica','no informada','no informado'].includes(n);
+    });
+  return unique(values).join(' · ');
+}
+function tatioOperation(operation){
+  return{
+    ...operation,
+    driverName:[operation?.driverName,operation?.driverRut?('RUT: '+operation.driverRut):''].filter(Boolean).join('       '),
+    guideName:[operation?.guideName,operation?.guideRut?('RUT: '+operation.guideRut):''].filter(Boolean).join('       ')
+  };
+}
+function tatioPassengers(passengers){
+  return(passengers||[]).map(pax=>({
+    ...pax,
+    hotel:pax.phone||'POR COMPLETAR',
+    dietary:tatioObservation(pax)
+  }));
+}
+
 function passengerPayload(pax,lead,serviceDate){
   const name=splitName(pax);
   const raw={
@@ -199,7 +223,11 @@ export async function generateGoasOperationLists(admin,departureId){
     const [config,data]=await Promise.all([loadIntegrationConfig(admin),loadDeparture(admin,departureId)]),tourCode=data.departure.departure_code||data.departure.id,generated=[];
     for(const key of data.templateKeys){
       const service=GOAS_SERVICE_NAMES[key]||GOAS_SERVICE_NAMES.otros;
-      const payload={schemaVersion:3,tourCode,service,templateKey:key,productName:data.departure.product_name||data.products[0]?.name||service,serviceDate:data.operation.date,operation:data.operation,passengers:data.passengers,departure:{id:data.departure.id,code:tourCode,date:data.departure.service_date,modality:data.departure.modality,status:data.departure.status},products:data.products,services:data.services,resources:data.resources,notes:data.notes,risk:data.risk,itinerary:data.itinerary,validationMode:'permissive',allowIncompletePassengers:true};
+      const isTatio=key==='tatio';
+      if(isTatio&&data.passengers.length>14)data.warnings.push('Tatio oficial tiene 14 espacios de pasajeros; la salida contiene '+data.passengers.length+'. Revisar excedentes antes de operar.');
+      const operationForTemplate=isTatio?tatioOperation(data.operation):data.operation;
+      const passengersForTemplate=isTatio?tatioPassengers(data.passengers):data.passengers;
+      const payload={schemaVersion:3,tourCode,service,templateKey:key,productName:data.departure.product_name||data.products[0]?.name||service,serviceDate:data.operation.date,operation:operationForTemplate,passengers:passengersForTemplate,departure:{id:data.departure.id,code:tourCode,date:data.departure.service_date,modality:data.departure.modality,status:data.departure.status},products:data.products,services:data.services,resources:data.resources,notes:data.notes,risk:data.risk,itinerary:data.itinerary,validationMode:'permissive',allowIncompletePassengers:true,templateContract:isTatio?'tatio_mallku_ga_pgsso_fo_009_r01':undefined};
       let result;
       try{
         result=await postGoas(config,payload);
