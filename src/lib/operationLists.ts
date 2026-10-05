@@ -30,7 +30,7 @@ export async function reconcileMissingOperationLists():Promise<ReconcileResult>{
     .lte('service_date',isoOffset(120))
     .neq('status','cancelled')
     .is('operation_lists_url',null)
-    .eq('operation_lists_status','pending')
+    .in('operation_lists_status',['pending','error'])
     .order('service_date')
     .order('start_time')
     .limit(30);
@@ -59,5 +59,5 @@ export async function openOrGenerateOperationLists(departureId:string,force=fals
     if(data?.operation_lists_url)return{url:data.operation_lists_url,existing:true};
   }
   const body=await generateOne(departureId);
-  return{url:body.url||body.spreadsheetUrl,existing:false,warnings:body.warnings||[]};
+  return{url:body.url||body.spreadsheetUrl,links:body.links||[],existing:false,warnings:body.warnings||[]};
 }
