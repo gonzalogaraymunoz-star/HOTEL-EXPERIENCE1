@@ -1,3 +1,4 @@
+import {createSign} from 'node:crypto';
 const ROOT_FOLDER_ID=String(process.env.RESERVATION_DRIVE_ROOT_FOLDER_ID||'').trim();
 const DRIVE_FOLDER='application/vnd.google-apps.folder';
 
@@ -15,14 +16,60 @@ export const RESERVATION_ARCHIVE_FOLDERS={
 
 let cachedDriveToken='';
 let cachedDriveTokenExpiresAt=0;
+function serviceAccountConfig(){
+  const raw=String(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON||'').trim();
+  if(raw){
+    try{
+      const parsed=JSON.parse(raw);
+      if(parsed?.client_email&&parsed?.private_key)return{clientEmail:String(parsed.client_email),privateKey:String(parsed.private_key).replace(/\\n/g,'\n')};
+    }catch{}
+  }
+  const clientEmail=String(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL||'').trim();
+  const privateKey=String(process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY||'').replace(/\\n/g,'\n').trim();
+  return clientEmail&&privateKey?{clientEmail,privateKey}:null;
+}
 function hasDriveCredentials(){
+  if(serviceAccountConfig())return true;
   if(String(process.env.GOOGLE_DRIVE_ACCESS_TOKEN||'').trim())return true;
   return Boolean(String(process.env.GOOGLE_DRIVE_CLIENT_ID||'').trim()&&String(process.env.GOOGLE_DRIVE_CLIENT_SECRET||'').trim()&&String(process.env.GOOGLE_DRIVE_REFRESH_TOKEN||'').trim());
+}
+function b64url(value){return Buffer.from(value).toString('base64url')}
+async function serviceAccountToken(config){
+  const now=Math.floor(Date.now()/1000);
+  const header=b64url(JSON.stringify({alg:'RS256',typ:'JWT'}));
+  const claim=b64url(JSON.stringify({
+    iss:config.clientEmail,
+    scope:'https://www.googleapis.com/auth/drive',
+    aud:'https://oauth2.googleapis.com/token',
+    iat:now,
+    exp:now+3600
+  }));
+  const unsigned=`${header}.${claim}`;
+  const signer=createSign('RSA-SHA256');
+  signer.update(unsigned);signer.end();
+  const assertion=`${unsigned}.${signer.sign(config.privateKey).toString('base64url')}`;
+  const body=new URLSearchParams({
+    grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion
+  });
+  const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.access_token)throw Object.assign(new Error(`No se pudo autenticar la cuenta de servicio de Google Drive: ${data.error_description||data.error||response.status}`),{code:'credentials_required'});
+  return{token:String(data.access_token),expiresIn:Math.max(60,Number(data.expires_in||3600))};
 }
 async function driveToken(){
   const staticToken=String(process.env.GOOGLE_DRIVE_ACCESS_TOKEN||'').trim();
   if(staticToken)return staticToken;
   if(cachedDriveToken&&Date.now()<cachedDriveTokenExpiresAt-60000)return cachedDriveToken;
+
+  const serviceAccount=serviceAccountConfig();
+  if(serviceAccount){
+    const result=await serviceAccountToken(serviceAccount);
+    cachedDriveToken=result.token;
+    cachedDriveTokenExpiresAt=Date.now()+result.expiresIn*1000;
+    return cachedDriveToken;
+  }
+
   const clientId=String(process.env.GOOGLE_DRIVE_CLIENT_ID||'').trim();
   const clientSecret=String(process.env.GOOGLE_DRIVE_CLIENT_SECRET||'').trim();
   const refreshToken=String(process.env.GOOGLE_DRIVE_REFRESH_TOKEN||'').trim();
@@ -42,7 +89,7 @@ function fileDriveUrl(id){return `https://drive.google.com/open?id=${id}`}
 
 async function driveRequest(url,options={}){
   const token=await driveToken();
-  if(!token)throw Object.assign(new Error('GOOGLE_DRIVE_ACCESS_TOKEN no configurado en Vercel.'),{code:'credentials_required'});
+  if(!token)throw Object.assign(new Error('Google Drive todavía no tiene una credencial de servidor configurada.'),{code:'credentials_required'});
   const response=await fetch(url,{...options,headers:{Authorization:`Bearer ${token}`,...(options.headers||{})}});
   if(!response.ok){
     const body=(await response.text()).slice(0,900);
