@@ -1,5 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
-import {generatePassengerRiskSheet} from './_lib/risk-sheet-pdf.js';
+import {generatePassengerRiskSheet} from './_lib/risk-sheet-xlsx.js';
 
 export const config={maxDuration:60};
 
@@ -24,10 +24,10 @@ export default async function handler(req,res){
     const {user}=await userFrom(req,admin);
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
     if(body.action!=='generate')return res.status(400).json({error:'Acción no reconocida.'});
-    if(!body.departureId||!body.passengerId)return res.status(400).json({error:'Falta departureId o passengerId.'});
-    return res.status(200).json(await generatePassengerRiskSheet(admin,user,body.departureId,body.passengerId));
+    if(!body.passengerId)return res.status(400).json({error:'Falta passengerId.'});
+    return res.status(200).json(await generatePassengerRiskSheet(admin,user,body.passengerId));
   }catch(error){
     console.error('risk-sheet',error);
-    return res.status(error?.status||500).json({error:error?.message||'No se pudo generar la hoja de riesgo estándar.'});
+    return res.status(error?.status||500).json({error:error?.message||'No se pudo generar la hoja de riesgo del itinerario completo.'});
   }
 }
