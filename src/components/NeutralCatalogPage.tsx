@@ -79,6 +79,7 @@ function CatalogDetail({slug}:{slug:string}){
   const structured=Boolean(product.altitude||product.difficulty||product.minimum_age||product.detail||product.know_more||product.itinerary?.length||product.includes?.length||product.recommendations?.length);
 
   return <main className="he-catalog he-catalog-detail">
+    <a className="he-catalog-back" href="/catalogo"><ArrowLeft size={18}/> Volver al catálogo</a>
     <section className="he-product-hero">
       <img src={product.hero?.url||fallbackImage} alt={name}/>
       <div className="he-product-shade"/>
