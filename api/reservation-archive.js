@@ -138,7 +138,10 @@ export default async function handler(req,res){
 
     if(action==='ensure_folder'){
       const folder=await ensureReservationDriveFolder(admin,body.leadId,{createAllCategories:true});
-      return res.status(folder.status==='ready'?200:202).json({ok:folder.status==='ready',folder});
+      const synced=folder.status==='ready'
+        ?await syncPendingReservationDocuments(admin,{leadId:body.leadId,limit:100})
+        :[];
+      return res.status(folder.status==='ready'?200:202).json({ok:folder.status==='ready',folder,synced});
     }
     if(action==='store_file'){
       const buffer=dataBuffer(body.base64);
