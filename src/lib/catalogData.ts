@@ -42,6 +42,12 @@ export type PublicCatalogProduct = {
 const complementaryCategories = new Set(['Transporte','SPA / Terapias','Salud','Procedimientos']);
 const hiddenPublicVariantSlugs = new Set(['astronomico_a_desierto_abierto','astronomico_en_hotel','astronomico_privado']);
 
+const localCatalogCovers:Record<string,string>={
+  salar_de_uyuni_3d2n:'/catalog/salar-uyuni-3d2n.png',
+  salar_de_uyuni_4d3n:'/catalog/salar-uyuni-4d3n.png',
+  caminata_de_llamas:'/catalog/caminata-llamas-source.png'
+};
+
 function storageUrl(path:string){
   return supabase.storage.from('catalog-images').getPublicUrl(path).data.publicUrl;
 }
@@ -58,8 +64,18 @@ function attachImages(product:any,images:CatalogImage[]):PublicCatalogProduct{
   const own=images.filter(image=>image.product_slug===product.product_slug).sort((a,b)=>a.sort_order-b.sort_order);
   const explicitHero=own.find(image=>image.image_role==='hero')||null;
   const legacyCover=own.find(image=>image.image_role==='cover')||null;
-  const hero=explicitHero||legacyCover;
-  const cover=legacyCover||hero;
+  const localUrl=localCatalogCovers[product.product_slug];
+  const localHero:CatalogImage|null=localUrl?{
+    product_slug:product.product_slug,
+    title:product.display_name||product.name,
+    storage_path:localUrl,
+    image_role:'hero',
+    sort_order:-1,
+    active:true,
+    url:localUrl
+  }:null;
+  const hero=localHero||explicitHero||legacyCover;
+  const cover=localHero||legacyCover||hero;
   const gallery=own.filter(image=>image.image_role==='gallery'&&image.storage_path!==hero?.storage_path);
   const public_origin=product.public_origin==='LAMA'?'Operación local':product.public_origin;
   return {...product,public_origin,hero,cover,gallery};
