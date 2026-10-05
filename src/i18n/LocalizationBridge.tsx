@@ -1,6 +1,7 @@
 import {useEffect} from 'react';
 import type {AppLanguage} from './LanguageProvider';
 import {useLanguage} from './LanguageProvider';
+import {CATALOG_D} from './CatalogTranslations';
 
 type Translation={en:string;'pt-BR':string};
 
@@ -384,7 +385,7 @@ export function translateUiText(value:string,language:AppLanguage):string{
   if(!lead)return value;
   const [,before,core,after]=lead;
   if(!core)return value;
-  const translated=D[core]?.[language]||dynamic(core,language);
+  const translated=CATALOG_D[core]?.[language]||D[core]?.[language]||dynamic(core,language);
   return `${before}${translated}${after}`;
 }
 
