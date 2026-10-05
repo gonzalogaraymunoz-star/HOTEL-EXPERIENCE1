@@ -3,6 +3,7 @@ import {Check,Clock3,Download,ExternalLink,FileCheck2,MapPin,Phone,Plus,ShieldAl
 import type {Lead,LeadService,Passenger,Supplier,Vehicle,ServiceAssignment,ReservationDocument,ServicePerson,OperationalResource} from '../types';
 import {createPassenger,deletePassenger,loadOperationsData,loadOperationsDirectory,assignResourceToService,removeResourceFromService,updateServiceAssignment,upsertReservationDocument} from '../lib/api';
 import ServiceFinanceCard from './ServiceFinanceCard';
+import ReservationDriveButton from './ReservationDriveButton';
 import './OperationCoverage.css';
 
 type CoverageKey='vehicle'|'driver'|'guide'|'food'|'coordination'|'resources'|'entrances';
@@ -74,6 +75,10 @@ export default function ReservationOperations({lead,services,userRole,onChanged}
   if(loading)return <div className="empty-state">Cargando operación de la reserva…</div>;
 
   return <div className="reservation-ops">
+    <section className="ops-block">
+      <div className="ops-head"><div><span className="eyebrow">FICHA DE RESERVA</span><h3>Respaldo documental</h3><p>Cotización, itinerario, pago, reserva, comprobantes, hojas de riesgo y antecedentes en una sola carpeta.</p></div></div>
+      <ReservationDriveButton reservations={[lead]}/>
+    </section>
     <section className="ops-block">
       <div className="ops-head"><div><span className="eyebrow">PASAJEROS</span><h3>Lista nominal · {data.passengers.length}/{lead.numero_pax||0}</h3></div><div className="ops-actions">{data.passengers.length>0&&<button className="secondary-button compact-btn" onClick={downloadManifest}><Download size={15}/> Lista CSV</button>}{canEdit&&<button className="secondary-button compact-btn" onClick={()=>setPaxOpen(x=>!x)}><Plus size={15}/> Agregar persona</button>}</div></div>
       {passengerMismatch&&<div className="ops-warning"><ShieldAlert size={16}/><span>La reserva indica {lead.numero_pax||0} pax, pero hay {data.passengers.length} persona(s) registradas.</span></div>}
