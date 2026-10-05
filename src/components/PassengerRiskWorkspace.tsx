@@ -20,7 +20,7 @@ export default function PassengerRiskWorkspace({
     const br=reservations.find(item=>item.id===b.lead_id)?.codigo||'';
     return ar.localeCompare(br)||String(a.passenger_code||'').localeCompare(String(b.passenger_code||''));
   }),[passengers,reservations]);
-  const riskDocuments=useMemo(()=>documents.filter(item=>item.document_type==='risk_sheet'&&item.passenger_id&&item.departure_id===departureId),[documents,departureId]);
+  const riskDocuments=useMemo(()=>documents.filter(item=>item.document_type==='risk_sheet'&&item.passenger_id&&!item.departure_id),[documents]);
   const generated=riskDocuments.filter(item=>item.status==='Generada'&&orderedPassengers.some(passenger=>passenger.id===item.passenger_id)).length;
 
   const generate=async(passenger:Passenger)=>{
@@ -33,7 +33,7 @@ export default function PassengerRiskWorkspace({
       const response=await fetch('/api/risk-sheet',{
         method:'POST',
         headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},
-        body:JSON.stringify({action:'generate',departureId,passengerId:passenger.id})
+        body:JSON.stringify({action:'generate',passengerId:passenger.id})
       });
       const body=await response.json();
       if(!response.ok)throw new Error(body.error||'No se pudo generar la hoja de riesgo.');
@@ -41,18 +41,18 @@ export default function PassengerRiskWorkspace({
       onChanged();
     }catch(error:any){
       if(target)target.close();
-      alert(error?.message||'No se pudo generar la hoja de riesgo estándar.');
+      alert(error?.message||'No se pudo generar la hoja de riesgo del itinerario completo.');
     }finally{setLoadingId(null)}
   };
 
-  if(!orderedPassengers.length)return <div className="workspace-empty">No hay pasajeros vinculados a esta salida. La hoja de riesgo se genera una vez por pasajero del tour.</div>;
+  if(!orderedPassengers.length)return <div className="workspace-empty">No hay pasajeros vinculados a esta salida. La hoja de riesgo se genera una sola vez por pasajero y cubre su itinerario completo.</div>;
 
   return <section className="passenger-risk-workspace">
     <header className="passenger-risk-head">
       <div>
-        <span>HOJA DE RIESGO ESTÁNDAR · SERNATUR</span>
+        <span>HOJA DE RIESGO · ITINERARIO COMPLETO · SERNATUR</span>
         <h2>{orderedPassengers.length} hoja{orderedPassengers.length===1?'':'s'} · 1 por pasajero</h2>
-        <p>Cada botón toma la plantilla oficial de Google Drive, la autorellena con los datos vivos de este tour y abre el PDF listo para imprimir o firmar.</p>
+        <p>Cada pasajero tiene una única hoja de riesgo. El formulario oficial XLSX se autorellena con todos sus servicios confirmados, desde el inicio hasta el final de su itinerario.</p>
       </div>
       <strong>{generated}/{orderedPassengers.length} generadas</strong>
     </header>
@@ -70,9 +70,9 @@ export default function PassengerRiskWorkspace({
           <span className="risk-button-copy">
             <small>{passenger.passenger_code}</small>
             <b>{passenger.full_name||'Pasajero sin nombre'}</b>
-            <em>{reservation?.codigo||'Reserva'} · TOUR {departureCode||'—'}</em>
+            <em>{reservation?.codigo||'Reserva'} · itinerario completo</em>
           </span>
-          <span className="risk-button-state">{loading?'Generando…':ready?'Regenerar PDF':'Generar PDF'}</span>
+          <span className="risk-button-state">{loading?'Generando…':ready?'Regenerar hoja':'Generar hoja'}</span>
         </button>
       })}
     </div>
