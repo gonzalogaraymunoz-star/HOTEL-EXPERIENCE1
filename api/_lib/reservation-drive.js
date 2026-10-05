@@ -13,14 +13,35 @@ export const RESERVATION_ARCHIVE_FOLDERS={
   other:'09_OTROS',
 };
 
-function driveToken(){return String(process.env.GOOGLE_DRIVE_ACCESS_TOKEN||'').trim()}
+let cachedDriveToken='';
+let cachedDriveTokenExpiresAt=0;
+function hasDriveCredentials(){
+  if(String(process.env.GOOGLE_DRIVE_ACCESS_TOKEN||'').trim())return true;
+  return Boolean(String(process.env.GOOGLE_DRIVE_CLIENT_ID||'').trim()&&String(process.env.GOOGLE_DRIVE_CLIENT_SECRET||'').trim()&&String(process.env.GOOGLE_DRIVE_REFRESH_TOKEN||'').trim());
+}
+async function driveToken(){
+  const staticToken=String(process.env.GOOGLE_DRIVE_ACCESS_TOKEN||'').trim();
+  if(staticToken)return staticToken;
+  if(cachedDriveToken&&Date.now()<cachedDriveTokenExpiresAt-60000)return cachedDriveToken;
+  const clientId=String(process.env.GOOGLE_DRIVE_CLIENT_ID||'').trim();
+  const clientSecret=String(process.env.GOOGLE_DRIVE_CLIENT_SECRET||'').trim();
+  const refreshToken=String(process.env.GOOGLE_DRIVE_REFRESH_TOKEN||'').trim();
+  if(!clientId||!clientSecret||!refreshToken)return '';
+  const body=new URLSearchParams({client_id:clientId,client_secret:clientSecret,refresh_token:refreshToken,grant_type:'refresh_token'});
+  const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.access_token)throw Object.assign(new Error(`No se pudo renovar la credencial de Google Drive: ${data.error_description||data.error||response.status}`),{code:'credentials_required'});
+  cachedDriveToken=String(data.access_token);
+  cachedDriveTokenExpiresAt=Date.now()+Math.max(60,Number(data.expires_in||3600))*1000;
+  return cachedDriveToken;
+}
 function safeName(value=''){return String(value||'').replace(/[\\/:*?"<>|]+/g,'_').replace(/\s+/g,' ').trim().slice(0,160)||'ARCHIVO'}
 function esc(value=''){return String(value).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 function driveUrl(id){return `https://drive.google.com/drive/folders/${id}`}
 function fileDriveUrl(id){return `https://drive.google.com/open?id=${id}`}
 
 async function driveRequest(url,options={}){
-  const token=driveToken();
+  const token=await driveToken();
   if(!token)throw Object.assign(new Error('GOOGLE_DRIVE_ACCESS_TOKEN no configurado en Vercel.'),{code:'credentials_required'});
   const response=await fetch(url,{...options,headers:{Authorization:`Bearer ${token}`,...(options.headers||{})}});
   if(!response.ok){
@@ -78,7 +99,7 @@ export async function ensureReservationDriveFolder(admin,leadId,{createAllCatego
     await updateLeadFolderState(admin,leadId,{reservation_drive_folder_status:'blocked',reservation_drive_folder_error:message});
     return{lead,folderId:null,url:null,status:'blocked',error:message};
   }
-  if(!driveToken()){
+  if(!hasDriveCredentials()){
     const message='Drive pendiente: falta una credencial de servidor con permiso de edición sobre la carpeta madre.';
     await updateLeadFolderState(admin,leadId,{reservation_drive_folder_status:'blocked',reservation_drive_folder_error:message});
     return{lead,folderId:null,url:null,status:'blocked',error:message};
