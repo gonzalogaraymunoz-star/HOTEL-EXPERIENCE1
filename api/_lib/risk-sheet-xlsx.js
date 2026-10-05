@@ -314,12 +314,19 @@ export async function generatePassengerRiskSheet(admin,user,passengerId){
   }
 
   const drive=documentId?await archiveReservationDocument(admin,documentId).catch(error=>({status:'blocked',error:String(error?.message||error)})):null;
-  const {data:signed,error:signedError}=await admin.storage.from(RISK_BUCKET).createSignedUrl(storagePath,3600,{download:fileName});
-  if(signedError)throw signedError;
+  const driveUrl=drive?.driveUrl||null;
+  if(documentId&&driveUrl){
+    await admin.from('reservation_documents').update({
+      url:driveUrl,
+      drive_sync_status:'synced',
+      drive_sync_error:null,
+      updated_at:new Date().toISOString()
+    }).eq('id',documentId);
+  }
   return{
-    url:signed.signedUrl,fileName,passengerCode:ctx.passenger.passenger_code,
+    url:driveUrl,driveUrl,fileName,passengerCode:ctx.passenger.passenger_code,
     passengerName:ctx.passenger.full_name,leadCode:ctx.lead.codigo,
     itineraryServices:ctx.itinerary.length,itineraryStart:startDate,itineraryEnd:endDate,
-    generatedAt,driveSync:drive?.status||'pending',driveUrl:drive?.driveUrl||null,folderUrl:drive?.folderUrl||null
+    generatedAt,driveSync:drive?.status||'pending',driveError:drive?.error||null,folderUrl:drive?.folderUrl||null
   };
 }
