@@ -20,14 +20,14 @@ type OpsData={
 const coverageLabels:Record<string,string>={
   vehicle:'Vehículo',driver:'Conductor',guide:'Guía',food:'Alimentación',coordination:'Coordinación',resources:'Insumos',entrances:'Entradas'
 };
-const fullCoverage=Object.keys(coverageLabels);
+const fullCoverage=Object.keys(coverageLabels).filter(key=>key!=='food');
 const docMeta:Record<DocKind,{label:string;dbType:string;folderUrl:string}>={
   operation:{label:'Hoja operacional',dbType:'operation_sheet',folderUrl:'https://drive.google.com/drive/folders/1Qna2TvbY40HNRLnmK0yc9idEbLGPiQtP'},
   manifest:{label:'Manifiesto de pasajeros',dbType:'manifest',folderUrl:'https://drive.google.com/drive/folders/1lCwbfLDwOLKTt4CS9bvR4XxQ8vSz9HhP'},
   voucher:{label:'Voucher cliente',dbType:'voucher',folderUrl:'https://drive.google.com/drive/folders/1aJBsMAQ9JLmKq76Ccf98g4sw1jGW9kse'},
   itinerary:{label:'Itinerario',dbType:'itinerary',folderUrl:'https://drive.google.com/drive/folders/1SpS5qVQkKmDxW1IQRSxi4AUwWD10aH1s'}
 };
-const driveRoot='https://drive.google.com/drive/folders/12K2s_10oacUL4lHhvjBG19E12c0nDP6E';
+const driveRoot='https://drive.google.com/drive/folders/1q7negm76ZTJTZwZCdYDiLdpfcifUlCvL';
 
 
 export default function OperationalDocuments({lead,services}:{lead:Lead;services:LeadService[]}){
@@ -115,14 +115,14 @@ export default function OperationalDocuments({lead,services}:{lead:Lead;services
   return <section className="ops-block">
     <div className="ops-head">
       <div><span className="eyebrow">DOCUMENTOS OPERACIONALES</span><h3>Generar y archivar desde la ficha 360°</h3></div>
-      <div className="ops-actions"><a className="secondary-button compact-btn" href={driveRoot} target="_blank" rel="noreferrer"><FolderOpen size={14}/> Drive</a><button className="secondary-button compact-btn" onClick={load} disabled={loading}><RefreshCw size={14}/> Actualizar</button></div>
+      <div className="ops-actions"><a className="secondary-button compact-btn" href={lead.reservation_drive_folder_url||driveRoot} target="_blank" rel="noreferrer"><FolderOpen size={14}/> Drive</a><button className="secondary-button compact-btn" onClick={load} disabled={loading}><RefreshCw size={14}/> Actualizar</button></div>
     </div>
-    <p style={{margin:'0 0 14px',fontSize:11,color:'#6e685f',lineHeight:1.5}}>Genera el documento con los datos vivos del CRM. Después de guardarlo como PDF en Drive, registra su enlace para mantener una versión trazable dentro de la reserva.</p>
+    <p style={{margin:'0 0 14px',fontSize:11,color:'#6e685f',lineHeight:1.5}}>Genera el documento con los datos vivos del CRM. El archivo debe quedar dentro de la ficha Drive de esta reserva; el acceso inferior apunta a esa carpeta cuando está disponible.</p>
     <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>
-      <DocButton icon={<ClipboardList/>} title="Hoja operacional" detail="Proveedor, cobertura, pickup, equipo, recursos y estado de riesgo." disabled={loading} onClick={()=>generate('operation')} onArchive={()=>openArchive('operation')} folderUrl={docMeta.operation.folderUrl} version={nextVersion('operation')}/>
-      <DocButton icon={<Users/>} title="Manifiesto de pasajeros" detail="Lista nominal completa con documentos, contacto y restricciones." disabled={loading} onClick={()=>generate('manifest')} onArchive={()=>openArchive('manifest')} folderUrl={docMeta.manifest.folderUrl} version={nextVersion('manifest')}/>
-      <DocButton icon={<TicketCheck/>} title="Voucher cliente" detail="Confirmación limpia para entregar al pasajero, sin costos internos." disabled={loading} onClick={()=>generate('voucher')} onArchive={()=>openArchive('voucher')} folderUrl={docMeta.voucher.folderUrl} version={nextVersion('voucher')}/>
-      <DocButton icon={<MapPinned/>} title="Itinerario" detail="Experiencias ordenadas por fecha, pickup, encuentro y observaciones." disabled={loading} onClick={()=>generate('itinerary')} onArchive={()=>openArchive('itinerary')} folderUrl={docMeta.itinerary.folderUrl} version={nextVersion('itinerary')}/>
+      <DocButton icon={<ClipboardList/>} title="Hoja operacional" detail="Proveedor, cobertura, pickup, equipo, recursos y estado de riesgo." disabled={loading} onClick={()=>generate('operation')} onArchive={()=>openArchive('operation')} folderUrl={lead.reservation_drive_folder_url||driveRoot} version={nextVersion('operation')}/>
+      <DocButton icon={<Users/>} title="Manifiesto de pasajeros" detail="Lista nominal completa con documentos, contacto y restricciones." disabled={loading} onClick={()=>generate('manifest')} onArchive={()=>openArchive('manifest')} folderUrl={lead.reservation_drive_folder_url||driveRoot} version={nextVersion('manifest')}/>
+      <DocButton icon={<TicketCheck/>} title="Voucher cliente" detail="Confirmación limpia para entregar al pasajero, sin costos internos." disabled={loading} onClick={()=>generate('voucher')} onArchive={()=>openArchive('voucher')} folderUrl={lead.reservation_drive_folder_url||driveRoot} version={nextVersion('voucher')}/>
+      <DocButton icon={<MapPinned/>} title="Itinerario" detail="Experiencias ordenadas por fecha, pickup, encuentro y observaciones." disabled={loading} onClick={()=>generate('itinerary')} onArchive={()=>openArchive('itinerary')} folderUrl={lead.reservation_drive_folder_url||driveRoot} version={nextVersion('itinerary')}/>
     </div>
     {!data.passengers.length&&<div className="ops-warning" style={{marginTop:12}}><FileText size={15}/><span>El manifiesto puede generarse, pero aún no hay pasajeros individuales registrados.</span></div>}
 
@@ -141,7 +141,7 @@ export default function OperationalDocuments({lead,services}:{lead:Lead;services
       <section className="modal-card" style={{maxWidth:620}} onMouseDown={e=>e.stopPropagation()}>
         <header><div><span className="eyebrow">ARCHIVAR DOCUMENTO</span><h2>{docMeta[archiveKind].label} · v{nextVersion(archiveKind)}</h2><p>Guarda primero el PDF en la carpeta indicada y pega aquí su enlace.</p></div><button className="icon-button" onClick={()=>setArchiveKind(null)}><X/></button></header>
         <div style={{display:'grid',gap:10}}>
-          <a className="secondary-button" href={docMeta[archiveKind].folderUrl} target="_blank" rel="noreferrer"><FolderOpen size={15}/> Abrir carpeta de Drive</a>
+          <a className="secondary-button" href={lead.reservation_drive_folder_url||driveRoot} target="_blank" rel="noreferrer"><FolderOpen size={15}/> Abrir carpeta de Drive</a>
           <label><span>Link del documento *</span><div style={{display:'flex',gap:7,alignItems:'center'}}><Link2 size={15}/><input style={{flex:1}} value={archiveUrl} onChange={e=>setArchiveUrl(e.target.value)} placeholder="https://drive.google.com/..."/></div></label>
           <label><span>Nota de versión</span><input value={archiveNotes} onChange={e=>setArchiveNotes(e.target.value)} placeholder="Ej: versión enviada al pasajero / pickup corregido"/></label>
           <div style={{display:'flex',justifyContent:'flex-end',gap:8}}><button className="secondary-button" onClick={()=>setArchiveKind(null)}>Cancelar</button><button className="primary-button" disabled={savingArchive} onClick={saveArchive}><Save size={14}/> {savingArchive?'Guardando…':'Registrar versión'}</button></div>
@@ -184,7 +184,6 @@ function operationBody(_lead:Lead,services:LeadService[],data:OpsData,risk?:Rese
     const vehicle=data.vehicles.find(x=>x.id===a?.vehicle_id);
     const guide=data.people.find(x=>x.id===a?.guide_person_id);
     const driver=data.people.find(x=>x.id===a?.driver_person_id);
-    const cook=data.people.find(x=>x.id===a?.cook_person_id);
     const coordinator=data.people.find(x=>x.id===a?.coordinator_person_id);
     const mode=a?.operation_mode||(a?.supplier_id?'delegated_full':'direct');
     const coverage=mode==='delegated_full'?fullCoverage:(Array.isArray(a?.supplier_coverage)?a!.supplier_coverage:[]);
@@ -205,7 +204,7 @@ function operationBody(_lead:Lead,services:LeadService[],data:OpsData,risk?:Rese
         ${cell('Guía',covered('guide')?`A cargo de ${supplier?.name||'proveedor'}`:(guide?.full_name||a?.guide_name||'Sin asignar'))}
         ${cell('Conductor',covered('driver')?`A cargo de ${supplier?.name||'proveedor'}`:(driver?.full_name||a?.driver_name||'Sin asignar'))}
         ${cell('Vehículo',covered('vehicle')?`A cargo de ${supplier?.name||'proveedor'}`:(vehicle?[vehicle.plate,vehicle.label].filter(Boolean).join(' · '):'Sin asignar'))}
-        ${cell('Alimentación',covered('food')?`A cargo de ${supplier?.name||'proveedor'}`:(cook?.full_name||'No asignada'))}
+        ${cell('Alimentación','Asignación por tramo y pasajero en la pestaña Alimentación')}
         ${cell('Coordinación',covered('coordination')?`A cargo de ${supplier?.name||'proveedor'}`:(coordinator?.full_name||'No asignada'))}
         ${cell('Insumos',covered('resources')?`A cargo de ${supplier?.name||'proveedor'}`:(resources||'Sin asignar'))}
       </div>
