@@ -235,6 +235,23 @@ function addSimpleList(workbook,name,data){
   sheet.getRow(3).values=['#','Código ingreso','Reserva','Pasajero','Documento','Nacionalidad','Nacimiento','Edad','Hotel / pickup','Teléfono','Restricciones','Observaciones'];sheet.getRow(3).font={bold:true,color:{argb:'FFFFFFFF'}};sheet.getRow(3).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF3D3A36'}};
   data.rows.forEach((row,index)=>{const p=row.passenger;sheet.getRow(4+index).values=[index+1,row.lead.codigo,row.lead.reserva,fullName(p),p.document_number||'',p.nationality||'',excelDate(p.birth_date),ageAt(p.birth_date,row.service.fecha_servicio),row.hotel||'',p.phone||'',p.dietary_restrictions||'',[p.disability_type,p.medical_notes].filter(Boolean).join(' · ')];sheet.getCell(`G${4+index}`).numFmt='dd-mm-yyyy';});
   [7,15,24,25,18,16,14,8,24,16,26,28].forEach((w,i)=>sheet.getColumn(i+1).width=w);sheet.views=[{state:'frozen',ySplit:3}];
+  return sheet;
+}
+
+async function prepareD80Workbook(admin,data){
+  const {workbook,source}=await loadMasterWorkbook(admin);
+  let outputSheet=null;
+  const d80Source=workbook.getWorksheet('Template_D80');
+  if(d80Source){
+    outputSheet=duplicateSheet(workbook,d80Source,'LISTA D80');
+    if(outputSheet)fillStandard(outputSheet,data,11);
+  }
+  if(!outputSheet){
+    outputSheet=addSimpleList(workbook,'LISTA D80',data);
+  }
+  const keepName=outputSheet?.name||'LISTA D80';
+  for(const sheet of [...workbook.worksheets])if(sheet.name!==keepName)workbook.removeWorksheet(sheet.id);
+  return{workbook,source};
 }
 
 async function prepareWorkbook(admin,data){
@@ -275,4 +292,54 @@ export async function generateDepartureOperationLists(admin,user,departureId){
   const {error:docError}=await admin.from('tour_departure_documents').upsert({departure_id:departureId,document_type:OPERATION_LIST_DOC_TYPE,title:`Listas prellenadas ${data.departure.departure_code}`,storage_bucket:OPERATION_LIST_BUCKET,storage_path:storagePath,file_name:fileName,generated_from:generatedFrom,generated_at:new Date().toISOString(),generated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'departure_id,document_type'});if(docError)throw docError;
   const {data:signed,error:signedError}=await admin.storage.from(OPERATION_LIST_BUCKET).createSignedUrl(storagePath,3600);if(signedError)throw signedError;
   return{departureCode:data.departure.departure_code,fileName,url:signed.signedUrl,paxCount:data.rows.length,reservationCount:unique(data.services.map(s=>s.lead_id)).length,templateKeys:data.templateKeys,warnings:data.warnings,source};
+}
+
+
+export async function generateDepartureD80(admin,user,departureId){
+  const data=await loadDepartureData(admin,departureId);
+  const {workbook,source}=await prepareD80Workbook(admin,data);
+  const output=Buffer.from(await workbook.xlsx.writeBuffer());
+  const code=safe(data.departure.departure_code||data.departure.id);
+  const fileName=`${code}_D80_AUTORELLENADO.xlsx`;
+  const storagePath=`generated/departures/${code}/d80/${fileName}`;
+  const {error:uploadError}=await admin.storage.from(OPERATION_LIST_BUCKET).upload(
+    storagePath,output,
+    {contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',upsert:true,cacheControl:'0'}
+  );
+  if(uploadError)throw uploadError;
+  const generatedFrom={
+    departure_code:data.departure.departure_code,
+    reservation_codes:unique(data.leads.map(l=>l.codigo)),
+    lead_ids:unique(data.leads.map(l=>l.id)),
+    service_codes:unique(data.services.map(s=>s.service_code)),
+    passenger_codes:unique(data.rows.map(r=>r.passenger.passenger_code)),
+    template_key:'d80',
+    warnings:data.warnings,
+    template_source:source
+  };
+  const {error:docError}=await admin.from('tour_departure_documents').upsert({
+    departure_id:departureId,
+    document_type:'d80',
+    title:`D80 autorellenado ${data.departure.departure_code}`,
+    storage_bucket:OPERATION_LIST_BUCKET,
+    storage_path:storagePath,
+    file_name:fileName,
+    generated_from:generatedFrom,
+    generated_at:new Date().toISOString(),
+    generated_by:user.id,
+    updated_at:new Date().toISOString()
+  },{onConflict:'departure_id,document_type'});
+  if(docError)throw docError;
+  const {data:signed,error:signedError}=await admin.storage.from(OPERATION_LIST_BUCKET)
+    .createSignedUrl(storagePath,3600,{download:fileName});
+  if(signedError)throw signedError;
+  return{
+    departureCode:data.departure.departure_code,
+    fileName,
+    url:signed.signedUrl,
+    paxCount:data.rows.length,
+    reservationCount:unique(data.services.map(s=>s.lead_id)).length,
+    warnings:data.warnings,
+    source
+  };
 }
