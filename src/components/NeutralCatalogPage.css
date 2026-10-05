@@ -1,0 +1,40 @@
+:root{--hec-ink:#11110f;--hec-paper:#f4f1ea;--hec-line:rgba(17,17,15,.16);--hec-muted:#6a685f}
+.he-catalog{min-height:100vh;background:var(--hec-paper);color:var(--hec-ink);font-family:Arial,Helvetica,sans-serif}
+.he-catalog *{box-sizing:border-box}
+.he-catalog a{color:inherit;text-decoration:none}
+.he-catalog img{display:block;width:100%;object-fit:cover}
+.he-catalog-eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:11px;font-weight:700;margin-bottom:18px;color:#5f5c55}
+.he-catalog-eyebrow.light{color:rgba(255,255,255,.78)}.he-catalog-eyebrow.sub{margin-top:32px}
+.he-catalog-hero{max-width:1440px;margin:auto;padding:110px max(6vw,32px) 82px}
+.he-catalog-hero h1,.he-product-title h1,.he-content-block h2{font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.055em;line-height:.94;margin:0}
+.he-catalog-hero h1{font-size:clamp(62px,8vw,120px);max-width:1100px}
+.he-catalog-hero p{font-size:20px;line-height:1.6;max-width:680px;color:var(--hec-muted);margin-top:34px}
+.he-catalog-tools{max-width:1440px;margin:auto;padding:0 max(6vw,32px) 34px}
+.he-catalog-search{display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--hec-line);padding:18px 0}
+.he-catalog-search input{border:0;background:transparent;outline:none;width:100%;font-family:Georgia,serif;font-size:32px;color:var(--hec-ink)}
+.he-catalog-filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:25px}
+.he-catalog-filters button{border:1px solid var(--hec-line);background:transparent;border-radius:999px;padding:9px 14px;font-size:12px;color:var(--hec-ink)}
+.he-catalog-filters button.active{background:#111;color:#fff}
+.he-catalog-list{max-width:1440px;margin:auto;padding:20px max(6vw,32px) 100px}
+.he-catalog-count{font-size:12px;color:var(--hec-muted);margin-bottom:20px}
+.he-experience-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.he-experience-card{background:#ece8df;display:flex;flex-direction:column;min-height:580px;overflow:hidden}
+.he-card-image-wrap{height:370px;overflow:hidden}.he-card-image-wrap img{height:100%;transition:transform .6s}.he-experience-card:hover img{transform:scale(1.025)}
+.he-card-body{padding:28px;display:flex;flex-direction:column;flex:1}.he-card-body h2{font-family:Georgia,serif;font-size:32px;font-weight:400;letter-spacing:-.025em;margin:0 0 12px}
+.he-card-body p{color:var(--hec-muted);line-height:1.55;margin:0 0 28px}.he-card-body>span{margin-top:auto;align-self:flex-start;border-bottom:1px solid currentColor;padding-bottom:5px;font-size:13px;font-weight:700}
+.he-catalog-state{padding:90px max(6vw,32px);font-size:18px}.he-catalog-state.error{color:#8d3535}.he-catalog-state a{display:block;margin-top:18px;text-decoration:underline}
+.he-product-hero{height:78svh;min-height:650px;position:relative;color:#fff}.he-product-hero>img{position:absolute;inset:0;height:100%}
+.he-product-shade{position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.6),transparent 65%)}
+.he-product-title{position:absolute;left:max(6vw,32px);right:max(6vw,32px);bottom:8vh;max-width:1100px}.he-product-title h1{font-size:clamp(62px,8vw,120px)}.he-product-title p{font-size:19px;max-width:650px;line-height:1.5}
+.he-product-layout{max-width:1440px;margin:auto;padding:100px max(6vw,32px);display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:9vw}
+.he-product-facts{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--hec-line);border-bottom:1px solid var(--hec-line);margin-bottom:90px}.he-product-facts.four{grid-template-columns:repeat(4,1fr)}
+.he-product-facts>div{padding:24px 15px 24px 0}.he-product-facts span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--hec-muted);margin-bottom:8px}.he-product-facts strong{font-size:15px}
+.he-content-block{margin-bottom:80px}.he-content-block h2{font-size:54px}.he-body-copy{font-size:17px;line-height:1.75;color:#55524b}
+.he-timeline{list-style:none;padding:0;margin:35px 0 0}.he-timeline li{display:grid;grid-template-columns:52px 1fr;border-top:1px solid var(--hec-line);padding:18px 0}.he-timeline span{font-size:11px;color:var(--hec-muted)}.he-timeline p{margin:0;font-size:16px}
+.he-content-grid{display:grid;grid-template-columns:1fr 1fr;gap:70px}.he-clean-list{list-style:none;padding:0;margin:20px 0}.he-clean-list li{padding:12px 0;border-top:1px solid var(--hec-line);font-size:14px}.he-clean-list li:before{content:'✓';margin-right:12px}
+.he-product-gallery{display:grid;grid-template-columns:1fr 1fr;gap:12px}.he-product-gallery figure{margin:0;background:#eee}.he-product-gallery img{height:auto;object-fit:contain}
+.he-note-box{padding:26px;background:#e8e2d6;margin-bottom:80px}.he-note-box p{line-height:1.6;margin-bottom:0}
+.he-booking-card{position:sticky;top:30px;height:max-content;padding:28px;background:#fff}.he-booking-card h3{font-family:Georgia,serif;font-size:32px;font-weight:400;margin:0 0 15px}.he-booking-card p{line-height:1.55;color:var(--hec-muted)}.he-booking-card small{display:block;margin-top:20px;line-height:1.5;color:var(--hec-muted)}
+.he-dark-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px 20px;border-radius:999px;background:#111;color:#fff;font-size:13px;font-weight:700}
+@media(max-width:1000px){.he-experience-grid{grid-template-columns:1fr 1fr}.he-product-layout{grid-template-columns:1fr}.he-booking-card{position:relative;top:auto}}
+@media(max-width:650px){.he-catalog-hero{padding:78px 22px 58px}.he-catalog-hero h1,.he-product-title h1{font-size:58px}.he-catalog-hero p{font-size:17px}.he-catalog-tools,.he-catalog-list{padding-left:22px;padding-right:22px}.he-catalog-search input{font-size:27px}.he-experience-grid{grid-template-columns:1fr}.he-experience-card{min-height:0}.he-card-image-wrap{height:310px}.he-product-hero{height:72svh}.he-product-title{left:22px;right:22px}.he-product-layout{padding:70px 22px}.he-product-facts,.he-product-facts.four{grid-template-columns:1fr}.he-product-facts>div{border-bottom:1px solid var(--hec-line)}.he-content-grid,.he-product-gallery{grid-template-columns:1fr}.he-content-block h2{font-size:42px}}
