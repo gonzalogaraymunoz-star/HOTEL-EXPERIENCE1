@@ -1,3 +1,4 @@
+import {archiveReservationDocument} from './reservation-drive.js';
 const GOAS_SERVICE_NAMES={
   luna:'Luna',chaxa:'Chaxa',marte:'Marte',socaire:'Socaire',arcoiris:'Arcoiris',catarpe:'Catarpe',quitor:'Quitor',talabre:'Talabre',coyo:'Coyo',frontera:'Frontera',transfer:'Transfer',tatio:'Tatio',otros:'Otros',d80:'D80'
 };
@@ -180,6 +181,29 @@ export async function generateGoasOperationLists(admin,departureId){
       operation_lists_attempted_at:attemptedAt
     }).eq('id',departureId);
     if(updateError)throw updateError;
+
+    const leadIds=unique(data.services.map(group=>group.reservation?.id));
+    for(const leadId of leadIds){
+      const {data:existingDoc,error:findDocError}=await admin.from('reservation_documents')
+        .select('id').eq('lead_id',leadId).eq('departure_id',departureId).eq('document_type','operation_list').maybeSingle();
+      if(findDocError)throw findDocError;
+      let documentId=existingDoc?.id||null;
+      const patch={
+        title:`Lista operacional · ${tourCode}`,url,status:'Generada',source_app:'hotel_experience',
+        archive_category:'operations',drive_sync_status:'pending',drive_sync_error:null,updated_at:new Date().toISOString()
+      };
+      if(documentId){
+        const {error}=await admin.from('reservation_documents').update(patch).eq('id',documentId);
+        if(error)throw error;
+      }else{
+        const {data:inserted,error}=await admin.from('reservation_documents').insert({
+          lead_id:leadId,departure_id:departureId,passenger_id:null,document_type:'operation_list',...patch
+        }).select('id').single();
+        if(error)throw error;
+        documentId=inserted.id;
+      }
+      if(documentId)await archiveReservationDocument(admin,documentId).catch(()=>null);
+    }
     return{url,spreadsheetUrl:url,departureCode:tourCode,services:data.templateKeys.map(k=>GOAS_SERVICE_NAMES[k]||k),passengers:data.passengers.length,warnings:data.warnings,generated};
   }catch(error){
     await admin.from('tour_departures').update({
