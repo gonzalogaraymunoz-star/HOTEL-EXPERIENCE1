@@ -5,6 +5,7 @@ import {assertSupabase} from '../lib/supabase';
 
 export default function ReservationDriveButton({reservations}:{reservations:Lead[]}){
   const [busyId,setBusyId]=useState<string|null>(null);
+  const [messages,setMessages]=useState<Record<string,string>>({});
   if(!reservations.length)return null;
 
   const ensureAndOpen=async(reservation:Lead)=>{
@@ -25,12 +26,14 @@ export default function ReservationDriveButton({reservations}:{reservations:Lead
       const body=await response.json().catch(()=>({}));
       const url=body?.folder?.url||body?.folder?.lead?.reservation_drive_folder_url;
       if(response.ok&&url){
+        setMessages(current=>({...current,[reservation.id]:''}));
         window.open(url,'_blank','noopener,noreferrer');
         return;
       }
-      throw new Error(body?.folder?.error||body?.error||reservation.reservation_drive_folder_error||'La carpeta de respaldo todavía no está disponible.');
+      const message=body?.folder?.error||body?.error||reservation.reservation_drive_folder_error||'La carpeta de respaldo todavía no está disponible.';
+      setMessages(current=>({...current,[reservation.id]:message}));
     }catch(error:any){
-      alert(error?.message||'No se pudo abrir o crear el respaldo de antecedentes.');
+      setMessages(current=>({...current,[reservation.id]:error?.message||'No se pudo conectar el respaldo con Drive.'}));
     }finally{setBusyId(null)}
   };
 
@@ -38,18 +41,22 @@ export default function ReservationDriveButton({reservations}:{reservations:Lead
     {reservations.map(reservation=>{
       const ready=reservation.reservation_drive_folder_status==='ready'&&Boolean(reservation.reservation_drive_folder_url);
       const busy=busyId===reservation.id;
-      return <button
-        key={reservation.id}
-        type="button"
-        className={ready?'reservation-drive-button ready':'reservation-drive-button pending'}
-        onClick={()=>void ensureAndOpen(reservation)}
-        disabled={Boolean(busyId)}
-        title={ready?('Abrir respaldo '+reservation.codigo):'Crear o abrir la ficha física de esta reserva en Drive'}
-      >
-        {busy?<LoaderCircle size={15} className="spin"/>:<FolderOpen size={15}/>}
-        <span>{busy?'Preparando respaldo…':'Respaldo antecedentes'}</span>
-        <small>{reservation.codigo}</small>
-      </button>;
+      const detail=messages[reservation.id]||reservation.reservation_drive_folder_error||'';
+      const credentialPending=/credencial|GOOGLE_DRIVE|permiso de edición/i.test(detail);
+      return <div key={reservation.id} className="reservation-drive-item">
+        <button
+          type="button"
+          className={ready?'reservation-drive-button ready':'reservation-drive-button pending'}
+          onClick={()=>void ensureAndOpen(reservation)}
+          disabled={Boolean(busyId)}
+          title={ready?('Abrir respaldo '+reservation.codigo):(credentialPending?'Drive pendiente de autorización. Presiona para reintentar.':'Crear o abrir la ficha física de esta reserva en Drive')}
+        >
+          {busy?<LoaderCircle size={15} className="spin"/>:<FolderOpen size={15}/>}
+          <span>{busy?'Preparando respaldo…':ready?'Abrir respaldo':credentialPending?'Drive pendiente · reintentar':'Respaldo antecedentes'}</span>
+          <small>{reservation.codigo}</small>
+        </button>
+        {!ready&&detail&&<small className="reservation-drive-hint">{credentialPending?'La reserva sigue respaldada internamente. Drive se habilitará cuando quede autorizada la cuenta del servidor.':detail}</small>}
+      </div>;
     })}
   </div>;
 }
