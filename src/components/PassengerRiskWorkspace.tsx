@@ -45,6 +45,30 @@ export default function PassengerRiskWorkspace({
     }finally{setLoadingId(null)}
   };
 
+  const generateAll=async()=>{
+    setLoadingId('__all__');
+    try{
+      const sb=assertSupabase();
+      const {data:{session}}=await sb.auth.getSession();
+      if(!session?.access_token)throw new Error('Sesión requerida.');
+      const reservationIds=[...new Set(orderedPassengers.map(item=>item.lead_id))];
+      const failed:string[]=[];
+      for(const leadId of reservationIds){
+        const response=await fetch('/api/reservation-archive',{
+          method:'POST',
+          headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},
+          body:JSON.stringify({action:'prepare_risk_sheets',leadId})
+        });
+        const body=await response.json().catch(()=>({}));
+        if(!response.ok||Number(body.failed||0)>0)failed.push(reservations.find(item=>item.id===leadId)?.codigo||leadId);
+      }
+      await onChanged();
+      if(failed.length)alert('Quedaron hojas pendientes en: '+failed.join(', ')+'. Revisa los datos o servicios del pasajero.');
+    }catch(error:any){
+      alert(error?.message||'No se pudieron preparar todas las hojas de riesgo.');
+    }finally{setLoadingId(null)}
+  };
+
   if(!orderedPassengers.length)return <div className="workspace-empty">No hay pasajeros vinculados a esta salida. La hoja de riesgo se genera una sola vez por pasajero y cubre su itinerario completo.</div>;
 
   return <section className="passenger-risk-workspace">
@@ -54,7 +78,7 @@ export default function PassengerRiskWorkspace({
         <h2>{orderedPassengers.length} hoja{orderedPassengers.length===1?'':'s'} · 1 por pasajero</h2>
         <p>Cada pasajero tiene una única hoja de riesgo. El formulario oficial XLSX se autorellena con todos sus servicios confirmados, desde el inicio hasta el final de su itinerario.</p>
       </div>
-      <strong>{generated}/{orderedPassengers.length} generadas</strong>
+      <div style={{display:'grid',gap:7,justifyItems:'end'}}><strong>{generated}/{orderedPassengers.length} generadas</strong><button type="button" disabled={Boolean(loadingId)||generated===orderedPassengers.length} onClick={()=>void generateAll()}>{loadingId==='__all__'?<LoaderCircle size={13} className="spin"/>:null}{generated===orderedPassengers.length?'Todas preparadas':'Preparar todas'}</button></div>
     </header>
 
     <div className="passenger-risk-buttons" aria-label="Hojas de riesgo por pasajero">
