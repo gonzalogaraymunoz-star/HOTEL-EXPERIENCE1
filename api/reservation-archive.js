@@ -4,6 +4,17 @@ import {archiveReservationDocument,ensureReservationDriveFolder,syncPendingReser
 
 export const config={maxDuration:60};
 const BUCKET='operation-documents';
+const DEFAULT_SALES_ORIGIN='https://ventas-hotelexperience.vercel.app';
+
+function setCors(req,res){
+  const origin=String(req.headers.origin||'').replace(/\/$/,'');
+  const configured=String(process.env.SALES_APP_ORIGIN||DEFAULT_SALES_ORIGIN).replace(/\/$/,'');
+  const allowed=new Set([DEFAULT_SALES_ORIGIN,configured,'http://localhost:5173','http://localhost:4173']);
+  if(origin&&allowed.has(origin))res.setHeader('Access-Control-Allow-Origin',origin);
+  res.setHeader('Vary','Origin');
+  res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type');
+}
 
 function setup(){
   const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||'https://lpirjwifzosdzgdncsbt.supabase.co';
@@ -116,6 +127,8 @@ async function passengerPdf(admin,leadId){
 }
 
 export default async function handler(req,res){
+  setCors(req,res);
+  if(req.method==='OPTIONS')return res.status(204).end();
   if(req.method!=='POST')return res.status(405).json({error:'Método no permitido.'});
   try{
     const admin=setup(),{user}=await userFrom(req,admin);
