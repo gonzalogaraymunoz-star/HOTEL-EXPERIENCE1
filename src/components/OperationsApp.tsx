@@ -51,6 +51,7 @@ export default function OperationsApp({profile}:{profile:any}){
 
   const refresh=async()=>{setLoading(true);setError('');try{const data=await loadCRMData();setLeads(data.leads);setServices(data.services)}catch(e:any){setError(e?.message||'No se pudo cargar la operación.')}finally{setLoading(false)}};
   useEffect(()=>{void refresh()},[]);
+  useEffect(()=>{window.scrollTo({top:0,left:0,behavior:'auto'})},[view]);
   useEffect(()=>{
     let cancelled=false;
     const timer=window.setTimeout(()=>{
