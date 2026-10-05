@@ -163,8 +163,14 @@ async function loadDepartureData(admin,departureId){
   for(const service of services){
     const lead=leadById.get(service.lead_id);if(!lead)continue;
     const serviceLinks=(linksByService.get(service.id)||[]).slice().sort((a,b)=>Number(a.position||0)-Number(b.position||0));
-    let selected=serviceLinks.map(link=>paxById.get(link.passenger_id)).filter(Boolean);
-    if(!serviceLinks.length){selected=(paxByLead.get(service.lead_id)||[]).slice(0,Math.max(0,Number(service.numero_pax||0)));warnings.push(`${service.service_code}: no tenía relación explícita servicio↔pasajero; se usaron los primeros ${selected.length} pasajeros del ingreso.`)}
+    const reservationPassengers=(paxByLead.get(service.lead_id)||[]).slice();
+    const expected=Math.max(0,Number(service.numero_pax||lead?.numero_pax||reservationPassengers.length||0));
+    const selected=[],seen=new Set();
+    for(const link of serviceLinks){const pax=paxById.get(link.passenger_id);if(!pax||pax.lead_id!==service.lead_id||seen.has(pax.id))continue;selected.push(pax);seen.add(pax.id);}
+    if(expected===0){for(const pax of reservationPassengers)if(!seen.has(pax.id)){selected.push(pax);seen.add(pax.id);}}
+    else if(selected.length<expected){const before=selected.length;for(const pax of reservationPassengers){if(selected.length>=expected)break;if(seen.has(pax.id))continue;selected.push(pax);seen.add(pax.id);}if(selected.length>before)warnings.push(`${service.service_code}: vínculos incompletos; se completaron automáticamente ${selected.length-before} pasajero(s) desde la reserva.`)}
+    if(!serviceLinks.length&&selected.length)warnings.push(`${service.service_code}: sin relación explícita servicio↔pasajero; se reconstruyó automáticamente desde la reserva.`);
+    if(expected>0&&selected.length!==expected)warnings.push(`${service.service_code}: declara ${expected} pax y solo hay ${selected.length} pasajeros cargados disponibles.`);
     for(const p of selected){rows.push({lead,service,passenger:p,assignment:assignmentByService.get(service.id)||null,hotel:hotelFor(lead)});}
   }
   const expected=services.reduce((sum,s)=>sum+Number(s.numero_pax||0),0);
