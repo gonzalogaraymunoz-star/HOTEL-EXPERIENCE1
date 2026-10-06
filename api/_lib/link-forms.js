@@ -299,10 +299,19 @@ async function analyzeXlsx(buffer,aliases){
       const passengerMatches=recognized.filter(x=>x.canonicalKey.startsWith('passenger.'));
       if(passengerMatches.length>=2&&passengerMatches.length>=Math.min(3,Math.max(2,Math.ceil(nonEmpty*.35)))){
         tableRows.add(row);
-        for(const item of passengerMatches)fields.push({
-          targetKey:'xlsxcol:'+sheet.name+':'+row+':'+item.col,fieldLabel:item.label,canonicalKey:item.canonicalKey,confidence:item.confidence,sourceCollection:'passengers',
-          target:{kind:'xlsx_column',sheet:sheet.name,headerRow:row,rowStart:row+1,column:item.col,headerAddress:sheet.getCell(row,item.col).address}
-        });
+        for(let headerCol=1;headerCol<=maxCols;headerCol++){
+          const headerCell=sheet.getCell(row,headerCol),headerLabel=String(headerCell.text||headerCell.value||'').trim();
+          if(!headerLabel||headerLabel.length>100)continue;
+          const headerMatch=inferCanonical(headerLabel,aliases);
+          fields.push({
+            targetKey:'xlsxcol:'+sheet.name+':'+row+':'+headerCol,
+            fieldLabel:headerLabel,
+            canonicalKey:headerMatch?.canonicalKey||'',
+            confidence:headerMatch?.confidence||0,
+            sourceCollection:headerMatch?collectionFor(headerMatch.canonicalKey):'passengers',
+            target:{kind:'xlsx_column',sheet:sheet.name,headerRow:row,rowStart:row+1,column:headerCol,headerAddress:headerCell.address}
+          });
+        }
       }
     }
     for(let row=1;row<=maxRows;row++)for(let col=1;col<=maxCols;col++){
