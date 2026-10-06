@@ -5,7 +5,7 @@ import {PDFDocument} from 'pdf-lib';
 
 export const LINK_FORMS_BUCKET='operation-documents';
 export const LINK_FORMS_VERSION=1;
-const MAX_FILE_BYTES=8*1024*1024;
+const MAX_FILE_BYTES=3*1024*1024;
 
 export const CANONICAL_FIELDS=[
   {key:'passenger.full_name',label:'Nombre completo del pasajero',collection:'passengers'},
@@ -308,9 +308,15 @@ async function analyzeXlsx(buffer,aliases){
     for(let row=1;row<=maxRows;row++)for(let col=1;col<=maxCols;col++){
       if(tableRows.has(row))continue;
       const source=sheet.getCell(row,col),label=String(source.text||source.value||'').trim();if(!label||label.length>120)continue;
-      const match=inferCanonical(label,aliases);if(!match||match.confidence<.76)continue;
-      const target=chooseXlsxTarget(sheet,row,col);
-      fields.push({targetKey:'xlsx:'+sheet.name+':'+target.address,fieldLabel:label,canonicalKey:match.canonicalKey,confidence:match.confidence,sourceCollection:collectionFor(match.canonicalKey),target:{kind:'xlsx_cell',sheet:sheet.name,address:target.address,labelAddress:source.address}});
+      const match=inferCanonical(label,aliases),target=chooseXlsxTarget(sheet,row,col);
+      if(match&&match.confidence>=.76){
+        fields.push({targetKey:'xlsx:'+sheet.name+':'+target.address,fieldLabel:label,canonicalKey:match.canonicalKey,confidence:match.confidence,sourceCollection:collectionFor(match.canonicalKey),target:{kind:'xlsx_cell',sheet:sheet.name,address:target.address,labelAddress:source.address}});
+      }else{
+        const right=sheet.getCell(row,col+1),below=sheet.getCell(row+1,col),hasBlankNeighbor=!String(right.value??right.text??'').trim()||!String(below.value??below.text??'').trim();
+        if(hasBlankNeighbor&&label.length>=3&&fields.filter(x=>x.target?.sheet===sheet.name&&!x.canonicalKey).length<80){
+          fields.push({targetKey:'xlsx:'+sheet.name+':'+target.address,fieldLabel:label,canonicalKey:'',confidence:0,sourceCollection:'root',target:{kind:'xlsx_cell',sheet:sheet.name,address:target.address,labelAddress:source.address}});
+        }
+      }
     }
   }
   const dedup=new Map();for(const field of fields){const prior=dedup.get(field.targetKey);if(!prior||field.confidence>prior.confidence)dedup.set(field.targetKey,field)}
@@ -322,11 +328,11 @@ async function analyzePdf(buffer,aliases){
   const pdf=await PDFDocument.load(buffer,{ignoreEncryption:true}),fields=[],warnings=[];let formFields=[];
   try{formFields=pdf.getForm().getFields()}catch{}
   for(const field of formFields){
-    const name=field.getName(),match=inferCanonical(name,aliases);if(!match||match.confidence<.58)continue;
-    fields.push({targetKey:'pdf:'+name,fieldLabel:name,canonicalKey:match.canonicalKey,confidence:match.confidence,sourceCollection:collectionFor(match.canonicalKey),target:{kind:'pdf_field',name}});
+    const name=field.getName(),match=inferCanonical(name,aliases);
+    fields.push({targetKey:'pdf:'+name,fieldLabel:name,canonicalKey:match?.canonicalKey||'',confidence:match?.confidence||0,sourceCollection:match?collectionFor(match.canonicalKey):'root',target:{kind:'pdf_field',name}});
   }
   if(!formFields.length)warnings.push('El PDF no contiene campos AcroForm editables. Esta versión no escribe sobre PDFs escaneados.');
-  else if(!fields.length)warnings.push('El PDF tiene campos, pero sus nombres todavía no coinciden con el diccionario.');
+  else if(!fields.some(x=>x.canonicalKey))warnings.push('El PDF tiene campos editables. Asigna sus variables LINK y guarda el aprendizaje.');
   return{fields,warnings,meta:{pdfFields:formFields.map(f=>f.getName())}};
 }
 function attribute(tag,name){
@@ -337,10 +343,11 @@ function analyzeHtml(buffer,aliases){
   const html=buffer.toString('utf8'),fields=[],warnings=[],tagRegex=/<(input|textarea|select)\b[^>]*>/gi;let match;
   while((match=tagRegex.exec(html))){
     const tag=match[0],name=attribute(tag,'name'),id=attribute(tag,'id'),placeholder=attribute(tag,'placeholder'),aria=attribute(tag,'aria-label'),label=[aria,placeholder,name,id].find(Boolean)||'';
-    if(!label)continue;const inferred=inferCanonical(label,aliases);if(!inferred||inferred.confidence<.58)continue;const locator=name||id;
-    fields.push({targetKey:'html:'+locator,fieldLabel:label,canonicalKey:inferred.canonicalKey,confidence:inferred.confidence,sourceCollection:collectionFor(inferred.canonicalKey),target:{kind:'html_input',name:name||null,id:id||null,tag:match[1].toLowerCase()}});
+    if(!label)continue;const inferred=inferCanonical(label,aliases),locator=name||id;if(!locator)continue;
+    fields.push({targetKey:'html:'+locator,fieldLabel:label,canonicalKey:inferred?.canonicalKey||'',confidence:inferred?.confidence||0,sourceCollection:inferred?collectionFor(inferred.canonicalKey):'root',target:{kind:'html_input',name:name||null,id:id||null,tag:match[1].toLowerCase()}});
   }
-  if(!fields.length)warnings.push('No se reconocieron inputs HTML automáticamente.');
+  if(!fields.length)warnings.push('No se encontraron inputs con name o id en el HTML.');
+  else if(!fields.some(x=>x.canonicalKey))warnings.push('Encontré los inputs HTML. Asigna sus variables LINK y guarda el aprendizaje.');
   return{fields,warnings,meta:{inputs:fields.length}};
 }
 function walkJson(value,path=[],out=[]){
@@ -349,8 +356,8 @@ function walkJson(value,path=[],out=[]){
 }
 function analyzeJson(buffer,aliases){
   let json;try{json=JSON.parse(buffer.toString('utf8'))}catch{throw Object.assign(new Error('JSON inválido.'),{status:400})}
-  const fields=[];for(const item of walkJson(json)){const inferred=inferCanonical(item.label,aliases);if(!inferred||inferred.confidence<.58)continue;fields.push({targetKey:'json:'+item.path.join('.'),fieldLabel:item.label,canonicalKey:inferred.canonicalKey,confidence:inferred.confidence,sourceCollection:collectionFor(inferred.canonicalKey),target:{kind:'json_path',path:item.path}})}
-  return{fields,warnings:fields.length?[]:['No se reconocieron claves JSON automáticamente.'],meta:{}};
+  const fields=[];for(const item of walkJson(json)){const inferred=inferCanonical(item.label,aliases);fields.push({targetKey:'json:'+item.path.join('.'),fieldLabel:item.label,canonicalKey:inferred?.canonicalKey||'',confidence:inferred?.confidence||0,sourceCollection:inferred?collectionFor(inferred.canonicalKey):'root',target:{kind:'json_path',path:item.path}})}
+  return{fields,warnings:fields.length?[]:['El JSON no contiene campos simples para mapear.'],meta:{}};
 }
 
 export async function analyzeForm(admin,args){
@@ -418,12 +425,14 @@ function fillJson(buffer,mappings,context){
 }
 
 export async function saveTemplate(admin,user,args){
-  const buffer=decodeBase64(args.base64),kind=kindFrom(args.fileName,args.mimeType),id=crypto.randomUUID(),keyBase=safe(args.title||args.fileName).replace(/\.[^.]+$/,'').toLowerCase(),templateKey=(keyBase||'form')+'-'+fingerprint(buffer).slice(0,8),storagePath='link-forms/templates/'+id+'/'+safe(args.fileName);
+  const buffer=decodeBase64(args.base64),kind=kindFrom(args.fileName,args.mimeType),id=crypto.randomUUID(),keyBase=safe(args.title||args.fileName).replace(/\.[^.]+$/,'').toLowerCase(),templateKey=(keyBase||'form')+'-'+fingerprint(buffer).slice(0,6)+'-'+id.slice(0,6),storagePath='link-forms/templates/'+id+'/'+safe(args.fileName);
   const {error:uploadError}=await admin.storage.from(LINK_FORMS_BUCKET).upload(storagePath,buffer,{contentType:args.mimeType||mimeForKind(kind),upsert:false,cacheControl:'0'});if(uploadError)throw uploadError;
   const {data:template,error:templateError}=await admin.from('link_form_templates').insert({id,template_key:templateKey,title:args.title||args.fileName,business_scope:args.businessScope||'link',context_scope:args.contextScope||'reservation',document_kind:kind,file_name:args.fileName,mime_type:args.mimeType||mimeForKind(kind),storage_bucket:LINK_FORMS_BUCKET,storage_path:storagePath,fingerprint:fingerprint(buffer),parser_version:LINK_FORMS_VERSION,created_by:user.id}).select('*').single();
   if(templateError)throw templateError;
   const rows=(args.fields||[]).filter(x=>x?.canonicalKey||x?.canonical_key).map(field=>({template_id:id,target_key:field.targetKey||field.target_key,field_label:field.fieldLabel||field.field_label||field.targetKey,canonical_key:field.canonicalKey||field.canonical_key,target:field.target||{},source_collection:field.sourceCollection||field.source_collection||collectionFor(field.canonicalKey||field.canonical_key),confidence:Number(field.confidence||0),required:Boolean(field.required),mapping_source:field.mappingSource||field.mapping_source||'manual',notes:field.notes||null}));
   if(rows.length){const {error}=await admin.from('link_form_fields').insert(rows);if(error)throw error}
+  const learnedAliases=rows.filter(row=>row.field_label&&row.mapping_source==='manual').map(row=>({canonical_key:row.canonical_key,alias:row.field_label,scope:'learned',priority:20,active:true}));
+  if(learnedAliases.length)await admin.from('link_form_aliases').upsert(learnedAliases,{onConflict:'canonical_key,alias,scope'}).catch(()=>null);
   return{...template,fieldCount:rows.length};
 }
 export async function listTemplates(admin){
