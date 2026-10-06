@@ -441,7 +441,7 @@ export async function saveTemplate(admin,user,args){
   const rows=(args.fields||[]).filter(x=>x?.canonicalKey||x?.canonical_key).map(field=>({template_id:id,target_key:field.targetKey||field.target_key,field_label:field.fieldLabel||field.field_label||field.targetKey,canonical_key:field.canonicalKey||field.canonical_key,target:field.target||{},source_collection:field.sourceCollection||field.source_collection||collectionFor(field.canonicalKey||field.canonical_key),confidence:Number(field.confidence||0),required:Boolean(field.required),mapping_source:field.mappingSource||field.mapping_source||'manual',notes:field.notes||null}));
   if(rows.length){const {error}=await admin.from('link_form_fields').insert(rows);if(error)throw error}
   const learnedAliases=rows.filter(row=>row.field_label&&row.mapping_source==='manual').map(row=>({canonical_key:row.canonical_key,alias:row.field_label,scope:'learned',priority:20,active:true}));
-  if(learnedAliases.length)await admin.from('link_form_aliases').upsert(learnedAliases,{onConflict:'canonical_key,alias,scope'}).catch(()=>null);
+  if(learnedAliases.length){try{await admin.from('link_form_aliases').upsert(learnedAliases,{onConflict:'canonical_key,alias,scope'})}catch{}}
   return{...template,fieldCount:rows.length};
 }
 export async function listTemplates(admin){
