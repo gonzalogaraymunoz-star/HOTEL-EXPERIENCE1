@@ -41,6 +41,7 @@ async function post(body:any){
 }
 
 export async function fileToBase64(file:File){
+  if(file.size>3*1024*1024)throw new Error('El formulario supera 3 MB. Reduce el archivo antes de subirlo.');
   return new Promise<string>((resolve,reject)=>{
     const reader=new FileReader();
     reader.onerror=()=>reject(reader.error||new Error('No se pudo leer el archivo.'));
