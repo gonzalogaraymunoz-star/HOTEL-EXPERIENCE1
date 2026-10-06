@@ -106,7 +106,8 @@ export default function LinkFormsWorkspace({role,leads,services}:Props){
     setAnalysis(current=>{
       if(!current)return current;
       const fields=current.fields.slice(),definition=dictionary.find(item=>item.key===canonicalKey);
-      fields[index]={...fields[index],canonicalKey,sourceCollection:definition?.collection||fields[index].sourceCollection,confidence:canonicalKey===fields[index].canonicalKey?fields[index].confidence:1,mappingSource:'manual'};
+      const unchanged=canonicalKey===fields[index].canonicalKey;
+      fields[index]={...fields[index],canonicalKey,sourceCollection:definition?.collection||fields[index].sourceCollection,confidence:unchanged?fields[index].confidence:1,mappingSource:'manual',previewValue:unchanged?fields[index].previewValue:undefined};
       return{...current,fields};
     });
   };
@@ -178,7 +179,7 @@ export default function LinkFormsWorkspace({role,leads,services}:Props){
         <label className="lf-drop">
           <UploadCloud size={25}/>
           <strong>{file?file.name:'Subir formulario'}</strong>
-          <span>XLSX · PDF editable · HTML · JSON</span>
+          <span>XLSX · PDF editable · HTML · JSON · máx. 3 MB</span>
           <input type="file" accept=".xlsx,.pdf,.html,.htm,.json,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e=>{const next=e.target.files?.[0]||null;setFile(next);setAnalysis(null);setTitle(next?next.name.replace(/\.[^.]+$/,''):'')}}/>
         </label>
         <div className="lf-upload-actions">
