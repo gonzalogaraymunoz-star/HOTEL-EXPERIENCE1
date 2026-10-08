@@ -29,13 +29,9 @@ export default function App(){
         const {data,error}=await supabase.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
         if(!alive)return;
         if(error) console.error('profile',error);
-        setProfile(data||{
-          id:session.user.id,
-          email:session.user.email,
-          full_name:session.user.user_metadata?.full_name||session.user.email?.split('@')[0]||'Usuario',
-          role:'agent',
-          is_active:true
-        });
+        // A valid Auth session is not, by itself, an authorization grant.
+        // Only an existing, active profile may access the CRM.
+        setProfile(data||{id:session.user.id,is_active:false});
       }finally{
         if(alive)setProfileLoading(false);
       }
