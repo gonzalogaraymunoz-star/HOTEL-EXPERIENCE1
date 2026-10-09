@@ -21,16 +21,31 @@ export default async function handler(req,res){
     if(!fullName||!email) return res.status(400).json({error:'Nombre y correo son obligatorios.'});
     if(!['admin','manager','agent','viewer'].includes(role)) return res.status(400).json({error:'Rol inválido.'});
 
-    const redirectTo=`${req.headers.origin || 'https://hotel-experience.vercel.app'}/`;
-    const {data,error}=await admin.auth.admin.inviteUserByEmail(email,{redirectTo,data:{full_name:fullName}});
-    if(error) throw error;
-
-    if(data?.user){
-      const {error:saveError}=await admin.from('profiles').upsert({id:data.user.id,full_name:fullName,email,role,is_active:true,updated_at:new Date().toISOString()},{onConflict:'id'});
-      if(saveError) return res.status(500).json({error:'La invitación fue creada pero no se pudieron asignar los permisos. Revisa la configuración de perfiles antes de reenviar.'});
+    // Create the identity independently of Supabase's limited email sender.
+    // Email remains unverified; activation is a separate step.
+    const normalizedEmail=String(email).trim().toLowerCase();
+    const {data,error}=await admin.auth.admin.createUser({
+      email:normalizedEmail,
+      email_confirm:false,
+      user_metadata:{full_name:fullName}
+    });
+    if(error){
+      const duplicate=/already (been )?registered|already exists|duplicate/i.test(error.message||'');
+      return res.status(duplicate?409:500).json({error:duplicate?'La cuenta ya existe en Auth. Revisa su perfil y usa recuperación de acceso.':error.message});
     }
-    if(!data?.user) return res.status(500).json({error:'Supabase no devolvió una cuenta para la invitación.'});
-    return res.status(200).json({ok:true});
+    if(!data?.user) return res.status(500).json({error:'Supabase no devolvió una cuenta.'});
+    const {error:saveError}=await admin.from('profiles').upsert({
+      id:data.user.id,full_name:fullName,email:normalizedEmail,role,
+      is_active:false,updated_at:new Date().toISOString()
+    },{onConflict:'id'});
+    if(saveError) {
+      await admin.auth.admin.deleteUser(data.user.id);
+      return res.status(500).json({error:'No se pudieron asignar permisos. No se conservó la cuenta incompleta.'});
+    }
+    return res.status(200).json({
+      ok:true,activation_pending:true,
+      message:'Cuenta creada sin enviar correo. La activación requiere configurar el servicio de email; hasta entonces el usuario no puede ingresar.'
+    });
   }catch(e){
     return res.status(500).json({error:e?.message||'No se pudo crear la invitación.'});
   }
