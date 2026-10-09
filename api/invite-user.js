@@ -26,8 +26,10 @@ export default async function handler(req,res){
     if(error) throw error;
 
     if(data?.user){
-      await admin.from('profiles').update({full_name:fullName,email,role,is_active:true,updated_at:new Date().toISOString()}).eq('id',data.user.id);
+      const {error:saveError}=await admin.from('profiles').upsert({id:data.user.id,full_name:fullName,email,role,is_active:true,updated_at:new Date().toISOString()},{onConflict:'id'});
+      if(saveError) return res.status(500).json({error:'La invitación fue creada pero no se pudieron asignar los permisos. Revisa la configuración de perfiles antes de reenviar.'});
     }
+    if(!data?.user) return res.status(500).json({error:'Supabase no devolvió una cuenta para la invitación.'});
     return res.status(200).json({ok:true});
   }catch(e){
     return res.status(500).json({error:e?.message||'No se pudo crear la invitación.'});
