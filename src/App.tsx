@@ -12,6 +12,7 @@ export default function App(){
   const [session,setSession]=useState<Session|null|undefined>(undefined);
   const [profile,setProfile]=useState<any>(null);
   const [profileLoading,setProfileLoading]=useState(false);
+  const [profileError,setProfileError]=useState('');
 
   useEffect(()=>{
     let alive=true;
@@ -24,15 +25,16 @@ export default function App(){
     if(!session){setProfile(null);return}
     let alive=true;
     setProfileLoading(true);
+    setProfileError('');
     void (async()=>{
       try{
         const {data,error}=await supabase.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
         if(!alive)return;
-        if(error) console.error('profile',error);
+        if(error){setProfileError('No se pudo consultar la asignación de Equipo. Intenta nuevamente o contacta al administrador.');return;}
         // A valid Auth session is not, by itself, an authorization grant.
         // Only an existing, active profile may access the CRM.
         setProfile(data||{id:session.user.id,is_active:false});
-      }finally{
+      }catch(_error){if(alive)setProfileError('No se pudo validar tu permiso. Vuelve a intentarlo.');}finally{
         if(alive)setProfileLoading(false);
       }
     })();
@@ -42,7 +44,9 @@ export default function App(){
   if(isCatalogRoute) return <NeutralCatalogPage/>;
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
   if(!session) return <LoginScreen/>;
-  if(profileLoading||!profile) return <div className="app-loading">Preparando operación…</div>;
+  if(profileLoading) return <div className="app-loading">Preparando operación…</div>;
+  if(profileError) return <main className="blocked-screen"><h1>No pudimos verificar tu permiso</h1><p>{profileError}</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
+  if(!profile) return <div className="app-loading">Preparando operación…</div>;
   if(profile.is_active===false) return <main className="blocked-screen"><h1>Cuenta desactivada</h1><p>Solicita acceso a un administrador.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
   return <ErrorBoundary><OperationsApp profile={profile}/><PendingClientTasks scope="operations"/></ErrorBoundary>;
 }
