@@ -30,7 +30,7 @@ export default function TeamView({currentRole}:{currentRole:string}) {
       const r=await fetch('/api/invite-user',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||''}`},body:JSON.stringify({fullName,email,role})});
       const data=await r.json();
       if(!r.ok)throw new Error(data.error||'No se pudo invitar al usuario.');
-      setMessage('Invitación enviada correctamente.');
+      setMessage(data.activation_pending ? data.message : 'Cuenta creada correctamente.');
       setFullName('');setEmail('');setRole('agent');setShowInvite(false);
       setTimeout(load,800);
     }catch(e:any){setMessage(e.message||'Error al invitar.');}
@@ -78,11 +78,11 @@ export default function TeamView({currentRole}:{currentRole:string}) {
     {showInvite&&<div className="modal-backdrop" onMouseDown={()=>setShowInvite(false)}>
       <section className="modal-card" onMouseDown={e=>e.stopPropagation()}>
         <header><div><span className="eyebrow">NUEVA CUENTA</span><h2>Invitar usuario</h2></div><button className="icon-button" onClick={()=>setShowInvite(false)}><X/></button></header>
-        <p>El usuario recibirá un correo para definir su contraseña y entrar al CRM.</p>
+        <p>La cuenta se creará sin enviar correo y permanecerá desactivada hasta completar la verificación y habilitarla desde Equipo.</p>
         <label className="field"><span>Nombre completo</span><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Nombre del usuario"/></label>
         <label className="field"><span>Correo electrónico</span><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="usuario@empresa.cl"/></label>
         <label className="field"><span>Rol</span><select value={role} onChange={e=>setRole(e.target.value)}><option value="admin">Admin</option><option value="manager">Manager</option><option value="agent">Agent</option><option value="viewer">Viewer</option></select></label>
-        <button className="primary-button modal-action" disabled={sending} onClick={invite}>{sending?'Enviando...':'Enviar invitación'} <MailPlus size={17}/></button>
+        <button className="primary-button modal-action" disabled={sending} onClick={invite}>{sending?'Enviando...':'Crear cuenta'} <MailPlus size={17}/></button>
       </section>
     </div>}
   </div>
