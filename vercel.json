@@ -14,6 +14,22 @@
   ],
   "rewrites": [
     {
+      "source": "/portal-admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/portal-admin/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/portal",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/portal/:path*",
+      "destination": "/index.html"
+    },
+    {
       "source": "/catalogo",
       "destination": "/index.html"
     },

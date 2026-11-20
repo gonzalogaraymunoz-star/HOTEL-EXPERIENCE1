@@ -11,6 +11,7 @@ export type CatalogProduct = {
   snack?:string;
   description?:string;
   price_mode:string;
+  public_unit?:'por persona'|'por traslado'|'por servicio';
   prices:Record<string,any>;
   source?:string;
   active:boolean;
