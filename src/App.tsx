@@ -6,11 +6,13 @@ import ErrorBoundary from './components/ErrorBoundary';
 import PendingClientTasks from './components/PendingClientTasks';
 import NeutralCatalogPage from './components/NeutralCatalogPage';
 import PartnerPortal from './components/PartnerPortal';
+import PartnerAccountsAdmin from './components/PartnerAccountsAdmin';
 import {supabase} from './lib/supabase';
 
 export default function App(){
   const isCatalogRoute=window.location.pathname==='/catalogo'||window.location.pathname.startsWith('/catalogo/');
   const isPartnerPortalRoute=window.location.pathname==='/portal'||window.location.pathname==='/portal/';
+  const isPartnerAdminRoute=window.location.pathname==='/portal-admin'||window.location.pathname==='/portal-admin/';
   const [session,setSession]=useState<Session|null|undefined>(undefined);
   const [profile,setProfile]=useState<any>(null);
   const [profileLoading,setProfileLoading]=useState(false);
@@ -45,6 +47,13 @@ export default function App(){
 
   if(isPartnerPortalRoute) return <PartnerPortal/>;
   if(isCatalogRoute) return <NeutralCatalogPage/>;
+  if(isPartnerAdminRoute){
+    if(session===undefined)return <div className="app-loading">Cargando Hotel Experience…</div>;
+    if(!session)return <LoginScreen/>;
+    if(profileLoading)return <div className="app-loading">Preparando administración…</div>;
+    if(profileError||!profile||!['admin','manager'].includes(String(profile.role||'')))return <main className="blocked-screen"><h1>Acceso restringido</h1><p>Solo administración puede gestionar los accesos del portal.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
+    return <ErrorBoundary><PartnerAccountsAdmin/></ErrorBoundary>;
+  }
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
   if(!session) return <LoginScreen/>;
   if(profileLoading) return <div className="app-loading">Preparando operación…</div>;
