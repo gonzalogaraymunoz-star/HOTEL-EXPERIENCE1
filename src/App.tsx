@@ -5,10 +5,12 @@ import LoginScreen from './components/LoginScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import PendingClientTasks from './components/PendingClientTasks';
 import NeutralCatalogPage from './components/NeutralCatalogPage';
+import PartnerPortal from './components/PartnerPortal';
 import {supabase} from './lib/supabase';
 
 export default function App(){
   const isCatalogRoute=window.location.pathname==='/catalogo'||window.location.pathname.startsWith('/catalogo/');
+  const isPartnerPortalRoute=window.location.pathname==='/portal'||window.location.pathname==='/portal/';
   const [session,setSession]=useState<Session|null|undefined>(undefined);
   const [profile,setProfile]=useState<any>(null);
   const [profileLoading,setProfileLoading]=useState(false);
@@ -41,6 +43,7 @@ export default function App(){
     return ()=>{alive=false};
   },[session?.user.id]);
 
+  if(isPartnerPortalRoute) return <PartnerPortal/>;
   if(isCatalogRoute) return <NeutralCatalogPage/>;
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
   if(!session) return <LoginScreen/>;
