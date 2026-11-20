@@ -63,6 +63,43 @@ function serviceLabel(value){
   return 'Pendiente de confirmación';
 }
 
+async function loadPublicExtras(admin){
+  const categories=['Transporte','Salud','Procedimientos','SPA / Terapias'];
+  const {data,error}=await admin.from('product_catalog')
+    .select('id,code,name,category,description,price_mode,prices,active')
+    .eq('active',true).in('category',categories).order('category').order('name');
+  if(error)throw error;
+  return (data||[]).map(product=>{
+    const source=product.prices||{};
+    const mode=String(product.price_mode||'');
+    const prices={};
+    let publicMode=mode;
+    let publicUnit='por servicio';
+    if(mode==='private_per_pax'||mode==='regular_per_pax'){
+      publicUnit='por persona';
+      for(let pax=1;pax<=20;pax++){
+        const value=Number(source[String(pax)]||0);
+        if(value>0)prices[String(pax)]=value;
+      }
+    }else if(mode==='regular_commission'){
+      publicMode='regular_per_pax';
+      publicUnit='por persona';
+      const value=Number(source.sale||0);
+      if(value>0)for(let pax=1;pax<=20;pax++)prices[String(pax)]=value;
+    }else if(mode==='hotel_fixed'||mode==='lowcost_transport'){
+      publicMode='hotel_fixed';
+      publicUnit=product.category==='Transporte'&&mode==='lowcost_transport'?'por traslado':'por servicio';
+      const value=Number(source.hotel_sale||0);
+      if(value>0)prices.hotel_sale=value;
+    }
+    return {
+      id:product.id,code:product.code,name:product.name,category:product.category,
+      description:product.description||'',price_mode:publicMode,public_unit:publicUnit,
+      prices,active:true
+    };
+  });
+}
+
 async function loadPartnerLeads(admin,identity){
   const fields='id,codigo,reserva,numero_pax,contacto,empresa_ejecuta,estado,checkin,checkout,created_at,hotel_partner_id';
   const {data:leads,error}=await admin.from('leads')
@@ -171,9 +208,9 @@ export default async function handler(req,res){
     const identity=await resolveIdentity(req,admin);
 
     if(req.method==='GET'){
-      const leads=await loadPartnerLeads(admin,identity);
+      const [leads,catalogExtras]=await Promise.all([loadPartnerLeads(admin,identity),loadPublicExtras(admin)]);
       return res.status(200).json({
-        identity:identity.identity,hotels:identity.hotels,
+        identity:identity.identity,hotels:identity.hotels,catalogExtras,
         summary:{
           total:leads.length,
           confirmed:leads.filter(item=>item.estado_raw==='confirmado').length,
@@ -209,7 +246,7 @@ export default async function handler(req,res){
     }
 
     const services=await resolveRequestedServices(admin,req.body?.services);
-    const maxPax=Math.max(1,...services.map(item=>item.pax));
+    const maxPax=Math.max(passengerNames.length,1,...services.map(item=>item.pax));
     const firstDate=services.find(item=>item.date)?.date||null;
     const assignedTo=identity.mode==='seller'?identity.user.id:await (async()=>{
       const {data,error}=await admin.from('seller_partner_assignments')
