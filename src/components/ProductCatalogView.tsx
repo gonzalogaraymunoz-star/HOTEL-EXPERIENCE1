@@ -16,6 +16,7 @@ export type PortalCatalogSelection = {
   product_code?:string;
   category:string;
   tour_id?:string;
+  family_id?:string;
   modality?:TourModality;
   pax:number;
   pricing_status:'quoted'|'manual_quote';
@@ -100,7 +101,7 @@ export default function ProductCatalogView({role,onSelect,publicMode=false,extra
               </>:<div className="manual-price">{quote.status==='manual_quote'?'Cotización manual':'No disponible'}</div>}
               <footer>{publicMode?<span>{selected.modalities[m]?.declared_available===false&&selected.modalities[m]?.tariff_found?'Tarifa registrada · disponibilidad por validar':quote.status==='manual_quote'?'Condición por cotizar':'Tarifa TV1.2'}</span>:<><span>tour_id</span><code>{source}</code></>}</footer>
               {onSelect&&quote.status!=='not_available'&&<button type="button" className="primary-button" onClick={()=>onSelect({
-                kind:'tour',product_name:selected.name,category:selected.category,tour_id:source,modality:m,pax,
+                kind:'tour',product_name:selected.name,category:selected.category,tour_id:source,family_id:selected.id,modality:m,pax,
                 pricing_status:quote.status,price_pp_clp:quote.price_pp_clp,unit_price_clp:quote.price_pp_clp,
                 total_price_clp:quote.group_total_clp,price_unit:'por persona',pricing_source:'TV1.2 Fauna Experiencias'
               })}>Agregar a solicitud</button>}
