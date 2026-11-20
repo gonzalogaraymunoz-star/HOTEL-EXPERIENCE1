@@ -8,7 +8,24 @@ const MODS:TourModality[]=['low','semiprivado','privado'];
 const PAX=Array.from({length:12},(_,i)=>i+1);
 const EXTRA_CATEGORIES=new Set(['Transporte','Salud','Procedimientos','SPA / Terapias']);
 
-export default function ProductCatalogView({role}:{role:string}){
+export type PortalCatalogSelection = {
+  kind:'tour'|'extra';
+  product_name:string;
+  product_id?:string;
+  product_code?:string;
+  category:string;
+  tour_id?:string;
+  modality?:TourModality;
+  pax:number;
+  pricing_status:'quoted'|'manual_quote';
+  price_pp_clp:number|null;
+  unit_price_clp:number|null;
+  total_price_clp:number|null;
+  price_unit:'por persona'|'por traslado'|'por servicio';
+  pricing_source:string;
+};
+
+export default function ProductCatalogView({role,onSelect,publicMode=false}:{role:string;onSelect?:(selection:PortalCatalogSelection)=>void;publicMode?:boolean}){
   const [mode,setMode]=useState<'tours'|'extras'>('tours');
   const [q,setQ]=useState('');
   const [category,setCategory]=useState('Todos');
@@ -31,7 +48,7 @@ export default function ProductCatalogView({role}:{role:string}){
 
   return <div className="view-stack pricing-v6">
     <section className="catalog-hero pricing-hero">
-      <div><span className="eyebrow">CATÁLOGO COMERCIAL</span><h2>Productos, modalidades y precios.</h2><p>Los tours se estandarizan con TV1.2 por <b>tour_id → modalidad → pax</b>. Transporte, wellness y otros servicios conservan el catálogo complementario de Supabase.</p></div>
+      <div><span className="eyebrow">{publicMode?'HOTEL EXPERIENCE · CATÁLOGO':'CATÁLOGO COMERCIAL'}</span><h2>{publicMode?'Experiencias, alternativas y tarifas.':'Productos, modalidades y precios.'}</h2><p>{publicMode?'Consulta las variantes y sus tramos. Las tarifas orientan la solicitud; toda disponibilidad queda pendiente de confirmación.':'Los tours se estandarizan con TV1.2 por tour_id → modalidad → pax. Transporte, wellness y otros servicios conservan el catálogo complementario de Supabase.'}</p></div>
       <div className="pricing-meta"><span>Fuente tours</span><strong>TV1.2 Fauna Experiencias</strong><small>33 tours · CLP · sin correcciones manuales</small></div>
     </section>
 
@@ -74,12 +91,17 @@ export default function ProductCatalogView({role}:{role:string}){
             const quote=resolveFamilyPrice(selected,m,pax);
             const source=selected.modalitySources[m]||selected.id;
             return <article className={`modality-price-card ${quote.status}`} key={m}>
-              <div className="modality-card-head"><span><b>{modalityLabel(m)}</b><small>{modalityInternalLabel(m)}</small></span><i>{statusLabel(quote.status)}</i></div>
+              <div className="modality-card-head"><span><b>{modalityLabel(m)}</b>{!publicMode&&<small>{modalityInternalLabel(m)}</small>}</span><i>{statusLabel(quote.status)}</i></div>
               {quote.status==='quoted'?<>
                 <strong className="modality-main-price">{money(quote.price_pp_clp)} <small>p/p</small></strong>
                 <div className="modality-total"><span>Total {pax} pax</span><b>{money(quote.group_total_clp)}</b></div>
               </>:<div className="manual-price">{quote.status==='manual_quote'?'Cotización manual':'No disponible'}</div>}
-              <footer><span>tour_id</span><code>{source}</code></footer>
+              <footer>{publicMode?<span>{selected.modalities[m]?.declared_available===false&&selected.modalities[m]?.tariff_found?'Tarifa registrada · disponibilidad por validar':quote.status==='manual_quote'?'Condición por cotizar':'Tarifa TV1.2'}</span>:<><span>tour_id</span><code>{source}</code></>}</footer>
+              {onSelect&&quote.status!=='not_available'&&<button type="button" className="primary-button" onClick={()=>onSelect({
+                kind:'tour',product_name:selected.name,category:selected.category,tour_id:source,modality:m,pax,
+                pricing_status:quote.status,price_pp_clp:quote.price_pp_clp,unit_price_clp:quote.price_pp_clp,
+                total_price_clp:quote.group_total_clp,price_unit:'por persona',pricing_source:'TV1.2 Fauna Experiencias'
+              })}>Agregar a solicitud</button>}
             </article>
           })}
         </div>
@@ -88,7 +110,7 @@ export default function ProductCatalogView({role}:{role:string}){
           <div className="pricing-matrix-head"><div><Layers3 size={17}/><span><b>Tramos completos</b><small>Precio por persona y total del grupo.</small></span></div><span className="mode-chip">1–12 PAX</span></div>
           <div className="pricing-matrix-scroll">
             <table className="pricing-matrix">
-              <thead><tr><th>Pax</th>{MODS.map(m=><th key={m}>{modalityLabel(m)}<small>{modalityInternalLabel(m)}</small></th>)}</tr></thead>
+              <thead><tr><th>Pax</th>{MODS.map(m=><th key={m}>{modalityLabel(m)}{!publicMode&&<small>{modalityInternalLabel(m)}</small>}</th>)}</tr></thead>
               <tbody>{PAX.map(n=><tr className={n===pax?'selected-row':''} key={n} onClick={()=>setPax(n)}>
                 <td><b>{n}</b></td>
                 {MODS.map(m=><td key={m}><PriceCell quote={resolveFamilyPrice(selected,m,n)}/></td>)}
@@ -97,13 +119,13 @@ export default function ProductCatalogView({role}:{role:string}){
           </div>
         </div>
 
-        <div className="pricing-source-note"><Users size={15}/><span>Compartido (LOW) es p/p × pax. Semiprivado usa su valor p/p entre 2–10 pax y 1 pax queda manual. Privado usa el tramo exacto; un tramo nulo nunca se inventa.</span></div>
+        <div className="pricing-source-note"><Users size={15}/><span>Compartido se calcula por persona. Semiprivado conserva su condición base de 2 pasajeros y su rango 2–10; 1 pasajero requiere cotización manual. Privado utiliza el tramo exacto; un tramo sin tarifa nunca se inventa.</span></div>
       </section>}
-    </section>:<ExtrasCatalog products={extras} loading={extrasLoading} role={role} pax={pax} setPax={setPax}/>}    
+    </section>:<ExtrasCatalog products={extras} loading={extrasLoading} role={role} pax={pax} setPax={setPax} onSelect={onSelect} publicMode={publicMode}/>}    
   </div>
 }
 
-function ExtrasCatalog({products,loading,role,pax,setPax}:{products:CatalogProduct[];loading:boolean;role:string;pax:number;setPax:(n:number)=>void}){
+function ExtrasCatalog({products,loading,role,pax,setPax,onSelect,publicMode}:{products:CatalogProduct[];loading:boolean;role:string;pax:number;setPax:(n:number)=>void;onSelect?: (selection:PortalCatalogSelection)=>void;publicMode:boolean}){
   const [search,setSearch]=useState('');
   const [category,setCategory]=useState('Todos');
   const cats=['Todos',...Array.from(new Set(products.map(p=>p.category)))];
@@ -120,8 +142,15 @@ function ExtrasCatalog({products,loading,role,pax,setPax}:{products:CatalogProdu
         <div className="extra-product-head"><span className="mode-chip">{p.category}</span><small>{p.code}</small></div>
         <h3>{p.name}</h3>
         <p>{p.description||p.stops||p.schedule||'Servicio complementario.'}</p>
-        <div className="extra-price"><span>{priceModeLabel(p.price_mode)}</span><strong>{sale.valid?money(sale.price):'Validar tarifa'}</strong><small>{sale.valid?sale.unit:'Sin tarifa automática'}{sale.valid&&total?` · Total ${money(total)}`:''}</small></div>
-        {privileged&&base>0&&<div className="internal-reference"><Sparkles size={13}/><span>Base interna</span><b>{money(base)}</b></div>}
+        <div className="extra-price"><span>{p.category==='Transporte'?'Traslado':priceModeLabel(p.price_mode)}</span><strong>{sale.valid?money(sale.price):'Validar tarifa'}</strong><small>{sale.valid?(p.category==='Transporte'&&p.price_mode==='lowcost_transport'?'por traslado':sale.unit):'Sin tarifa automática'}{sale.valid&&total?' · Total '+money(total):''}</small></div>
+        {privileged&&!publicMode&&base>0&&<div className="internal-reference"><Sparkles size={13}/><span>Base interna</span><b>{money(base)}</b></div>}
+        {onSelect&&sale.valid&&<button type="button" className="primary-button" onClick={()=>onSelect({
+          kind:'extra',product_name:p.name,product_id:p.id,product_code:p.code,category:p.category,pax,
+          pricing_status:'quoted',price_pp_clp:sale.unit==='por persona'?sale.price:null,
+          unit_price_clp:sale.price,total_price_clp:total,
+          price_unit:p.category==='Transporte'&&p.price_mode==='lowcost_transport'?'por traslado':sale.unit==='por persona'?'por persona':'por servicio',
+          pricing_source:'product_catalog'
+        })}>Agregar a solicitud</button>}
       </article>})}
       {!filtered.length&&<div className="empty-card">No hay productos complementarios para este filtro.</div>}
     </div>}
