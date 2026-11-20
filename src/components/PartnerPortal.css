@@ -187,3 +187,7 @@
 .partner-seller-row input{accent-color:#171717;width:15px;height:15px}
 @media(max-width:900px){.partner-seller-admin{margin-left:16px;margin-right:16px}.partner-seller-row{grid-template-columns:1fr 1fr}.partner-seller-row>div{grid-column:1/-1}}
 @media(max-width:600px){.partner-seller-row{grid-template-columns:1fr}.partner-seller-row>div{grid-column:1}}
+
+.partner-catalog-workspace .modality-conditions{display:grid;gap:3px;border-top:1px solid #ece6de;margin-top:8px;padding-top:7px}
+.partner-catalog-workspace .modality-conditions small{font-size:7px;line-height:1.4;color:#746d64}
+.partner-catalog-workspace .modality-price-card{min-height:0}
