@@ -140,10 +140,10 @@ function ExtrasCatalog({products,loading,role,pax,setPax,onSelect,publicMode}:{p
     </div>
     {loading?<div className="loading-card">Cargando catálogo complementario…</div>:<div className="extras-grid">
       {filtered.map(p=>{const sale=salePriceFor(p,pax);const total=totalPriceFor(p,pax);const base=internalBase(p);return <article className="extra-product-card" key={p.id}>
-        <div className="extra-product-head"><span className="mode-chip">{p.category}</span><small>{p.code}</small></div>
+        <div className="extra-product-head"><span className="mode-chip">{p.category}</span>{!publicMode&&<small>{p.code}</small>}</div>
         <h3>{p.name}</h3>
         <p>{p.description||p.stops||p.schedule||'Servicio complementario.'}</p>
-        <div className="extra-price"><span>{p.category==='Transporte'?'Traslado':priceModeLabel(p.price_mode)}</span><strong>{sale.valid?money(sale.price):'Validar tarifa'}</strong><small>{sale.valid?(p.category==='Transporte'&&p.price_mode==='lowcost_transport'?'por traslado':sale.unit):'Sin tarifa automática'}{sale.valid&&total?' · Total '+money(total):''}</small></div>
+        <div className="extra-price"><span>{publicMode?(p.category==='Transporte'?'Traslado':sale.unit==='por persona'?'Por persona':'Por servicio'):(p.category==='Transporte'?'Traslado':priceModeLabel(p.price_mode))}</span><strong>{sale.valid?money(sale.price):'Validar tarifa'}</strong><small>{sale.valid?(p.category==='Transporte'&&p.price_mode==='lowcost_transport'?'por traslado':sale.unit):'Sin tarifa automática'}{sale.valid&&total?' · Total '+money(total):''}</small></div>
         {privileged&&!publicMode&&base>0&&<div className="internal-reference"><Sparkles size={13}/><span>Base interna</span><b>{money(base)}</b></div>}
         {onSelect&&sale.valid&&<button type="button" className="primary-button" onClick={()=>onSelect({
           kind:'extra',product_name:p.name,product_id:p.id,product_code:p.code,category:p.category,pax,
