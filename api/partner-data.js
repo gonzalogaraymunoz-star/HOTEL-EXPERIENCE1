@@ -314,7 +314,7 @@ export default async function handler(req,res){
       body:receptionist.name+' · '+hotel.name+' · '+services.length+' servicio(s). Pendiente de confirmación.',
       created_by:identity.user?.id||'Hotel Experience Portal'
     });
-    if(activityError)throw activityError;
+    if(activityError)console.error('partner_request_activity',activityError);
 
     return res.status(201).json({
       codigo:lead.codigo,lead_id:lead.id,count:services.length,
