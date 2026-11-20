@@ -161,7 +161,7 @@ export default function PartnerPortal(){
     setSelectedServices([]);
     setNotice('Solicitud '+code+' recibida. Quedó pendiente de confirmación.');
     setTab('reservations');
-    await loadData(sellerToken||undefined);
+    try{await loadData(sellerToken||undefined)}catch(_error){setError('La solicitud quedó registrada; actualiza para consultar su estado.');}
   }
 
   if(checking)return <main className="partner-shell"><div className="partner-loading">Preparando Hotel Experience…</div></main>;
