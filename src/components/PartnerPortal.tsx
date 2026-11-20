@@ -344,7 +344,7 @@ function NewRequest({hotel,services,onUpdate,onRemove,onBackToCatalog,onCreated,
             <div className="partner-selected-service-copy">
               <strong>{item.product_name}</strong>
               <small>{item.kind==='tour'?(item.modality||'').replace('low','Compartido').replace('semiprivado','Semiprivado').replace('privado','Privado')+' · ':''}{item.pax} pax</small>
-              <span>{item.pricing_status==='quoted'&&item.total_price_clp!=null?money(item.total_price_clp)+' · '+item.price_unit:'Precio por confirmar'}</span>
+              <span>{priceSummary(item)}</span>
             </div>
             <div className="partner-form-grid">
               <Field label="Fecha solicitada"><input type="date" value={item.date} onChange={e=>onUpdate(item.key,{date:e.target.value})}/></Field>
@@ -405,6 +405,13 @@ function Field({label,children,wide=false}:{label:string;children:React.ReactNod
 }
 function Kpi({label,value}:{label:string;value:number}){
   return <div><small>{label}</small><strong>{value}</strong></div>;
+}
+function priceSummary(item:SelectedService){
+  if(item.pricing_status!=='quoted'||item.unit_price_clp==null)return 'Precio por confirmar';
+  if(item.kind==='tour'||item.price_unit==='por persona'){
+    return money(item.unit_price_clp)+' por persona · total '+money(item.total_price_clp);
+  }
+  return money(item.unit_price_clp)+' '+item.price_unit;
 }
 function money(value:number|null|undefined){
   if(value==null)return'Precio por confirmar';
