@@ -1,245 +1,399 @@
-import React,{useEffect,useMemo,useState} from 'react';
-import {
-  ArrowRight,Building2,CheckCircle2,ClipboardList,Hotel,KeyRound,
-  LogOut,Plus,RefreshCw,ShieldCheck,Trash2,Users
-} from 'lucide-react';
+import React,{useEffect,useState} from 'react';
+import {ArrowRight,CheckCircle2,ClipboardList,Hotel,KeyRound,LogOut,Plus,RefreshCw,ShieldCheck,Trash2,UserRound} from 'lucide-react';
+import {supabase} from '../lib/supabase';
+import ProductCatalogView,{type PortalCatalogSelection} from './ProductCatalogView';
 import './PartnerPortal.css';
 
-type Account={
-  id:string;name:string;partner_type:'hotel'|'agency';scope_value:string;
-  lead_prefix:string;access_code:string;can_create_requests:boolean;
+type HotelOption={id:string;name:string;slug:string};
+type Identity={
+  mode:'hotel'|'seller';
+  name:string;
+  email?:string;
+  access_code?:string;
+  partner_type?:string;
+  can_create_requests:boolean;
+  hotel_partner_id?:string;
 };
-type Product={producto:string;fechaServicio:string;pax:number;observacion:string};
+type PartnerService={
+  id:string;
+  producto:string;
+  fecha_servicio?:string|null;
+  numero_pax:number;
+  estado:string;
+  idioma?:string|null;
+  hotel_partner_id?:string;
+};
 type PartnerLead={
   id:string;codigo:string;reserva:string;numero_pax:number;contacto:string;
   empresa_ejecuta:string;estado:string;estado_raw:string;created_at:string;
-  services:Array<{id:string;producto:string;fecha_servicio?:string|null;numero_pax:number;estado_pago:string;estado_operacion:string}>;
+  hotel_partner_id:string;
+  services:PartnerService[];
 };
-type Data={
-  account:Account;
+type PortalData={
+  identity:Identity;
+  hotels:HotelOption[];
   summary:{total:number;confirmed:number;pending:number;quoted:number};
   leads:PartnerLead[];
-  catalog:Array<{name:string;category:string}>;
 };
+type SelectedService=PortalCatalogSelection&{key:string;date:string;notes:string};
 
 export default function PartnerPortal(){
-  const [account,setAccount]=useState<Account|null>(null);
-  const [data,setData]=useState<Data|null>(null);
+  const [identity,setIdentity]=useState<Identity|null>(null);
+  const [data,setData]=useState<PortalData|null>(null);
   const [checking,setChecking]=useState(true);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState('');
   const [accessCode,setAccessCode]=useState('');
-  const [password,setPassword]=useState('');
-  const [tab,setTab]=useState<'reservations'|'new'>('reservations');
+  const [partnerPassword,setPartnerPassword]=useState('');
+  const [sellerEmail,setSellerEmail]=useState('');
+  const [sellerPassword,setSellerPassword]=useState('');
+  const [loginMode,setLoginMode]=useState<'hotel'|'seller'>('hotel');
+  const [sellerToken,setSellerToken]=useState('');
+  const [tab,setTab]=useState<'reservations'|'catalog'|'new'>('catalog');
+  const [selectedHotelId,setSelectedHotelId]=useState('');
+  const [selectedServices,setSelectedServices]=useState<SelectedService[]>([]);
+  const [notice,setNotice]=useState('');
 
-  const loadData=async()=>{
+  async function loadData(token?:string){
     setLoading(true);setError('');
     try{
-      const r=await fetch('/api/partner-data');
-      const body=await r.json();
-      if(!r.ok)throw new Error(body.error||'No se pudo cargar el portal.');
-      setData(body);setAccount(body.account);
+      const headers:Record<string,string>={};
+      if(token)headers.Authorization='Bearer '+token;
+      const response=await fetch('/api/partner-data',{headers});
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'No se pudo cargar el portal.');
+      setData(body);setIdentity(body.identity);
+      if(token)setSellerToken(token);
+      return body as PortalData;
     }catch(e:any){
       setError(e.message||'No se pudo cargar el portal.');
-      if(String(e.message||'').toLowerCase().includes('sesión')){setAccount(null);setData(null)}
+      throw e;
     }finally{setLoading(false)}
-  };
+  }
 
   useEffect(()=>{
     const previousTitle=document.title;
-    document.title='Portal B2B · Hotel Experience';
+    document.title='Hotel Experience · Portal';
     let robots=document.querySelector('meta[name="robots"]') as HTMLMetaElement|null;
     const created=!robots;
     if(!robots){robots=document.createElement('meta');robots.name='robots';document.head.appendChild(robots)}
     const previous=robots.content;
     robots.content='noindex,nofollow,noarchive,nosnippet';
-
     void (async()=>{
       try{
-        const r=await fetch('/api/partner-data?area=auth');
-        const body=await r.json();
-        if(r.ok&&body.authenticated){setAccount(body.account);await loadData()}
+        const {data:{session}}=await supabase.auth.getSession();
+        if(session){
+          await loadData(session.access_token);
+        }else{
+          const response=await fetch('/api/partner-data?area=auth');
+          if(response.ok){
+            const body=await response.json();
+            if(body.authenticated)await loadData();
+          }
+        }
+      }catch(_error){
+        // The login screen remains available when no valid portal session exists.
       }finally{setChecking(false)}
     })();
-
     return()=>{
       document.title=previousTitle;
       if(created)robots?.remove();else if(robots)robots.content=previous;
     };
   },[]);
 
-  const login=async(e:React.FormEvent)=>{
-    e.preventDefault();setLoading(true);setError('');
+  useEffect(()=>{
+    if(!data?.hotels?.length)return;
+    setSelectedHotelId(current=>data.hotels.some(hotel=>hotel.id===current)?current:data.hotels[0].id);
+  },[data?.hotels]);
+
+  async function login(event:React.FormEvent){
+    event.preventDefault();setLoading(true);setError('');
     try{
-      const r=await fetch('/api/partner-data?area=auth',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'login',accessCode,password})
-      });
-      const body=await r.json();
-      if(!r.ok)throw new Error(body.error||'No se pudo ingresar.');
-      setAccount(body.account);setPassword('');await loadData();
+      if(loginMode==='seller'){
+        const {data:authData,error:authError}=await supabase.auth.signInWithPassword({email:sellerEmail.trim(),password:sellerPassword});
+        if(authError)throw authError;
+        if(!authData.session)throw new Error('No se pudo iniciar la sesión de vendedor.');
+        await loadData(authData.session.access_token);
+      }else{
+        const response=await fetch('/api/partner-data?area=auth',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'login',accessCode,password:partnerPassword})
+        });
+        const body=await response.json();
+        if(!response.ok)throw new Error(body.error||'No se pudo ingresar.');
+        await loadData();
+        setPartnerPassword('');
+      }
+      setTab('catalog');
     }catch(e:any){setError(e.message||'No se pudo ingresar.')}
     finally{setLoading(false)}
-  };
+  }
 
-  const logout=async()=>{
-    await fetch('/api/partner-data?area=auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'logout'})});
-    setAccount(null);setData(null);setPassword('');setTab('reservations');
-  };
+  async function logout(){
+    if(identity?.mode==='seller'){
+      await supabase.auth.signOut();
+    }else{
+      await fetch('/api/partner-data?area=auth',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'logout'})
+      });
+    }
+    setIdentity(null);setData(null);setSellerToken('');setSelectedHotelId('');
+    setSelectedServices([]);setNotice('');setTab('catalog');
+    setSellerPassword('');setPartnerPassword('');
+  }
 
-  if(checking)return <main className="partner-shell"><div className="partner-loading">Preparando portal B2B…</div></main>;
+  function addService(selection:PortalCatalogSelection){
+    const item:SelectedService={...selection,key:String(Date.now())+'-'+String(Math.random()).slice(2),date:'',notes:''};
+    setSelectedServices(current=>[...current,item]);
+    setNotice('');
+  }
 
-  if(!account)return <main className="partner-shell partner-login-page">
+  function updateService(key:string,patch:Partial<SelectedService>){
+    setSelectedServices(current=>current.map(item=>item.key===key?{...item,...patch}:item));
+  }
+
+  function removeService(key:string){
+    setSelectedServices(current=>current.filter(item=>item.key!==key));
+  }
+
+  async function requestCreated(code:string){
+    setSelectedServices([]);
+    setNotice('Solicitud '+code+' recibida. Quedó pendiente de confirmación.');
+    setTab('reservations');
+    await loadData(sellerToken||undefined);
+  }
+
+  if(checking)return <main className="partner-shell"><div className="partner-loading">Preparando Hotel Experience…</div></main>;
+
+  if(!identity||!data)return <main className="partner-shell partner-login-page">
     <section className="partner-login">
       <div className="partner-login-copy">
         <span className="partner-eyebrow">HOTEL EXPERIENCE · BY LINK</span>
-        <h1>Portal para hoteles y agencias.</h1>
-        <p>Registra solicitudes de pasajeros y revisa el avance de las reservas asociadas a tu organización sin entrar al CRM interno.</p>
-        <div className="partner-security"><ShieldCheck size={18}/><span>Sin acceso a costos, márgenes, proveedores, documentos personales ni notas internas.</span></div>
+        <h1>Un solo espacio para solicitar experiencias.</h1>
+        <p>Consulta el catálogo, revisa las tarifas TV1.2 y registra solicitudes para Hotel Fauna o Hotel Casa Solcor. Cada acceso solo puede trabajar con los hoteles que tiene asignados.</p>
+        <div className="partner-security"><ShieldCheck size={18}/><span>Las solicitudes no confirman reservas ni generan cobros o mensajes. Los precios internos y comisiones no se muestran.</span></div>
       </div>
-
       <form className="partner-login-card" onSubmit={login}>
         <div className="partner-login-icon"><KeyRound size={20}/></div>
-        <span className="partner-eyebrow">ACCESO B2B</span>
-        <h2>Ingresa a tu cuenta</h2>
-        <label><span>Código partner</span><input value={accessCode} onChange={e=>setAccessCode(e.target.value.toUpperCase())} placeholder="HTL-FAUNA-XXXX" autoComplete="username"/></label>
-        <label><span>Contraseña</span><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Contraseña asignada" autoComplete="current-password"/></label>
+        <span className="partner-eyebrow">ACCESO COMPARTIDO</span>
+        <h2>Ingresa a tu espacio</h2>
+        <div className="partner-login-modes">
+          <button type="button" className={loginMode==='hotel'?'active':''} onClick={()=>{setLoginMode('hotel');setError('')}}><Hotel size={14}/> Recepción</button>
+          <button type="button" className={loginMode==='seller'?'active':''} onClick={()=>{setLoginMode('seller');setError('')}}><UserRound size={14}/> Vendedor</button>
+        </div>
+        {loginMode==='hotel'?<>
+          <label><span>Código de hotel</span><input value={accessCode} onChange={e=>setAccessCode(e.target.value.toUpperCase())} placeholder="Código asignado" autoComplete="username"/></label>
+          <label><span>Contraseña</span><input type="password" value={partnerPassword} onChange={e=>setPartnerPassword(e.target.value)} placeholder="Contraseña asignada" autoComplete="current-password"/></label>
+        </>:<>
+          <label><span>Correo de vendedor</span><input type="email" value={sellerEmail} onChange={e=>setSellerEmail(e.target.value)} placeholder="correo@ejemplo.com" autoComplete="username"/></label>
+          <label><span>Contraseña</span><input type="password" value={sellerPassword} onChange={e=>setSellerPassword(e.target.value)} placeholder="Contraseña de LINK" autoComplete="current-password"/></label>
+        </>}
         {error&&<div className="partner-error">{error}</div>}
-        <button disabled={loading||!accessCode.trim()||!password}>{loading?'Validando…':<>Ingresar <ArrowRight size={16}/></>}</button>
-        <small>El acceso es personal para la organización. No compartas las credenciales fuera del equipo autorizado.</small>
+        <button disabled={loading||(loginMode==='hotel'?(!accessCode.trim()||!partnerPassword):(!sellerEmail.trim()||!sellerPassword))}>{loading?'Validando…':<>Ingresar <ArrowRight size={16}/></>}</button>
+        <small>El acceso de vendedor requiere un perfil activo y hoteles asignados en LINK.</small>
       </form>
     </section>
   </main>;
 
+  const selectedHotel=data.hotels.find(hotel=>hotel.id===selectedHotelId)||data.hotels[0];
+  const visibleLeads=data.leads.filter(lead=>lead.hotel_partner_id===selectedHotelId);
+
   return <main className="partner-shell partner-dashboard">
     <header className="partner-topbar">
-      <div><span className="partner-eyebrow">HOTEL EXPERIENCE · PORTAL B2B</span><h1>{account.name}</h1><p>{account.partner_type==='hotel'?'Hotel / alojamiento':'Agencia'} · {account.access_code}</p></div>
+      <div>
+        <span className="partner-eyebrow">HOTEL EXPERIENCE · ESPACIO COMPARTIDO</span>
+        <h1>{identity.mode==='seller'?'Portal de ventas':identity.name}</h1>
+        <p>{identity.mode==='seller'?'Vendedor · hoteles asignados':('Recepción · '+(selectedHotel?.name||identity.name))}</p>
+      </div>
       <div className="partner-top-actions">
-        <button onClick={loadData}><RefreshCw size={15}/> Actualizar</button>
-        <button onClick={logout}><LogOut size={15}/> Salir</button>
+        <button onClick={()=>void loadData(sellerToken||undefined)} disabled={loading}><RefreshCw size={15}/> Actualizar</button>
+        <button onClick={()=>void logout()}><LogOut size={15}/> Salir</button>
       </div>
     </header>
 
+    <section className="partner-toolbar">
+      <label className="partner-hotel-select">
+        <span>HOTEL DE TRABAJO</span>
+        <select value={selectedHotelId} onChange={e=>setSelectedHotelId(e.target.value)} disabled={data.hotels.length===1}>
+          {data.hotels.map(hotel=><option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}
+        </select>
+      </label>
+      <div className="partner-toolbar-note"><ShieldCheck size={15}/><span>{identity.mode==='seller'?'Solo hoteles asignados a tu perfil.':'Acceso limitado a este hotel.'}</span></div>
+    </section>
+
     <section className="partner-tabs">
-      <button className={tab==='reservations'?'active':''} onClick={()=>setTab('reservations')}><ClipboardList size={15}/> Reservas</button>
-      {account.can_create_requests&&<button className={tab==='new'?'active':''} onClick={()=>setTab('new')}><Plus size={15}/> Nueva solicitud</button>}
+      <button className={tab==='catalog'?'active':''} onClick={()=>setTab('catalog')}><Hotel size={15}/> Catálogo</button>
+      <button className={tab==='new'?'active':''} onClick={()=>setTab('new')}><Plus size={15}/> Nueva solicitud{selectedServices.length?' ('+selectedServices.length+')':''}</button>
+      <button className={tab==='reservations'?'active':''} onClick={()=>setTab('reservations')}><ClipboardList size={15}/> Solicitudes</button>
     </section>
 
     {error&&<div className="partner-error partner-page-error">{error}</div>}
+    {notice&&<div className="partner-success partner-page-success"><CheckCircle2 size={16}/>{notice}</div>}
 
-    {tab==='reservations'&&data&&<Reservations data={data}/>}
-    {tab==='new'&&data&&account.can_create_requests&&<NewRequest data={data} onCreated={async()=>{setTab('reservations');await loadData()}}/>}
+    {tab==='catalog'&&<section className="partner-catalog-workspace">
+      <ProductCatalogView role="viewer" publicMode onSelect={addService}/>
+      {selectedServices.length>0&&<div className="partner-catalog-footer">
+        <span>{selectedServices.length} servicio(s) seleccionados</span>
+        <button className="partner-primary" onClick={()=>setTab('new')}>Continuar solicitud <ArrowRight size={15}/></button>
+      </div>}
+    </section>}
+
+    {tab==='new'&&<NewRequest
+      hotel={selectedHotel}
+      services={selectedServices}
+      onUpdate={updateService}
+      onRemove={removeService}
+      onBackToCatalog={()=>setTab('catalog')}
+      onCreated={requestCreated}
+      sellerToken={sellerToken}
+    />}
+
+    {tab==='reservations'&&<Reservations
+      leads={visibleLeads}
+      hotel={selectedHotel}
+      onNew={()=>setTab('catalog')}
+    />}
   </main>;
 }
 
-function Reservations({data}:{data:Data}){
-  return <div className="partner-content">
-    <section className="partner-kpis">
-      <Kpi label="Reservas visibles" value={data.summary.total}/>
-      <Kpi label="Confirmadas" value={data.summary.confirmed}/>
-      <Kpi label="En revisión" value={data.summary.pending}/>
-      <Kpi label="Cotizadas" value={data.summary.quoted}/>
-    </section>
-
-    <section className="partner-panel">
-      <div className="partner-panel-head"><div><span className="partner-eyebrow">SEGUIMIENTO</span><h2>Reservas de tu organización</h2></div><small>{data.leads.length} registro(s)</small></div>
-      <div className="partner-reservations">
-        {data.leads.map(lead=><article key={lead.id} className="partner-reservation">
-          <div className="partner-reservation-head">
-            <div><span>{lead.codigo}</span><h3>{lead.reserva}</h3><p>{lead.empresa_ejecuta||'Alojamiento por confirmar'} · {lead.numero_pax} pax</p></div>
-            <strong className={`partner-stage ${stageClass(lead.estado_raw)}`}>{lead.estado}</strong>
-          </div>
-          <div className="partner-service-list">
-            {lead.services.map(service=><div key={service.id}>
-              <span><b>{service.producto}</b><small>{dateFmt(service.fecha_servicio)} · {service.numero_pax} pax</small></span>
-              <span><em>{operationLabel(service.estado_operacion)}</em><small>{paymentLabel(service.estado_pago)}</small></span>
-            </div>)}
-            {!lead.services.length&&<p className="partner-muted">Aún no hay experiencias asociadas.</p>}
-          </div>
-        </article>)}
-        {!data.leads.length&&<div className="partner-empty">Todavía no hay reservas asociadas a esta cuenta.</div>}
-      </div>
-    </section>
-  </div>;
-}
-
-function NewRequest({data,onCreated}:{data:Data;onCreated:()=>Promise<void>}){
-  const account=data.account;
-  const [form,setForm]=useState({
-    passengerName:'',email:'',phone:'',hotel:account.partner_type==='hotel'?account.scope_value:'',notes:''
-  });
-  const [products,setProducts]=useState<Product[]>([{producto:'',fechaServicio:'',pax:1,observacion:''}]);
+function NewRequest({hotel,services,onUpdate,onRemove,onBackToCatalog,onCreated,sellerToken}:{
+  hotel:HotelOption|undefined;
+  services:SelectedService[];
+  onUpdate:(key:string,patch:Partial<SelectedService>)=>void;
+  onRemove:(key:string)=>void;
+  onBackToCatalog:()=>void;
+  onCreated:(code:string)=>Promise<void>;
+  sellerToken:string;
+}){
+  const [receptionist,setReceptionist]=useState({name:'',email:'',phone:''});
+  const [passengerNames,setPassengerNames]=useState('');
+  const [language,setLanguage]=useState('Español');
+  const [pickup,setPickup]=useState('');
+  const [specialNeeds,setSpecialNeeds]=useState('');
   const [sending,setSending]=useState(false);
   const [error,setError]=useState('');
   const [success,setSuccess]=useState('');
 
-  const groups=useMemo(()=>{
-    const map=new Map<string,string[]>();
-    for(const item of data.catalog){
-      const list=map.get(item.category||'Otros')||[];
-      if(item.name&&!list.includes(item.name))list.push(item.name);
-      map.set(item.category||'Otros',list);
-    }
-    return [...map.entries()].map(([category,items])=>({category,items:items.sort((a,b)=>a.localeCompare(b,'es'))}));
-  },[data.catalog]);
-
-  const setProduct=(i:number,key:keyof Product,value:any)=>setProducts(prev=>prev.map((p,idx)=>idx===i?{...p,[key]:value}:p));
-  const addProduct=()=>setProducts(prev=>[...prev,{producto:'',fechaServicio:'',pax:1,observacion:''}]);
-  const removeProduct=(i:number)=>setProducts(prev=>prev.filter((_,idx)=>idx!==i));
-
-  const submit=async(e:React.FormEvent)=>{
-    e.preventDefault();setError('');setSuccess('');
-    const clean=products.filter(p=>p.producto);
-    if(!form.passengerName||(!form.email&&!form.phone)||!form.hotel||!clean.length){
-      return setError('Completa pasajero, contacto, alojamiento y al menos una experiencia.');
+  const submit=async(event:React.FormEvent)=>{
+    event.preventDefault();setError('');setSuccess('');
+    const names=passengerNames.split(/\r?\n/).map(value=>value.trim()).filter(Boolean);
+    if(!hotel?.id||!receptionist.name.trim()||(!receptionist.email.trim()&&!receptionist.phone.trim())||!names.length||!language||!services.length){
+      setError('Completa recepcionista, contacto, pasajeros, idioma y al menos un servicio.');
+      return;
     }
     setSending(true);
     try{
-      const r=await fetch('/api/partner-data',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({...form,products:clean})
+      const headers:Record<string,string>={'Content-Type':'application/json'};
+      if(sellerToken)headers.Authorization='Bearer '+sellerToken;
+      const response=await fetch('/api/partner-data',{
+        method:'POST',headers,
+        body:JSON.stringify({
+          hotel_partner_id:hotel.id,
+          receptionist,
+          passenger_names:names,
+          language,
+          pickup_location:pickup,
+          special_needs:specialNeeds,
+          services:services.map(item=>({
+            kind:item.kind,product_id:item.product_id,product_name:item.product_name,
+            tour_id:item.tour_id,modality:item.modality,pax:item.pax,date:item.date,
+            notes:item.notes,language
+          }))
+        })
       });
-      const body=await r.json();
-      if(!r.ok)throw new Error(body.error||'No se pudo enviar la solicitud.');
-      setSuccess(`Solicitud ${body.codigo} recibida.`);
-      setTimeout(()=>void onCreated(),900);
-    }catch(e:any){setError(e.message||'No se pudo enviar la solicitud.')}
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'No se pudo registrar la solicitud.');
+      setSuccess('Solicitud '+body.codigo+' recibida y pendiente de confirmación.');
+      await onCreated(body.codigo);
+    }catch(e:any){setError(e.message||'No se pudo registrar la solicitud.')}
     finally{setSending(false)}
   };
 
   return <div className="partner-content">
     <section className="partner-panel">
-      <div className="partner-panel-head"><div><span className="partner-eyebrow">NUEVA SOLICITUD</span><h2>Registrar pasajero y experiencias</h2></div></div>
+      <div className="partner-panel-head">
+        <div><span className="partner-eyebrow">SOLICITUD NUEVA</span><h2>{hotel?.name||'Hotel'}</h2></div>
+        <small>{services.length} servicio(s)</small>
+      </div>
       <form className="partner-request-form" onSubmit={submit}>
+        <div className="partner-section-label">01 · RECEPCIÓN Y CONTACTO</div>
         <div className="partner-form-grid">
-          <Field label="Pasajero *"><input value={form.passengerName} onChange={e=>setForm(x=>({...x,passengerName:e.target.value}))} placeholder="Nombre completo"/></Field>
-          <Field label="Correo"><input type="email" value={form.email} onChange={e=>setForm(x=>({...x,email:e.target.value}))} placeholder="correo@ejemplo.com"/></Field>
-          <Field label="Teléfono / WhatsApp"><input value={form.phone} onChange={e=>setForm(x=>({...x,phone:e.target.value}))} placeholder="+56 / +55 ..."/></Field>
-          <Field label="Hotel / alojamiento *"><input value={form.hotel} readOnly={account.partner_type==='hotel'} onChange={e=>setForm(x=>({...x,hotel:e.target.value}))} placeholder="Alojamiento del pasajero"/></Field>
+          <Field label="Recepcionista *"><input value={receptionist.name} onChange={e=>setReceptionist(x=>({...x,name:e.target.value}))} placeholder="Nombre de quien solicita"/></Field>
+          <Field label="Correo de contacto"><input type="email" value={receptionist.email} onChange={e=>setReceptionist(x=>({...x,email:e.target.value}))} placeholder="recepcion@hotel.com"/></Field>
+          <Field label="Teléfono / WhatsApp"><input value={receptionist.phone} onChange={e=>setReceptionist(x=>({...x,phone:e.target.value}))} placeholder="+56…"/></Field>
+          <Field label="Hotel"><input value={hotel?.name||''} readOnly/></Field>
         </div>
 
-        <div className="partner-products-head"><div><span className="partner-eyebrow">EXPERIENCIAS</span><h3>Productos solicitados</h3></div><button type="button" onClick={addProduct}><Plus size={14}/> Agregar</button></div>
+        <div className="partner-section-label">02 · PASAJEROS</div>
+        <Field label="Nombre de pasajeros · uno por línea *" wide><textarea rows={3} value={passengerNames} onChange={e=>setPassengerNames(e.target.value)} placeholder={'Nombre y apellido\nNombre y apellido'}/></Field>
+        <div className="partner-form-grid">
+          <Field label="Idioma de atención *"><select value={language} onChange={e=>setLanguage(e.target.value)}><option>Español</option><option>Português</option><option>English</option><option>Otro / por definir</option></select></Field>
+          <Field label="Punto de recogida"><input value={pickup} onChange={e=>setPickup(e.target.value)} placeholder="Hotel, dirección o referencia"/></Field>
+        </div>
 
-        <div className="partner-products">
-          {products.map((p,i)=><article key={i}>
-            <div className="partner-product-number">{String(i+1).padStart(2,'0')}</div>
-            <div className="partner-form-grid">
-              <Field label="Experiencia *"><select value={p.producto} onChange={e=>setProduct(i,'producto',e.target.value)}><option value="">Seleccionar</option>{groups.map(g=><optgroup key={g.category} label={g.category}>{g.items.map(x=><option key={`${g.category}-${x}`} value={x}>{x}</option>)}</optgroup>)}</select></Field>
-              <Field label="Fecha preferida"><input type="date" value={p.fechaServicio} onChange={e=>setProduct(i,'fechaServicio',e.target.value)}/></Field>
-              <Field label="Pax"><input type="number" min={1} max={99} value={p.pax} onChange={e=>setProduct(i,'pax',Number(e.target.value||1))}/></Field>
-              <Field label="Observación"><input value={p.observacion} onChange={e=>setProduct(i,'observacion',e.target.value)} placeholder="Privado, horario, preferencia…"/></Field>
+        <div className="partner-products-head">
+          <div><span className="partner-eyebrow">03 · SERVICIOS</span><h3>Experiencias seleccionadas</h3></div>
+          <button type="button" onClick={onBackToCatalog}><Plus size={14}/> Agregar servicios</button>
+        </div>
+        <div className="partner-selected-services">
+          {services.map((item,index)=><article key={item.key}>
+            <div className="partner-product-number">{String(index+1).padStart(2,'0')}</div>
+            <div className="partner-selected-service-copy">
+              <strong>{item.product_name}</strong>
+              <small>{item.kind==='tour'?(item.modality||'').replace('low','Compartido').replace('semiprivado','Semiprivado').replace('privado','Privado')+' · ':''}{item.pax} pax</small>
+              <span>{item.pricing_status==='quoted'&&item.total_price_clp!=null?money(item.total_price_clp)+' · '+item.price_unit:'Precio por confirmar'}</span>
             </div>
-            {products.length>1&&<button type="button" className="partner-remove-product" onClick={()=>removeProduct(i)}><Trash2 size={14}/> Quitar</button>}
+            <div className="partner-form-grid">
+              <Field label="Fecha solicitada"><input type="date" value={item.date} onChange={e=>onUpdate(item.key,{date:e.target.value})}/></Field>
+              <Field label="Pasajeros"><input value={String(item.pax)} readOnly/></Field>
+              <Field label="Necesidad del servicio" wide><input value={item.notes} onChange={e=>onUpdate(item.key,{notes:e.target.value})} placeholder="Horario preferido, observaciones…"/></Field>
+            </div>
+            <button type="button" className="partner-remove-product" onClick={()=>onRemove(item.key)}><Trash2 size={14}/> Quitar servicio</button>
           </article>)}
+          {!services.length&&<div className="partner-empty">Todavía no agregas servicios. Abre el catálogo para seleccionar experiencias o traslados.</div>}
         </div>
 
-        <Field label="Nota para Hotel Experience" wide><textarea rows={4} value={form.notes} onChange={e=>setForm(x=>({...x,notes:e.target.value}))} placeholder="Contexto comercial u operacional relevante para revisar la solicitud."/></Field>
-
+        <div className="partner-section-label">04 · NECESIDADES ESPECIALES</div>
+        <Field label="Observaciones relevantes" wide><textarea rows={4} value={specialNeeds} onChange={e=>setSpecialNeeds(e.target.value)} placeholder="Movilidad, alimentación, accesibilidad u otras necesidades que LINK deba revisar."/></Field>
+        <p className="partner-request-disclaimer">Los precios son referenciales según el catálogo vigente. El envío registra una solicitud; no confirma disponibilidad, reserva ni cobro.</p>
         {error&&<div className="partner-error">{error}</div>}
         {success&&<div className="partner-success"><CheckCircle2 size={16}/>{success}</div>}
-
-        <div className="partner-submit-row"><button disabled={sending}>{sending?'Enviando…':'Enviar solicitud'} <ArrowRight size={15}/></button></div>
+        <div className="partner-submit-row"><button disabled={sending||!services.length}>{sending?'Registrando…':'Enviar solicitud'} <ArrowRight size={15}/></button></div>
       </form>
+    </section>
+  </div>;
+}
+
+function Reservations({leads,hotel,onNew}:{leads:PartnerLead[];hotel:HotelOption|undefined;onNew:()=>void}){
+  return <div className="partner-content">
+    <section className="partner-kpis">
+      <Kpi label="Solicitudes del hotel" value={leads.length}/>
+      <Kpi label="Pendientes de revisión" value={leads.filter(item=>['nuevo','contactado'].includes(item.estado_raw)).length}/>
+      <Kpi label="Cotizadas" value={leads.filter(item=>item.estado_raw==='cotizado').length}/>
+      <Kpi label="Confirmadas" value={leads.filter(item=>item.estado_raw==='confirmado').length}/>
+    </section>
+    <section className="partner-panel">
+      <div className="partner-panel-head">
+        <div><span className="partner-eyebrow">SEGUIMIENTO</span><h2>Solicitudes · {hotel?.name||'Hotel'}</h2></div>
+        <button className="partner-refresh" onClick={onNew}><Plus size={14}/> Nueva solicitud</button>
+      </div>
+      <div className="partner-reservations">
+        {leads.map(lead=><article key={lead.id} className="partner-reservation">
+          <div className="partner-reservation-head">
+            <div><span>{lead.codigo}</span><h3>{lead.reserva}</h3><p>{lead.services.length} servicio(s) · {lead.numero_pax} pasajeros</p></div>
+            <strong className={'partner-stage '+stageClass(lead.estado_raw)}>{lead.estado}</strong>
+          </div>
+          <div className="partner-service-list">
+            {lead.services.map(service=><div key={service.id}>
+              <span><b>{service.producto}</b><small>{dateFmt(service.fecha_servicio)} · {service.numero_pax} pax · {service.idioma||'Idioma por definir'}</small></span>
+              <span><em>{service.estado}</em></span>
+            </div>)}
+            {!lead.services.length&&<p className="partner-muted">Aún no hay servicios asociados.</p>}
+          </div>
+        </article>)}
+        {!leads.length&&<div className="partner-empty">Todavía no hay solicitudes para este hotel.</div>}
+      </div>
     </section>
   </div>;
 }
@@ -250,21 +404,12 @@ function Field({label,children,wide=false}:{label:string;children:React.ReactNod
 function Kpi({label,value}:{label:string;value:number}){
   return <div><small>{label}</small><strong>{value}</strong></div>;
 }
+function money(value:number|null|undefined){
+  if(value==null)return'Precio por confirmar';
+  return new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(value);
+}
 function dateFmt(value?:string|null){
-  return value?new Date(`${value}T12:00:00`).toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'}):'Fecha por definir';
-}
-function operationLabel(value:string){
-  if(value==='Coordinado')return 'Coordinado';
-  if(value==='En curso')return 'En curso';
-  if(value==='Completado')return 'Realizado';
-  if(value==='Cancelado')return 'Cancelado';
-  return 'Pendiente';
-}
-function paymentLabel(value:string){
-  if(value==='Pagado')return 'Pago confirmado';
-  if(value==='Parcial')return 'Pago parcial';
-  if(value==='Reembolsado')return 'Reembolsado';
-  return 'Pago pendiente';
+  return value?new Date(value+'T12:00:00').toLocaleDateString('es-CL',{day:'2-digit',month:'short',year:'numeric'}):'Fecha por definir';
 }
 function stageClass(value:string){
   return value==='confirmado'?'confirmed':value==='cotizado'?'quoted':value==='perdido'?'closed':'pending';
