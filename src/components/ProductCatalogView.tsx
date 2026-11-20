@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
+import './OperationsApp.css';
 import {Calculator,Clock3,MapPinned,Search,Users,Layers3,BusFront,Sparkles} from 'lucide-react';
 import {loadProductCatalog} from '../lib/api';
 import {internalBase,priceModeLabel,salePriceFor,totalPriceFor,type CatalogProduct} from '../lib/pricing';
