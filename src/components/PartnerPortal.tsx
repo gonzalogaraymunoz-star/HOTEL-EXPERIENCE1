@@ -299,7 +299,7 @@ function NewRequest({hotel,services,onUpdate,onRemove,onBackToCatalog,onCreated,
           special_needs:specialNeeds,
           services:services.map(item=>({
             kind:item.kind,product_id:item.product_id,product_name:item.product_name,
-            tour_id:item.tour_id,modality:item.modality,pax:item.pax,date:item.date,
+            tour_id:item.tour_id,family_id:item.family_id,modality:item.modality,pax:item.pax,date:item.date,
             notes:item.notes,language
           }))
         })
