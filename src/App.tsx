@@ -51,7 +51,7 @@ export default function App(){
     if(session===undefined)return <div className="app-loading">Cargando Hotel Experience…</div>;
     if(!session)return <LoginScreen/>;
     if(profileLoading)return <div className="app-loading">Preparando administración…</div>;
-    if(profileError||!profile||!['admin','manager'].includes(String(profile.role||'')))return <main className="blocked-screen"><h1>Acceso restringido</h1><p>Solo administración puede gestionar los accesos del portal.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
+    if(profileError||!profile||String(profile.role||'')!=='admin')return <main className="blocked-screen"><h1>Acceso restringido</h1><p>Solo administración principal puede gestionar los accesos del portal.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
     return <ErrorBoundary><PartnerAccountsAdmin/></ErrorBoundary>;
   }
   if(session===undefined) return <div className="app-loading">Cargando Hotel Experience…</div>;
