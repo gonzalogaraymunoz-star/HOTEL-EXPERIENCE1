@@ -79,25 +79,24 @@ export function resolveCatalogService(product, input) {
   const prices = product?.prices || {};
   const mode = String(product?.price_mode || '');
   let unit = null;
-  let priceUnit = 'por servicio';
+  let priceUnit = (mode === 'private_per_pax' || mode === 'regular_per_pax' || mode === 'regular_commission')
+    ? 'por persona'
+    : mode === 'lowcost_transport' && product.category === 'Transporte' ? 'por traslado' : 'por servicio';
 
   if (mode === 'private_per_pax' || mode === 'regular_per_pax') {
     const value = Number(prices[String(pax)] || 0);
     if (value > 0) {
       unit = value;
-      priceUnit = 'por persona';
     }
   } else if (mode === 'regular_commission') {
     const value = Number(prices.sale || 0);
     if (value > 0) {
       unit = value;
-      priceUnit = 'por persona';
     }
   } else if (mode === 'hotel_fixed' || mode === 'lowcost_transport') {
     const value = Number(prices.hotel_sale || 0);
     if (value > 0) {
       unit = value;
-      priceUnit = product.category === 'Transporte' && mode === 'lowcost_transport' ? 'por traslado' : 'por servicio';
     }
   }
 
