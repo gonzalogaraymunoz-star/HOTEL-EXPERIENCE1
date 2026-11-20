@@ -13,6 +13,7 @@ function safePax(value) {
 
 export function resolveTv12Service(input) {
   const tourId = String(input?.tour_id || '').trim();
+  const familyId = String(input?.family_id || '').trim();
   const modality = String(input?.modality || '').trim().toLowerCase();
   const pax = safePax(input?.pax);
   const tour = tours.find(item => item.tour_id === tourId);
@@ -55,7 +56,8 @@ export function resolveTv12Service(input) {
 
   return {
     kind: 'tour',
-    product_name: tour.name,
+    product_name: familyId === 'FAMILY-ASTRONOMICO' && tourId === 'TOUR-ASTRONOMICO_PRIVADO' ? 'Astronómico' : tour.name,
+    family_id: familyId || tourId,
     category: tour.category || 'Tour',
     tour_id: tour.tour_id,
     modality,
