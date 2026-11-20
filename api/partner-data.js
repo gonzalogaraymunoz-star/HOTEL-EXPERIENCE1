@@ -264,7 +264,7 @@ export default async function handler(req,res){
       language,pickup_location:pickup,special_needs:specialNeeds,
       services:services.map(item=>({
         kind:item.kind,product_name:item.product_name,product_id:item.product_id||null,
-        product_code:item.product_code||null,tour_id:item.tour_id||null,modality:item.modality||null,
+        product_code:item.product_code||null,tour_id:item.tour_id||null,family_id:item.family_id||null,modality:item.modality||null,
         date:item.date||null,pax:item.pax,pricing_status:item.pricing_status,
         price_pp_clp:item.price_pp_clp,unit_price_clp:item.unit_price_clp,
         total_price_clp:item.total_price_clp,price_unit:item.price_unit,
