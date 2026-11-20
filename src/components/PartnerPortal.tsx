@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {ArrowRight,CheckCircle2,ClipboardList,Hotel,KeyRound,LogOut,Plus,RefreshCw,ShieldCheck,Trash2,UserRound} from 'lucide-react';
 import {supabase} from '../lib/supabase';
 import ProductCatalogView,{type PortalCatalogSelection} from './ProductCatalogView';
+import type {CatalogProduct} from '../lib/pricing';
 import './PartnerPortal.css';
 
 type HotelOption={id:string;name:string;slug:string};
@@ -32,6 +33,7 @@ type PartnerLead={
 type PortalData={
   identity:Identity;
   hotels:HotelOption[];
+  catalogExtras:CatalogProduct[];
   summary:{total:number;confirmed:number;pending:number;quoted:number};
   leads:PartnerLead[];
 };
@@ -232,7 +234,7 @@ export default function PartnerPortal(){
     {notice&&<div className="partner-success partner-page-success"><CheckCircle2 size={16}/>{notice}</div>}
 
     {tab==='catalog'&&<section className="partner-catalog-workspace">
-      <ProductCatalogView role="viewer" publicMode onSelect={addService}/>
+      <ProductCatalogView role="viewer" publicMode extraProducts={data.catalogExtras||[]} onSelect={addService}/>
       {selectedServices.length>0&&<div className="partner-catalog-footer">
         <span>{selectedServices.length} servicio(s) seleccionados</span>
         <button className="partner-primary" onClick={()=>setTab('new')}>Continuar solicitud <ArrowRight size={15}/></button>
