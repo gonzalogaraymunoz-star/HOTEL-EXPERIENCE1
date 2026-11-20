@@ -106,7 +106,7 @@ export default function ProductCatalogView({role,onSelect,publicMode=false,extra
                 {selected.modalities[m]?.entrance?.included_in_price===true&&<small>Entrada incluida en el precio</small>}
                 {selected.modalities[m]?.entrance?.included_in_price===false&&<small>Entrada no incluida</small>}
                 {selected.modalities[m]?.entrance?.included_in_price==null&&selected.modalities[m]?.entrance?.source_text&&<small>{selected.modalities[m].entrance.source_text}</small>}
-                {selected.modalities[m]?.entrance?.value_pp_clp>0&&<small>Entrada: {money(selected.modalities[m].entrance.value_pp_clp)} por persona</small>}
+                {Number(selected.modalities[m]?.entrance?.value_pp_clp||0)>0&&<small>Entrada: {money(selected.modalities[m].entrance.value_pp_clp)} por persona</small>}
               </div>}
               <footer>{publicMode?<span>{selected.modalities[m]?.declared_available===false&&selected.modalities[m]?.tariff_found?'Tarifa registrada · disponibilidad por validar':quote.status==='manual_quote'?'Condición por cotizar':'Tarifa TV1.2'}</span>:<><span>tour_id</span><code>{source}</code></>}</footer>
               {onSelect&&quote.status!=='not_available'&&<button type="button" className="primary-button" onClick={()=>onSelect({
