@@ -145,11 +145,11 @@ function ExtrasCatalog({products,loading,role,pax,setPax,onSelect,publicMode}:{p
         <p>{p.description||p.stops||p.schedule||'Servicio complementario.'}</p>
         <div className="extra-price"><span>{publicMode?(p.category==='Transporte'?'Traslado':sale.unit==='por persona'?'Por persona':'Por servicio'):(p.category==='Transporte'?'Traslado':priceModeLabel(p.price_mode))}</span><strong>{sale.valid?money(sale.price):'Validar tarifa'}</strong><small>{sale.valid?(p.category==='Transporte'&&p.price_mode==='lowcost_transport'?'por traslado':sale.unit):'Sin tarifa automática'}{sale.valid&&total?' · Total '+money(total):''}</small></div>
         {privileged&&!publicMode&&base>0&&<div className="internal-reference"><Sparkles size={13}/><span>Base interna</span><b>{money(base)}</b></div>}
-        {onSelect&&sale.valid&&<button type="button" className="primary-button" onClick={()=>onSelect({
+        {onSelect&&<button type="button" className="primary-button" onClick={()=>onSelect({
           kind:'extra',product_name:p.name,product_id:p.id,product_code:p.code,category:p.category,pax,
-          pricing_status:'quoted',price_pp_clp:sale.unit==='por persona'?sale.price:null,
-          unit_price_clp:sale.price,total_price_clp:total,
-          price_unit:p.category==='Transporte'&&p.price_mode==='lowcost_transport'?'por traslado':sale.unit==='por persona'?'por persona':'por servicio',
+          pricing_status:sale.valid?'quoted':'manual_quote',price_pp_clp:sale.valid&&sale.unit==='por persona'?sale.price:null,
+          unit_price_clp:sale.valid?sale.price:null,total_price_clp:sale.valid?total:null,
+          price_unit:p.category==='Transporte'&&p.price_mode==='lowcost_transport'?'por traslado':sale.valid&&sale.unit==='por persona'?'por persona':p.category==='Transporte'?'por traslado':'por servicio',
           pricing_source:'product_catalog'
         })}>Agregar a solicitud</button>}
       </article>})}
