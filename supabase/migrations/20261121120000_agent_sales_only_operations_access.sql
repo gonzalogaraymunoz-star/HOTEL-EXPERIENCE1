@@ -157,7 +157,7 @@ drop policy if exists ops_documents_read on public.reservation_documents;
 create policy ops_documents_read on public.reservation_documents
 for select to authenticated
 using (
-  public.current_user_role() in ('admin','manager','viewer')
+  public.current_user_role() in ('admin','manager')
   or (
     public.current_user_role() = 'agent'
     and document_type in ('evidence_quote','evidence_quote_draft','evidence_itinerary','evidence_chat')
@@ -269,6 +269,24 @@ with check (
     and exists (
       select 1 from public.leads l
       where l.id = reservation_document_versions.lead_id
+        and (l.created_by = (select auth.uid()) or l.assigned_to = (select auth.uid()))
+    )
+  )
+);
+
+-- La política anterior también incluía el rol legacy 'viewer' con lectura global.
+-- En el modelo de acceso actual solo admin/manager ven el padrón completo;
+-- agent conserva lectura de pasajeros de sus propios leads.
+drop policy if exists ops_passengers_read on public.passengers;
+create policy ops_passengers_read on public.passengers
+for select to authenticated
+using (
+  public.current_user_role() in ('admin','manager')
+  or (
+    public.current_user_role() = 'agent'
+    and exists (
+      select 1 from public.leads l
+      where l.id = passengers.lead_id
         and (l.created_by = (select auth.uid()) or l.assigned_to = (select auth.uid()))
     )
   )
