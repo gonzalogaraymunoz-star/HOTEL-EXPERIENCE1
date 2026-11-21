@@ -607,7 +607,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public
-as $
+as $body$
 declare
   v_user uuid := auth.uid();
   v_role text;
@@ -665,7 +665,7 @@ begin
 
   return jsonb_build_object('lead_id',p_lead_id,'assigned_services',v_count);
 end;
-$;
+$body$;
 
 revoke all on function public.set_link_service_departures(uuid,jsonb) from public,anon;
 grant execute on function public.set_link_service_departures(uuid,jsonb) to authenticated;
