@@ -47,7 +47,7 @@ Se conserva el acceso de agent a sus propios leads (creados por él o asignados 
 - `lead_service_passengers` (la política global de agent se sustituye por una condición de pertenencia al lead).
 - `reservation_documents` y `reservation_document_versions`, únicamente para los tipos comerciales observados en producción: `evidence_quote`, `evidence_quote_draft`, `evidence_itinerary`, `evidence_chat`. La misma condición se aplica a insert/update de esos documentos comerciales.
 
-Los tipos `risk_sheet` y `operation_list` observados en `reservation_documents` no se exponen a agent. Los registros de `operational_entity_documents` quedan solo para admin/manager. `review_cases` y `link_form_runs` se conservan como funciones de seguimiento/formularios comerciales, pero agent solo puede leer los vinculados a sus propios leads o servicios.
+Los tipos `risk_sheet` y `operation_list` observados en `reservation_documents` no se exponen a agent. Los registros de `operational_entity_documents` quedan solo para admin/manager. También se elimina la lectura global que las políticas heredadas concedían al rol legacy `viewer` sobre pasajeros, vínculos y documentos comerciales; el contrato vigente de acceso reconoce admin/manager/agent. `review_cases` y `link_form_runs` se conservan como funciones de seguimiento/formularios comerciales, pero agent solo puede leer los vinculados a sus propios leads o servicios.
 
 Se conserva `service_policy_snapshots` únicamente cuando corresponde a un `lead_service` cuyo lead pertenece al agente; no se deja lectura/escritura global.
 
