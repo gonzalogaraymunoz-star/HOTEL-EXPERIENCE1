@@ -173,7 +173,7 @@ drop policy if exists reservation_document_versions_read on public.reservation_d
 create policy reservation_document_versions_read on public.reservation_document_versions
 for select to authenticated
 using (
-  public.current_user_role() in ('admin','manager','viewer')
+  public.current_user_role() in ('admin','manager')
   or (
     public.current_user_role() = 'agent'
     and document_type in ('evidence_quote','evidence_quote_draft','evidence_itinerary','evidence_chat')
@@ -297,7 +297,7 @@ drop policy if exists lead_service_passengers_select on public.lead_service_pass
 create policy lead_service_passengers_select on public.lead_service_passengers
 for select to authenticated
 using (
-  public.current_user_role() in ('admin','manager','viewer')
+  public.current_user_role() in ('admin','manager')
   or (
     public.current_user_role() = 'agent'
     and exists (
