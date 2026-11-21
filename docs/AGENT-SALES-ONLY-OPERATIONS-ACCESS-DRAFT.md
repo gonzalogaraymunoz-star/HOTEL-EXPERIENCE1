@@ -67,7 +67,7 @@ Esta migración mezcló lecturas generales con escrituras de agent:
 
 Se mantienen disponibles para Ventas las funciones específicas ya existentes:
 - `list_sellable_tour_departures(date,date)`: proyección de disponibilidad, autorizada para agent y con salida comercial acotada.
-- `set_link_service_departures(uuid,jsonb)`: permite vincular una salida existente a servicios cotizados del lead propio; no concede UPDATE directo sobre `tour_departures`.
+- `set_link_service_departures(uuid,jsonb)`: permite vincular una salida existente a servicios cotizados del lead propio; no concede UPDATE directo sobre `tour_departures`. Como la función original era SECURITY INVOKER y leía la tabla ahora restringida, el borrador la pasa a SECURITY DEFINER con `search_path` fijado, validación explícita de sesión/rol/propiedad del lead/servicio cotizado/salida abierta/producto/fecha/modalidad, y privilegio EXECUTE revocado a PUBLIC/anon y concedido solo a authenticated. La escritura sigue limitada a `lead_services.departure_id`.
 
 La función de trigger `normalize_booking_inventory()` que crea/valida salidas durante el flujo de reserva es SECURITY DEFINER. Su funcionamiento deberá comprobarse en staging tras restringir las políticas directas.
 
