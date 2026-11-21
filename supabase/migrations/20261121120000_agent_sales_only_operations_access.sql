@@ -596,6 +596,80 @@ using (
 -- in the inspected production state. This migration intentionally does not open it.
 -- catalog-images and brand-assets are public marketing assets and are unchanged.
 
+-- set_link_service_departures is intentionally the narrow Sales write gateway.
+-- It previously ran SECURITY INVOKER and queried tour_departures directly; after
+-- restricting table SELECT to admin/manager, that internal lookup would be RLS-blocked.
+-- SECURITY DEFINER is safe here only because the function revalidates role, lead
+-- ownership, quoted service, departure status, product, date and modality, and writes
+-- only the matching lead_services.departure_id.
+create or replace function public.set_link_service_departures(p_lead_id uuid,p_assignments jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_user uuid := auth.uid();
+  v_role text;
+  v_lead public.leads%rowtype;
+  item jsonb;
+  v_index integer;
+  v_service public.lead_services%rowtype;
+  v_departure public.tour_departures%rowtype;
+  v_count integer := 0;
+begin
+  v_role := public.current_user_role();
+  if v_user is null or v_role not in ('admin','manager','agent') then
+    raise exception 'Not authorized';
+  end if;
+
+  select * into v_lead from public.leads where id = p_lead_id;
+  if not found then raise exception 'Reserva no encontrada'; end if;
+  if v_role = 'agent' and coalesce(v_lead.assigned_to,v_lead.created_by) <> v_user then
+    raise exception 'No puedes modificar una reserva asignada a otro vendedor';
+  end if;
+
+  for item in select value from jsonb_array_elements(coalesce(p_assignments,'[]'::jsonb)) loop
+    v_index := coalesce((item->>'service_index')::integer,-1);
+    if v_index < 0 or nullif(item->>'departure_id','') is null then
+      continue;
+    end if;
+
+    select * into v_service
+    from public.lead_services
+    where lead_id = p_lead_id and booking_status = 'quoted'
+    order by service_code,created_at,id
+    offset v_index limit 1;
+    if not found then
+      raise exception 'Producto cotizado % no encontrado',v_index+1;
+    end if;
+
+    select * into v_departure
+    from public.tour_departures
+    where id = (item->>'departure_id')::uuid and status = 'open';
+    if not found then
+      raise exception 'La salida seleccionada ya no está disponible';
+    end if;
+
+    if v_service.tour_id <> v_departure.tour_id
+      or v_service.fecha_servicio <> v_departure.service_date
+      or public.normalize_tour_modality(v_service.modality) <> v_departure.modality then
+      raise exception 'El producto, fecha o modalidad no coincide con la salida %',v_departure.departure_code;
+    end if;
+
+    update public.lead_services
+    set departure_id = v_departure.id, updated_at = now()
+    where id = v_service.id;
+    v_count := v_count + 1;
+  end loop;
+
+  return jsonb_build_object('lead_id',p_lead_id,'assigned_services',v_count);
+end;
+$;
+
+revoke all on function public.set_link_service_departures(uuid,jsonb) from public,anon;
+grant execute on function public.set_link_service_departures(uuid,jsonb) to authenticated;
+
 -- 6) Sales-specific functions remain intentionally available:
 -- list_sellable_tour_departures(date,date) is a SECURITY DEFINER read projection
 -- for booking availability; set_link_service_departures(uuid,jsonb) only assigns
