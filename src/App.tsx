@@ -48,5 +48,7 @@ export default function App(){
   if(profileError) return <main className="blocked-screen"><h1>No pudimos verificar tu permiso</h1><p>{profileError}</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
   if(!profile) return <div className="app-loading">Preparando operación…</div>;
   if(profile.is_active===false) return <main className="blocked-screen"><h1>Cuenta desactivada</h1><p>Solicita acceso a un administrador.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
+  // Operations is an admin/manager workspace. An active agent belongs in LINK Ventas only.
+  if(profile.role!=='admin'&&profile.role!=='manager') return <main className="blocked-screen"><h1>Acceso a Operaciones restringido</h1><p>Tu perfil no tiene permisos para entrar a Operaciones. Utiliza LINK Ventas con este mismo usuario o solicita el rol correspondiente a un administrador.</p><button className="primary-button" onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></main>;
   return <ErrorBoundary><OperationsApp profile={profile}/><PendingClientTasks scope="operations"/></ErrorBoundary>;
 }
