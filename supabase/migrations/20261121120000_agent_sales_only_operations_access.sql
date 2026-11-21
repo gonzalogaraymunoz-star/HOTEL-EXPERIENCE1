@@ -511,6 +511,47 @@ with check (
   and created_by = (select auth.uid())
 );
 
+-- Customer follow-up and form execution records are scoped to the agent's own lead.
+-- These are sales/post-sales records, not a reason to expose the full table.
+drop policy if exists review_cases_authenticated_read on public.review_cases;
+create policy review_cases_authenticated_read on public.review_cases
+for select to authenticated
+using (
+  public.current_user_role() in ('admin','manager')
+  or (
+    public.current_user_role() = 'agent'
+    and exists (
+      select 1 from public.leads l
+      where l.id = review_cases.lead_id
+        and (l.created_by = (select auth.uid()) or l.assigned_to = (select auth.uid()))
+    )
+  )
+);
+
+drop policy if exists link_form_runs_read on public.link_form_runs;
+create policy link_form_runs_read on public.link_form_runs
+for select to authenticated
+using (
+  public.current_user_role() in ('admin','manager')
+  or (
+    public.current_user_role() = 'agent'
+    and (
+      exists (
+        select 1 from public.leads l
+        where l.id = link_form_runs.lead_id
+          and (l.created_by = (select auth.uid()) or l.assigned_to = (select auth.uid()))
+      )
+      or exists (
+        select 1
+        from public.lead_services ls
+        join public.leads l on l.id = ls.lead_id
+        where ls.id = link_form_runs.lead_service_id
+          and (l.created_by = (select auth.uid()) or l.assigned_to = (select auth.uid()))
+      )
+    )
+  )
+);
+
 -- 5) Storage: private operational buckets remain readable only by admin/manager.
 drop policy if exists operational_files_read on storage.objects;
 create policy operational_files_read on storage.objects
