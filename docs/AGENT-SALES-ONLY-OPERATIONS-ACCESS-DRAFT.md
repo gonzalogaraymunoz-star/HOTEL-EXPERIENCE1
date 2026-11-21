@@ -34,6 +34,7 @@ La migración restringe a `current_user_role() in ('admin','manager')` las lectu
 - `tour_departures`, `tour_departure_resources`, `tour_departure_notes`, `tour_food_segments`, `tour_food_passengers`
 - `traffic_financial_reconciliations`, `traffic_service_rows`
 - `operational_entity_documents`
+- `review_cases` y `link_form_runs` dejan de ser lecturas globales: admin/manager conservan lectura completa; agent solo accede a registros asociados a sus propios leads/servicios.
 
 La vista `operation_food_board` ya está definida con `security_invoker = true`; por ello sus consultas quedan sometidas a las políticas de las tablas subyacentes. No se modifica la vista.
 
@@ -46,7 +47,7 @@ Se conserva el acceso de agent a sus propios leads (creados por él o asignados 
 - `lead_service_passengers` (la política global de agent se sustituye por una condición de pertenencia al lead).
 - `reservation_documents` y `reservation_document_versions`, únicamente para los tipos comerciales observados en producción: `evidence_quote`, `evidence_quote_draft`, `evidence_itinerary`, `evidence_chat`. La misma condición se aplica a insert/update de esos documentos comerciales.
 
-Los tipos `risk_sheet` y `operation_list` observados en `reservation_documents` no se exponen a agent. Los registros de `operational_entity_documents` quedan solo para admin/manager.
+Los tipos `risk_sheet` y `operation_list` observados en `reservation_documents` no se exponen a agent. Los registros de `operational_entity_documents` quedan solo para admin/manager. `review_cases` y `link_form_runs` se conservan como funciones de seguimiento/formularios comerciales, pero agent solo puede leer los vinculados a sus propios leads o servicios.
 
 Se conserva `service_policy_snapshots` únicamente cuando corresponde a un `lead_service` cuyo lead pertenece al agente; no se deja lectura/escritura global.
 
