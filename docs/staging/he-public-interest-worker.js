@@ -21,7 +21,7 @@ en:{title:'Tell us about your trip',intro:'This is an inquiry, not a confirmed r
 for(const l of Object.keys(strings))copy[l].privacy=strings[l].privacy;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isUuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v||'');
-const ready=e=>!!(e.HE_TURNSTILE_SITEKEY&&e.HE_TURNSTILE_SECRET&&e.HE_INTAKE_SECRET&&e.HE_DB_PUBLIC_KEY);
+const ready=e=>!!(e.HE_TURNSTILE_SITEKEY&&e.HE_TURNSTILE_SECRET&&e.HE_INTAKE_SECRET&&e.HE_DB_PUBLIC_KEY&&e.HE_RATE_LIMIT);
 const contactHeaders={...headers,'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https://challenges.cloudflare.com; script-src https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src https://challenges.cloudflare.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",'Content-Type':'text/html; charset=utf-8'};
 function contactPage(lang,env,{status=200,values={},message='',receipt='',method='GET'}={}){
  const t=strings[lang];let h=page(lang,'interest');let content='';
@@ -38,6 +38,8 @@ function contactPage(lang,env,{status=200,values={},message='',receipt='',method
 }
 async function limitedBody(req){if(!req.body)return '';const reader=req.body.getReader();let n=0,chunks=[];try{for(;;){const r=await reader.read();if(r.done)break;n+=r.value.byteLength;if(n>12000){await reader.cancel();throw new Error('oversize')}chunks.push(r.value)}}finally{reader.releaseLock()}const all=new Uint8Array(n);let i=0;for(const c of chunks){all.set(c,i);i+=c.byteLength}return new TextDecoder('utf-8',{fatal:true}).decode(all)}
 async function submitInterest(req,env,lang){const t=strings[lang];if(!ready(env))return contactPage(lang,env,{status:503});if(req.headers.get('Origin')!=='https://'+HE_HOST||!/^application\/x-www-form-urlencoded(?:;|$)/i.test(req.headers.get('Content-Type')||''))return new Response('Forbidden',{status:403,headers});
+ const ip=req.headers.get('CF-Connecting-IP');if(!ip)return new Response('Forbidden',{status:403,headers});
+ try{const limit=await env.HE_RATE_LIMIT.limit({key:ip});if(!limit.success)return new Response('Too many requests',{status:429,headers:{...headers,'Retry-After':'60'}})}catch{return contactPage(lang,env,{status:503,message:t.retry})}
  let v={};try{const params=new URLSearchParams(await limitedBody(req));const allowed=new Set(['request_id','name','email','phone','destination','arrival','departure','pax','interest','consent','cf-turnstile-response']);for(const [k,x] of params){if(!allowed.has(k)||Object.hasOwn(v,k))throw Error('invalid fields');v[k]=x.trim()}}catch{return contactPage(lang,env,{status:400,message:t.bad})}
  const fail=(status,message)=>contactPage(lang,env,{status,values:v,message});
  if(isUuid(v.request_id))v.request_id=v.request_id.toLowerCase();
